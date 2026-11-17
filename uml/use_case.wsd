@@ -1,0 +1,63 @@
+@startuml use_case
+' File: use_case.wsd
+' Description: Use case diagram for Roko's Tasks. Every use case is labeled
+'     with the user story that implements it. Grey use cases are optional
+'     stories.
+' Author(s): <team member names>
+
+left to right direction
+skinparam packageStyle rectangle
+skinparam usecase {
+    BackgroundColor<<optional>> #EEEEEE
+    BorderColor<<optional>> #888888
+}
+
+actor Visitor
+actor Player
+actor "LLM Owner" as LlmOwner
+actor "Azure OpenAI" as Azure <<system>>
+
+rectangle "Roko's Tasks" {
+    usecase "Register\n(US1)" as UC1
+    usecase "Log In / Log Out\n(US2)" as UC2
+    usecase "Start Run\n(US3)" as UC3
+    usecase "View Stage &\nWrite Code\n(US4)" as UC4
+    usecase "Run Sample\n(US5)" as UC5
+    usecase "Submit Code\n(US6)" as UC6
+    usecase "Grade in Sandbox\n(US6)" as UCGrade
+    usecase "Advance Stage /\nLose Life\n(US7)" as UC7
+    usecase "Auto-Submit\non Timeout\n(US8)" as UC8
+    usecase "View Leaderboard\n(US9)" as UC9
+    usecase "Receive Overlord\nFeedback\n(US10, US12)" as UC10
+    usecase "Generate Campaigns\n(US11)" as UC11 <<optional>>
+    usecase "Earn Bonus Life\n(US13)" as UC13 <<optional>>
+    usecase "View Profile\n(US14)" as UC14 <<optional>>
+    usecase "Play Tutorial\n(US15)" as UC15 <<optional>>
+    usecase "Contest Verdict\n(US16)" as UC16 <<optional>>
+    usecase "Play Finale\n(US17)" as UC17 <<optional>>
+}
+
+Visitor --> UC1
+Visitor --> UC2
+
+Player --> UC2
+Player --> UC3
+Player --> UC4
+Player --> UC5
+Player --> UC6
+Player --> UC9
+Player --> UC10
+Player --> UC14
+Player --> UC15
+Player --> UC17
+
+UC6 ..> UCGrade : <<include>>
+UC6 ..> UC7 : <<include>>
+UC8 ..> UC6 : <<extend>>
+UC13 ..> UC7 : <<extend>>
+UC16 ..> UC6 : <<extend>>
+
+LlmOwner --> UC11
+UC11 --> Azure
+
+@enduml

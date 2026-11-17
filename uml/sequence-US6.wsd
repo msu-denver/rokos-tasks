@@ -1,0 +1,61 @@
+@startuml sequence-US6
+' File: sequence-US6.wsd
+' Description: Sequence diagram for US6 (Submit code and get graded),
+'     showing how a submission moves through the presentation, business
+'     logic, and data access layers and the sandbox runner container.
+' Author(s): <team member names>
+
+title US6: Submit code and get graded
+
+actor Player
+participant "game.js\n(browser)" as JS
+participant "GameRoutes\n(presentation)" as Routes
+participant "GameService\n(business)" as Game
+participant "GradingService\n(business)" as Grading
+participant "RunnerClient\n(business)" as RunnerClient
+participant "Runner\n(container)" as Runner
+participant "ScoreCalculator\n(business)" as Score
+participant "DialogueService\n(business)" as Dialogue
+participant "GameRun\n(model)" as Run
+participant "RunRepository\n(data)" as Repo
+database "PostgreSQL\n(container)" as DB
+
+Player -> JS : click Submit
+JS -> Routes : POST /runs/{run_id}/submit {code}
+Routes -> Game : submit_stage(user, run_id, code)
+
+Game -> Repo : get_active_run(run_id, user)
+Repo -> DB : SELECT run, stage, test cases
+DB --> Repo : rows
+Repo --> Game : GameRun, Stage
+
+Game -> Grading : grade(code, stage.hidden_cases())
+loop each hidden test, stopping at the first failure
+    Grading -> RunnerClient : run(code, test.input_text, limits)
+    RunnerClient -> Runner : POST /run
+    Runner --> RunnerClient : stdout, stderr, exit_code, timed_out
+    RunnerClient --> Grading : RunResult
+    Grading -> Grading : normalize output and compare
+end
+Grading --> Game : Verdict
+
+alt verdict passed
+    Game -> Score : stage_points(seconds_remaining, difficulty)
+    Score --> Game : points
+    Game -> Run : advance_stage(code, points)
+else verdict failed
+    Game -> Run : lose_life()
+end
+
+Game -> Repo : save(run, submission)
+Repo -> DB : INSERT submission, UPDATE run
+DB --> Repo : ok
+
+Game -> Dialogue : line_for(event)
+Dialogue --> Game : Overlord line
+
+Game --> Routes : SubmitResult
+Routes --> JS : 200 OK (JSON)
+JS --> Player : verdict, lives, Overlord line, next stage
+
+@enduml
