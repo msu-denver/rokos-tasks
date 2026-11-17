@@ -219,6 +219,37 @@ As a player, I want to actually play the Pong or Snake game I just built so that
 
 **Totals:** 37 required points, 31 optional points, 68 points in the backlog.
 
+### Dependency Diagram
+
+An arrow points from a story to the stories that depend on it: US1 → US2 means US2 needs US1 finished first. Solid boxes are required stories; dashed boxes are optional. Arrows already implied through another story are left out for readability (US11 also depends on US3, which US6 already requires).
+
+```mermaid
+flowchart TD
+    US1["US1: Register"] --> US2["US2: Log In and Log Out"]
+    US2 --> US3["US3: Start a Run"]
+    US3 --> US4["US4: View Stage and Write Code"]
+    US4 --> US5["US5: Run Sample Tests"]
+    US4 --> US6["US6: Submit and Get Graded"]
+
+    US5 --> US15["US15: How-to-Play Tutorial"]
+    US6 --> US15
+    US6 --> US11["US11: AI-Generated Campaigns"]
+    US6 --> US8["US8: Stage Timer"]
+    US6 --> US7["US7: Lives, Checkpoints, Progression"]
+    US6 --> US10["US10: Overlord Reactions and Feedback"]
+
+    US5 --> US17["US17: Playable Finale"]
+    US7 --> US17
+    US7 --> US13["US13: Bonus Life"]
+    US7 --> US9["US9: Scores and Leaderboard"]
+    US9 --> US14["US14: Profile Statistics"]
+    US10 --> US12["US12: Animated Overlord"]
+    US10 --> US16["US16: Contest a Verdict"]
+
+    classDef optional stroke-dasharray: 5 5
+    class US11,US12,US13,US14,US15,US16,US17 optional
+```
+
 † **Ranked earlier because of dependencies.** US7–US10 all depend on US6. US7 comes before US8 and US10 because more stories depend on it (US9, US13, US17), and US9 must wait for US7.
 
 ‡ **Ranked by team decision.** AI-generated campaigns (US11) are the product's signature feature, so they lead the optional stories despite a lower score. US13 follows because it fits the remaining Sprint 3 capacity. By score alone, the optional order would be US12, US15, US13, US14, US11, US16, US17.
