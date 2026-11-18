@@ -57,7 +57,15 @@ git push -u origin HEAD
 gh pr create --draft --base dev --title "<type>(US#): <summary>" --body-file .pr/body.md
 ```
 
-## 7. Hand off
+## 7. Request reviewers
+
+Read the new PR's GitHub author login. Request reviews from every
+applicable teammate using the
+[reviewer roster and author exclusion rule](../../pull-requests.md#reviewers).
+If GitHub blocks any requests while the PR is a draft, include the
+pending handles in the handoff.
+
+## 8. Hand off
 
 When the screenshot is still pending, tell the user:
 
@@ -66,4 +74,4 @@ When the screenshot is still pending, tell the user:
 > on GitHub. You can use `.pr/screenshot.png`. Once the screenshot is
 > visible in the PR and matches the test, mark it **Ready for review**.
 
-Never mark the PR ready, request reviewers, or merge it yourself.
+Never mark the PR ready or merge it yourself.

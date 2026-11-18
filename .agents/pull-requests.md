@@ -34,6 +34,35 @@ Closes #<issue>
 - Author: <human> with <agent/model, or "no agent">
 ```
 
+## Reviewers
+
+Request a GitHub review from each member of the roster on every new
+PR, skipping the PR author.
+
+- `FrostyBagels`
+- `GreesonC`
+- `Riconashty`
+- `RileyDrenthMSU`
+- `khakis23`
+
+Read the PR author's `author.login` from GitHub and compare handles
+case-insensitively. If the author is outside the roster, request all five.
+Add the applicable people through GitHub's **Reviewers** control and
+preserve any existing requests. With the GitHub CLI, use
+`gh pr view <number> --json author,isDraft,reviewRequests` to check and
+`gh pr edit <number> --add-reviewer <comma-separated-handles>` to add
+reviewers whose requests are missing.
+
+| GitHub PR author | Request reviews from |
+| --- | --- |
+| `khakis23` | `FrostyBagels`, `GreesonC`, `Riconashty`, `RileyDrenthMSU` |
+| `FrostyBagels` | `GreesonC`, `Riconashty`, `RileyDrenthMSU`, `khakis23` |
+
+Use the same roster rule for draft PRs. If GitHub blocks a request while
+the PR is a draft, list the pending handles in the handoff so the human can
+request them when marking the PR ready. If you resume work after the PR
+is ready, send any requests still pending.
+
 ## Manual Testing rules (automatic reject if broken)
 
 - The `## Manual Testing` heading is present, spelled exactly like that.

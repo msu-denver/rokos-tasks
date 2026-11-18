@@ -71,6 +71,10 @@ you're working for.
 - Tell the user the PR stays in draft until they attach the screenshot
   in chat or add it under **Manual Testing** on GitHub. The human marks
   it ready once the screenshot appears in the PR and matches the test.
+- Request reviews from the team roster using the actual PR author to
+  determine who to exclude. Include pending requests in the handoff
+  if GitHub blocks them while the PR is a draft.
+  See [reviewer selection](pull-requests.md#reviewers).
 - Move the board card to **In Review** once the PR is ready.
 
 ## 7. After review
