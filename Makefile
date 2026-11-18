@@ -7,7 +7,7 @@
 PYTHON ?= python3
 LINT_PATHS = src tests scripts
 
-.PHONY: setup lint fmt test coverage check dev
+.PHONY: setup lint fmt test coverage check dev up down db migrate seed validate-campaigns fill-expected
 
 ## Install pinned dependencies.
 setup:
@@ -26,21 +26,55 @@ fmt:
 	$(PYTHON) -m ruff format $(LINT_PATHS)
 	$(PYTHON) -m ruff check --fix $(LINT_PATHS)
 
+## Start Postgres db container for local testing if not running in CI.
+db:
+	@if [ "$$CI" != "true" ]; then \
+		docker compose up -d --wait db; \
+	fi
+
+## Run database migrations up to head revision.
+migrate:
+	$(PYTHON) -m alembic upgrade head
+
 ## All tests, Selenium included. LLM_MODE is forced to fake.
-test:
+test: db
 	LLM_MODE=fake $(PYTHON) -m pytest
 
 ## Tests under coverage; fails under 90%. HTML report in htmlcov/.
 ## (The leading "-" keeps going if html trips fail_under, so the report
 ## below still prints the missing lines before failing.)
-coverage:
+coverage: db
 	LLM_MODE=fake $(PYTHON) -m coverage run -m pytest
 	-$(PYTHON) -m coverage html
 	$(PYTHON) -m coverage report
 
-## What CI runs. Add validate-campaigns here once the validator exists.
-check: lint coverage
+## Seed validated campaigns into the database.
+seed: db
+	$(PYTHON) scripts/seed.py
 
-## Flask with auto-reload on http://localhost:8000.
+## Validate all seed campaign JSON files.
+validate-campaigns:
+	$(PYTHON) scripts/validate_campaigns.py
+
+## Fill expected_output in a campaign JSON file using its reference solution.
+fill-expected:
+	@if [ -z "$(FILE)" ]; then \
+		echo "Usage: make fill-expected FILE=path/to/campaign.json"; \
+		exit 1; \
+	fi
+	$(PYTHON) scripts/fill_expected.py $(FILE)
+
+## What CI runs: lint, campaign validation, and coverage.
+check: lint validate-campaigns coverage
+
+## Flask with auto-reload on http://localhost:8001.
 dev:
-	$(PYTHON) -m flask --app src.app run --debug --port 8000
+	$(PYTHON) -m flask --app src.app:create_dev_app run --debug --port 8001
+
+## Start web and db containers with Docker Compose.
+up:
+	docker compose up --build
+
+## Stop running Docker Compose containers.
+down:
+	docker compose down

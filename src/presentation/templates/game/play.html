@@ -1,0 +1,15 @@
+{#
+File: play.html
+Description: Displays a run's current stage and remaining lives.
+Author(s): Tyler Black
+#}
+{% extends "base.html" %}
+
+{% block title %}Stage {{ run.current_stage }} - Roko's Tasks{% endblock %}
+
+{% block content %}
+<section class="floating-panel" aria-labelledby="play-stage">
+  <h1 id="play-stage" data-testid="play-stage">Stage {{ run.current_stage }}</h1>
+  <p class="run-lives">Lives <span data-testid="play-lives">{{ run.lives }}</span></p>
+</section>
+{% endblock %}

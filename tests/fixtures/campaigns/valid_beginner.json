@@ -1,0 +1,42 @@
+{
+  "title": "Add and Multiply",
+  "difficulty": "beginner",
+  "stages": [
+    {
+      "stage": 1,
+      "prompt": "Add one to the input number. Example: `5` prints `6`.",
+      "starter_code": "num = int(input())\nprint(num + 1)\n",
+      "samples": [
+        {
+          "input": "5",
+          "expected_output": "6"
+        }
+      ],
+      "hidden_tests": [
+        {
+          "input": "10",
+          "expected_output": "11"
+        }
+      ],
+      "reference_solution": "num = int(input())\nprint(num + 1)\n"
+    },
+    {
+      "stage": 2,
+      "prompt": "Now multiply by two and add one. Example: `5` prints `11`.",
+      "starter_code": null,
+      "samples": [
+        {
+          "input": "5",
+          "expected_output": "11"
+        }
+      ],
+      "hidden_tests": [
+        {
+          "input": "10",
+          "expected_output": "21"
+        }
+      ],
+      "reference_solution": "num = int(input())\nprint(num * 2 + 1)\n"
+    }
+  ]
+}
