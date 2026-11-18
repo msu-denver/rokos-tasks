@@ -162,12 +162,10 @@ def test_game_editor_restores_pending_and_empty_drafts(
         )
         == STARTER_CODE
     )
-    assert (
-        browser.execute_script(
-            "return monaco.editor.getModels()[0].getOptions().tabSize;"
-        )
-        == 4
+    options = browser.execute_script(
+        "return monaco.editor.getModels()[0].getOptions();"
     )
+    assert options["tabSize"] == 4 and options["insertSpaces"]
 
     previous = None
     run_id = browser.current_url.rsplit("/", 1)[1]

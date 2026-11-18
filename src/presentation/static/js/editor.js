@@ -62,6 +62,7 @@ function autosave(key) {
 function editor_options(monaco, value) {
   const styles = getComputedStyle(document.documentElement);
   const token = (name) => styles.getPropertyValue(name).trim();
+  const ink = token("--ink");
   monaco.editor.defineTheme("rokos", {
     base: "vs-dark",
     inherit: true,
@@ -73,11 +74,18 @@ function editor_options(monaco, value) {
     ],
     colors: {
       "editor.background": token("--surface"),
-      "editor.foreground": token("--ink"),
+      "editor.foreground": ink,
       "editor.lineHighlightBackground": token("--surface-raised"),
       "editorCursor.foreground": token("--cyan"),
       "editorLineNumber.foreground": token("--muted"),
       "editorLineNumber.activeForeground": token("--ink-strong"),
+      "editorBracketHighlight.foreground1": ink,
+      "editorBracketHighlight.foreground2": ink,
+      "editorBracketHighlight.foreground3": ink,
+      "editorBracketHighlight.foreground4": ink,
+      "editorBracketHighlight.foreground5": ink,
+      "editorBracketHighlight.foreground6": ink,
+      "editorBracketHighlight.unexpectedBracket.foreground": token("--magenta"),
     },
   });
   return {
@@ -92,7 +100,6 @@ function editor_options(monaco, value) {
     tabSize: 4,
     insertSpaces: true,
     detectIndentation: false,
-    bracketPairColorization: {enabled: false},
     automaticLayout: true,
     minimap: {enabled: false},
     scrollBeyondLastLine: false,
