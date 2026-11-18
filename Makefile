@@ -7,7 +7,7 @@
 PYTHON ?= python3
 LINT_PATHS = src tests scripts
 
-.PHONY: setup lint fmt test coverage check dev
+.PHONY: setup lint fmt test coverage check dev up down
 
 ## Install pinned dependencies.
 setup:
@@ -44,3 +44,11 @@ check: lint coverage
 ## Flask with auto-reload on http://localhost:8000.
 dev:
 	$(PYTHON) -m flask --app src.app run --debug --port 8000
+
+## Start web and db containers with Docker Compose.
+up:
+	docker compose up --build
+
+## Stop running Docker Compose containers.
+down:
+	docker compose down

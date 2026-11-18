@@ -1,0 +1,20 @@
+# File: .dockerignore
+# Description: Files excluded from the web container build context.
+# Author(s): Tyler Black
+
+.git
+.venv
+.env
+.env.*
+!.env.example
+.pr
+htmlcov
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+tests
+.pytest_cache
+.ruff_cache
+.coverage
+.coverage.*
