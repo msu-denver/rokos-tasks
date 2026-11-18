@@ -6,9 +6,13 @@ Author(s): Tyler Black
 """
 
 import pytest
-from werkzeug.security import check_password_hash
+from werkzeug.security import check_password_hash, generate_password_hash
 
-from src.business.auth_service import AuthService, RegistrationError
+from src.business.auth_service import (
+    AuthService,
+    RegistrationError,
+    is_safe_redirect,
+)
 from src.data.models.user import User
 from src.data.repositories.user_repository import DuplicateUsernameError
 
@@ -234,3 +238,144 @@ def test_register_handles_race_condition_duplicate_from_repository() -> None:
 
     assert exc_info.value.errors["username"] == "That username is taken."
     assert repo.commit_count == 0
+
+
+@pytest.mark.parametrize(
+    "submitted_name",
+    [
+        "tyler",
+        "TYLER",
+        "Tyler",
+        "tYlEr",
+        "  Tyler  ",
+    ],
+)
+def test_authenticate_success_in_any_username_case(
+    submitted_name: str,
+) -> None:
+    """Verify authenticate succeeds regardless of username case."""
+    password = "secret_password_1"
+    hashed = generate_password_hash(password)
+    user = User(id=1, username="Tyler", password_hash=hashed)
+    service = AuthService(FakeUserRepository([user]))
+
+    authenticated_user = service.authenticate(submitted_name, password)
+
+    assert authenticated_user is not None
+    assert authenticated_user.username == "Tyler"
+    assert authenticated_user.id == 1
+
+
+def test_authenticate_returns_none_for_unknown_user() -> None:
+    """Verify authenticate returns None when username does not exist."""
+    service = AuthService(FakeUserRepository())
+
+    assert service.authenticate("ghost_user", "any_password") is None
+
+
+def test_authenticate_returns_none_for_wrong_password() -> None:
+    """Verify authenticate returns None when password does not match hash."""
+    user = User(
+        id=2,
+        username="SpacePlayer",
+        password_hash=generate_password_hash("correct_password"),
+    )
+    service = AuthService(FakeUserRepository([user]))
+
+    assert service.authenticate("SpacePlayer", "wrong_password") is None
+
+
+@pytest.mark.parametrize(
+    ("bad_user", "bad_pass"),
+    [
+        ("", "password123"),
+        ("   ", "password123"),
+        ("bad\x00name", "password123"),
+        ("SpacePlayer", ""),
+        ("", ""),
+    ],
+)
+def test_authenticate_returns_none_for_empty_inputs(
+    bad_user: str, bad_pass: str
+) -> None:
+    """Verify authenticate returns None for blank or empty credentials."""
+    user = User(
+        id=3,
+        username="SpacePlayer",
+        password_hash=generate_password_hash("password123"),
+    )
+    service = AuthService(FakeUserRepository([user]))
+
+    assert service.authenticate(bad_user, bad_pass) is None
+
+
+@pytest.mark.parametrize(
+    "safe_target",
+    [
+        "/play/3",
+        "/start",
+        "/play/3?step=1",
+        "/",
+        "/settings/profile",
+    ],
+)
+def test_is_safe_redirect_accepts_relative_paths(safe_target: str) -> None:
+    """Verify is_safe_redirect allows valid relative path targets."""
+    assert is_safe_redirect(safe_target) is True
+
+
+@pytest.mark.parametrize(
+    "unsafe_target",
+    [
+        "https://evil.com",
+        "http://evil.com",
+        "//evil.com",
+        r"/\evil.com",
+        "/\t\\evil.com",
+        "/start\r\n",
+        "/\\evil.com",
+        "javascript:alert(1)",
+        "",
+        None,
+        "   ",
+        "evil.com",
+        "ftp://evil.com/payload",
+    ],
+)
+def test_is_safe_redirect_rejects_unsafe_targets(
+    unsafe_target: str | None,
+) -> None:
+    """Verify is_safe_redirect blocks non-relative and invalid targets."""
+    assert is_safe_redirect(unsafe_target) is False
+
+
+def test_is_safe_redirect_handles_parsing_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Verify is_safe_redirect returns False if urlsplit raises ValueError."""
+    import urllib.parse
+
+    def broken_urlsplit(_url: str) -> urllib.parse.SplitResult:
+        raise ValueError("Malformed URL")
+
+    monkeypatch.setattr("src.business.auth_service.urlsplit", broken_urlsplit)
+    assert is_safe_redirect("/some/path") is False
+
+
+def test_is_safe_redirect_rejects_parsed_scheme_or_netloc(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Verify is_safe_redirect rejects targets parsed with scheme or netloc."""
+    import urllib.parse
+
+    fake_result = urllib.parse.SplitResult(
+        scheme="javascript",
+        netloc="injected",
+        path="/start",
+        query="",
+        fragment="",
+    )
+    monkeypatch.setattr(
+        "src.business.auth_service.urlsplit", lambda _url: fake_result
+    )
+    assert is_safe_redirect("/start") is False

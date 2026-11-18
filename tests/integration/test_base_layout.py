@@ -60,3 +60,37 @@ def test_flashed_message_renders_through_route(
 
     assert 'data-testid="flash-message"' in html
     assert "Overlord instructions updated." in html
+
+
+def test_base_layout_header_actions_logged_out(client: FlaskClient) -> None:
+    """Verify logged-out visitor sees login and register links in header."""
+    response = client.get("/")
+    assert response.status_code == 200
+    html = response.get_data(as_text=True)
+
+    assert 'data-testid="header-login"' in html
+    assert 'data-testid="header-register"' in html
+    assert 'data-testid="header-logout"' not in html
+    assert 'data-testid="header-username"' not in html
+
+
+def test_base_layout_header_actions_logged_in(client: FlaskClient) -> None:
+    """Verify logged-in visitor sees username and logout button in header."""
+    client.post(
+        "/register",
+        data={
+            "username": "HeaderCheckUser",
+            "password": "password123",
+            "confirm": "password123",
+        },
+    )
+
+    response = client.get("/")
+    assert response.status_code == 200
+    html = response.get_data(as_text=True)
+
+    assert 'data-testid="header-username"' in html
+    assert "HeaderCheckUser" in html
+    assert 'data-testid="header-logout"' in html
+    assert 'data-testid="header-login"' not in html
+    assert 'data-testid="header-register"' not in html

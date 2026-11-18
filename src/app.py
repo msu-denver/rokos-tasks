@@ -15,6 +15,7 @@ from flask_wtf.csrf import CSRFProtect
 from src.business.service_factory import build_auth_service
 from src.data.database import db
 from src.presentation.auth_routes import auth_blueprint
+from src.presentation.game_routes import game_blueprint
 from src.presentation.main_routes import main_blueprint
 
 DEFAULT_DATABASE_URL = (
@@ -23,6 +24,8 @@ DEFAULT_DATABASE_URL = (
 
 csrf = CSRFProtect()
 login_manager = LoginManager()
+login_manager.login_view = "auth.login"
+login_manager.login_message = "Please log in to continue."
 
 
 @login_manager.user_loader
@@ -88,4 +91,5 @@ def create_app(config_overrides: dict[str, Any] | None = None) -> Flask:
 
     app.register_blueprint(main_blueprint)
     app.register_blueprint(auth_blueprint)
+    app.register_blueprint(game_blueprint)
     return app

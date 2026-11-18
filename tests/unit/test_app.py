@@ -17,8 +17,16 @@ def test_create_app_uses_defaults_without_overrides():
     assert app.testing is False
     assert "main" in app.blueprints
     assert "auth" in app.blueprints
+    assert "game" in app.blueprints
     assert app.config["SESSION_COOKIE_HTTPONLY"] is True
     assert app.config["SESSION_COOKIE_SAMESITE"] == "Lax"
+
+
+def test_login_manager_configuration():
+    from src.app import login_manager
+
+    assert login_manager.login_view == "auth.login"
+    assert login_manager.login_message == "Please log in to continue."
 
 
 def test_create_app_applies_config_overrides():

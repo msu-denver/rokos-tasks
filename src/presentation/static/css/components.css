@@ -60,6 +60,36 @@ body {
   color: var(--cyan);
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.header-username {
+  font-family: var(--font-mono);
+  font-size: var(--text-14);
+  color: var(--cyan);
+}
+
+.header-logout-form {
+  display: inline-block;
+  margin: 0;
+}
+
+.header-link {
+  font-family: var(--font-display);
+  font-size: var(--text-14);
+  font-weight: 700;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.header-link:hover {
+  color: var(--cyan);
+  text-decoration: none;
+}
+
 /* Main content region */
 main {
   padding: var(--space-6);

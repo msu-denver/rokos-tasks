@@ -1,14 +1,15 @@
 """
 File: auth_service.py
 Description: Authentication service enforcing user registration rules,
-    password hashing, and account creation.
+    password hashing, account creation, and login.
 Author(s): Tyler Black
 """
 
 import re
 from typing import Protocol
+from urllib.parse import urlsplit
 
-from werkzeug.security import generate_password_hash
+from werkzeug.security import check_password_hash, generate_password_hash
 
 from src.data.models.user import User
 from src.data.repositories.user_repository import DuplicateUsernameError
@@ -125,3 +126,57 @@ class AuthService:
             raise RegistrationError(
                 {"username": USERNAME_TAKEN_ERROR}
             ) from err
+
+    def authenticate(self, username: str, password: str) -> User | None:
+        """Authenticate user credentials case-insensitively.
+
+        Args:
+            username: Player username (case-insensitive lookup).
+            password: Plaintext password to verify against stored hash.
+
+        Returns:
+            The User instance if credentials match, None otherwise.
+        """
+        trimmed_username = username.strip()
+        if not USERNAME_PATTERN.fullmatch(trimmed_username) or not password:
+            return None
+        user = self._user_repository.get_by_username(trimmed_username)
+        if user is None:
+            return None
+        if not check_password_hash(user.password_hash, password):
+            return None
+        return user
+
+
+def is_safe_redirect(target: str | None) -> bool:
+    r"""Validate whether a redirect target URL is safe and relative to site.
+
+    Accepts only relative paths starting with a single forward slash.
+    Rejects protocol-relative URLs starting with '//' or '/\\', explicit
+    URL schemes such as 'javascript:' or 'https:', and targets with a netloc.
+
+    Args:
+        target: Candidate redirect target URL string or None.
+
+    Returns:
+        True if target is safe to redirect to, False otherwise.
+    """
+    if not target:
+        return False
+    if (
+        not target.startswith("/")
+        or target.startswith("//")
+        or target.startswith("/\\")
+        or any(
+            ord(character) < 32 or ord(character) == 127
+            for character in target
+        )
+    ):
+        return False
+    try:
+        parsed = urlsplit(target)
+    except ValueError:
+        return False
+    if parsed.scheme or parsed.netloc:
+        return False
+    return True

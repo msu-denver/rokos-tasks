@@ -15,3 +15,11 @@ class RegistrationForm(FlaskForm):
     password = PasswordField("Password")
     confirm = PasswordField("Confirm Password")
     submit = SubmitField("Register")
+
+
+class LoginForm(FlaskForm):
+    """Login form fields for player authentication."""
+
+    username = StringField("Username")
+    password = PasswordField("Password")
+    submit = SubmitField("Log In")
