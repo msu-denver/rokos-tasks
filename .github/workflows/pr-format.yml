@@ -1,0 +1,74 @@
+# File: pr-format.yml
+# Description: Fails any non-draft pull request whose body is missing the
+#     team format: a "## Manual Testing" section with one sentence or less
+#     and exactly one screenshot. Meant to be a required status check on
+#     main and dev. See .agents/pull-requests.md.
+# Author(s): Tyler Black
+
+name: PR format check
+
+# pull_request_target runs the copy of this workflow on the base branch,
+# so a pull request cannot edit the check to make itself pass. No code is
+# checked out, and the body is passed as an environment variable, never
+# interpolated into the script.
+on:
+  pull_request_target:
+    branches: [main, dev]
+    types: [opened, edited, reopened, synchronize, ready_for_review]
+
+permissions: {}
+
+jobs:
+  pr-format:
+    name: pr-format
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Check the Manual Testing section
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          python3 - <<'PY'
+          import os
+          import re
+          import sys
+
+          body = os.environ.get("PR_BODY") or ""
+          body = re.sub(r"<!--.*?-->", "", body, flags=re.S)
+          match = re.search(
+              r"^##[ \t]+Manual Testing[ \t]*$(.*?)(?=^##[ \t]|\Z)",
+              body,
+              flags=re.M | re.S,
+          )
+          if not match:
+              print("::error::Missing a '## Manual Testing' section.")
+              sys.exit(1)
+
+          section = match.group(1)
+          image_pattern = r"!\[[^\]]*\]\([^)]+\)|<img\b[^>]*>"
+          images = re.findall(image_pattern, section, flags=re.I)
+          text = " ".join(re.sub(image_pattern, "", section).split())
+          # A sentence ends at . ! or ? followed by a space and a capital
+          # letter, or at the end of the text ("Python 3.13" is safe).
+          sentences = len(re.findall(r"[.!?](?=\s+[A-Z]|$)", text))
+
+          errors = []
+          if not text:
+              errors.append("Manual Testing has no sentence.")
+          if sentences > 1:
+              errors.append(
+                  f"Manual Testing must be one sentence or less "
+                  f"(found {sentences})."
+              )
+          if len(images) != 1:
+              errors.append(
+                  f"Manual Testing needs exactly one screenshot "
+                  f"(found {len(images)})."
+              )
+          for error in errors:
+              print(f"::error::{error}")
+          if errors:
+              sys.exit(1)
+          print("OK: Manual Testing has one sentence and one screenshot.")
+          PY

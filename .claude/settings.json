@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.local)",
+      "Read(./.env.live)",
+      "Edit(./.env)",
+      "Bash(cat .env*)",
+      "Bash(make llm-smoke*)",
+      "Bash(make generate-campaigns*)",
+      "Bash(*CONFIRM_LIVE=yes*)",
+      "Bash(*LLM_MODE=live*)",
+      "Bash(*openai.azure.com*)",
+      "Bash(gh pr merge*)",
+      "Bash(gh pr ready*)",
+      "Bash(gh pr review * --approve*)",
+      "Bash(git push origin main*)",
+      "Bash(git push origin dev*)",
+      "Bash(git push --force*)",
+      "Bash(git push -f*)"
+    ]
+  }
+}
