@@ -5,11 +5,46 @@ Author(s): Tyler Black
 #}
 {% extends "base.html" %}
 
-{% block title %}Stage {{ run.current_stage }} - Roko's Tasks{% endblock %}
+{% block title %}{% if stage %}Stage {{ stage.number }}{% else %}Run over{% endif %} - Roko's Tasks{% endblock %}
+
+{% block header_status %}
+  {% if stage %}
+    <div class="game-status">
+      <span data-testid="game-stage-readout" role="img"
+            aria-label="{{ stage.difficulty.label }}, stage {{ stage.number }} of {{ stage.difficulty.stages }}">{{ stage.difficulty.label }} / {{ '%02d/%02d'|format(stage.number, stage.difficulty.stages) }}</span>
+      <span class="game-lives" data-testid="game-lives" role="img"
+            aria-label="{{ stage.lives }} of {{ stage.difficulty.starting_lives }} lives">
+        {% for cell in range(stage.difficulty.starting_lives) %}
+          <span class="game-life{% if cell < stage.lives %} game-life--full{% endif %}" aria-hidden="true"></span>
+        {% endfor %}
+      </span>
+    </div>
+  {% endif %}
+{% endblock %}
 
 {% block content %}
-<section class="floating-panel" aria-labelledby="play-stage">
-  <h1 id="play-stage" data-testid="play-stage">Stage {{ run.current_stage }}</h1>
-  <p class="run-lives">Lives <span data-testid="play-lives">{{ run.lives }}</span></p>
-</section>
+  {% if stage %}
+    <div class="game-layout">
+      <section class="floating-panel game-feed-panel" aria-label="Overlord">
+        <div class="game-feed" data-testid="game-feed" role="log" aria-label="Overlord feed" tabindex="0">
+          <p data-testid="game-prompt">{{ stage.prompt }}</p>
+        </div>
+      </section>
+      <section class="floating-panel floating-panel--cyan game-editor-panel" aria-label="Code editor">
+        <div class="game-editor-tab">main.py</div>
+        <div class="game-editor" data-testid="game-editor" data-run="{{ run_id }}" data-stage="{{ stage.number }}">
+          <textarea aria-label="Python editor" spellcheck="false" autocapitalize="off" autocomplete="off">
+{{ stage.starter_code }}</textarea>
+          <div hidden></div>
+        </div>
+      </section>
+    </div>
+    <script id="stage-data" type="application/json">{{ {'samples': stage.samples, 'starter_code': stage.starter_code}|tojson }}</script>
+    <script type="module" src="{{ url_for('static', filename='js/game.js') }}"></script>
+  {% else %}
+    <section class="floating-panel floating-panel--form" aria-labelledby="game-run-over">
+      <h1 id="game-run-over" data-testid="game-run-over">This run is over.</h1>
+      <a class="btn btn-primary" href="{{ url_for('game.start') }}">Start a run</a>
+    </section>
+  {% endif %}
 {% endblock %}

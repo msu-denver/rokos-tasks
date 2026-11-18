@@ -492,7 +492,7 @@ a:hover {
   clip-path: none;
 }
 
-/* Difficulty cards and run readouts */
+/* Difficulty cards */
 .start-panel {
   margin-block: 0;
   padding-block: var(--space-4);
@@ -541,8 +541,7 @@ a:hover {
   color: var(--muted);
 }
 
-.tier-rules dd,
-.run-lives span {
+.tier-rules dd {
   margin: 0;
   font-family: var(--font-mono);
 }
@@ -554,6 +553,137 @@ a:hover {
 
 .start-error {
   color: var(--magenta);
+}
+
+/* Stage workspace */
+.game-status,
+.game-lives {
+  display: flex;
+  align-items: center;
+}
+
+.game-status {
+  gap: var(--space-4);
+  color: var(--muted);
+  font-family: var(--font-mono);
+}
+
+.game-lives {
+  gap: var(--space-1);
+}
+
+.game-life {
+  inline-size: var(--space-2);
+  block-size: var(--space-5);
+  border: var(--border-1) solid var(--muted);
+}
+
+.game-life--full {
+  border-color: var(--cyan);
+  background: var(--cyan);
+  box-shadow: 0 0 var(--glow-tight) var(--glow-cyan);
+}
+
+.game-layout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-6);
+}
+
+.game-layout > .floating-panel {
+  min-inline-size: 0;
+  margin-block: 0;
+}
+
+.game-feed-panel {
+  flex: 2 1 calc(var(--grid-size) * 5);
+}
+
+.game-editor-panel {
+  flex: 3 1 calc(var(--grid-size) * 6);
+}
+
+.game-feed,
+.game-editor {
+  block-size: calc(var(--grid-size) * 6);
+}
+
+.game-feed {
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+  scrollbar-color: var(--muted) var(--surface);
+  color: var(--ink-strong);
+  font-size: var(--text-17);
+  white-space: pre-wrap;
+}
+
+.game-feed--scrolled:not(:focus-visible) {
+  mask-image: linear-gradient(transparent, var(--ink) var(--space-3));
+}
+
+.game-feed p {
+  margin: 0;
+}
+
+.game-feed code,
+.game-editor-tab,
+.game-editor textarea {
+  font-family: var(--font-mono);
+}
+
+.game-feed code,
+.game-feed p:last-child::after {
+  color: var(--cyan);
+}
+
+.game-feed p:last-child::after {
+  content: "";
+  display: inline-block;
+  inline-size: var(--space-2);
+  block-size: var(--text-14);
+  margin-inline-start: var(--space-1);
+  background: currentColor;
+  animation: feed-cursor 1s step-end infinite;
+}
+
+@keyframes feed-cursor {
+  50% { opacity: 0; }
+}
+
+.game-editor-tab {
+  padding-bottom: var(--space-2);
+  color: var(--muted);
+}
+
+.game-editor {
+  position: relative;
+  background: var(--surface);
+}
+
+.game-editor:focus-within {
+  outline: var(--focus-outline) solid var(--cyan);
+  outline-offset: var(--focus-offset);
+}
+
+.game-editor > * {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+}
+
+.game-editor textarea {
+  resize: none;
+  border: 0;
+  padding: var(--space-3);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: var(--text-14);
+  tab-size: 4;
+}
+
+.game-editor .monaco-editor .view-overlays .current-line {
+  border-inline-start: var(--border-2) solid var(--cyan);
 }
 
 /* Motion accessibility preferences */

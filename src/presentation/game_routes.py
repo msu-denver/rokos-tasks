@@ -10,7 +10,7 @@ from werkzeug.wrappers import Response
 
 from src.business.campaign_selector import NoCampaignAvailableError
 from src.business.difficulty import Difficulty
-from src.business.game_service import GameService
+from src.business.game_service import GameService, RunNotFoundError
 from src.business.service_factory import build_game_service
 
 game_blueprint = Blueprint("game", __name__)
@@ -52,7 +52,8 @@ def create_run() -> Response | str:
 @login_required
 def play(run_id: int) -> str:
     """Show the current stage and lives for one of the player's runs."""
-    run = build_game_service().get_run(run_id, current_user.id)
-    if run is None:
+    try:
+        stage = build_game_service().get_stage_view(current_user.id, run_id)
+    except RunNotFoundError:
         abort(404)
-    return render_template("game/play.html", run=run)
+    return render_template("game/play.html", stage=stage, run_id=run_id)

@@ -4,6 +4,10 @@ Description: Tests difficulty availability, run creation, and ownership.
 Author(s): Tyler Black
 """
 
+import json
+import re
+from datetime import UTC, datetime
+
 import pytest
 from flask import Flask
 from flask.testing import FlaskClient
@@ -77,9 +81,7 @@ def test_start_and_replace_run_without_resume_link(
     assert first.status_code == 302
     first_url = first.headers["Location"]
     assert first_url.startswith("/play/")
-    play_html = player.get(first_url).get_data(as_text=True)
-    assert 'data-testid="play-stage">Stage 1<' in play_html
-    assert 'data-testid="play-lives">4<' in play_html
+    assert player.get(first_url).status_code == 200
 
     start_html = player.get("/start").get_data(as_text=True)
     assert 'data-testid="start-resume-run"' not in start_html
@@ -128,6 +130,103 @@ def test_play_returns_404_for_another_player(
         },
     )
     assert player.get(play_url).status_code == 404
+
+
+def test_play_returns_404_for_missing_run(player: FlaskClient) -> None:
+    """Return the same status for missing runs as for foreign runs."""
+    assert player.get("/play/0").status_code == 404
+
+
+def test_play_serializes_only_public_stage_content(
+    player: FlaskClient, seeded_beginner: int, db_session: Session
+) -> None:
+    """Keep private content out of HTML and safely round-trip public code."""
+    campaigns = CampaignRepository(db_session)
+    campaign = campaigns.get(seeded_beginner)
+    assert campaign is not None
+    stage = campaign.stages[0]
+    prompt = stage.prompt
+    starter_code = f'{stage.starter_code}\nvalue = "</script>"\n'
+    private_input = "private_test_input"
+    private_output = "private_expected_output"
+    private_solution = "private_reference_solution"
+    stage.starter_code = starter_code
+    stage.reference_solution = private_solution
+    hidden = next(case for case in stage.test_cases if case.kind == "hidden")
+    hidden.input = private_input
+    hidden.expected_output = private_output
+    campaigns.commit()
+
+    start = player.post("/runs", data={"difficulty": "beginner"})
+    response = player.get(start.headers["Location"])
+    assert response.status_code == 200
+    html = response.get_data(as_text=True)
+    assert prompt in html
+    for private in (private_input, private_output, private_solution):
+        assert private not in html
+    payload = re.search(
+        r'<script id="stage-data" type="application/json">(.*?)</script>', html
+    )
+    assert payload is not None
+    assert json.loads(payload[1]) == {
+        "samples": [{"input": "3\n125 250 50", "expected_output": "425"}],
+        "starter_code": starter_code,
+    }
+
+
+def test_play_uses_current_stage_and_remaining_lives(
+    player: FlaskClient, seeded_beginner: int, db_session: Session
+) -> None:
+    """Read the second stage and its ordered samples from the same run."""
+    start = player.post("/runs", data={"difficulty": "beginner"})
+    play_url = start.headers["Location"]
+    runs = RunRepository(db_session)
+    run = runs.get(int(play_url.rsplit("/", 1)[1]))
+    assert run is not None
+    run.current_stage = 2
+    run.lives = 3
+    runs.commit()
+
+    response = player.get(play_url)
+    assert response.status_code == 200
+    html = response.get_data(as_text=True)
+    assert "Beginner / 02/02" in html
+    assert 'aria-label="3 of 4 lives"' in html
+    assert "The diners have decided fairness is your problem." in html
+    payload = re.search(
+        r'<script id="stage-data" type="application/json">(.*?)</script>', html
+    )
+    assert payload is not None
+    assert json.loads(payload[1]) == {
+        "samples": [
+            {"input": "3\n125 250 50\n3", "expected_output": "142 142 141"},
+            {"input": "0\n\n2", "expected_output": "0 0"},
+        ],
+        "starter_code": "",
+    }
+
+
+@pytest.mark.parametrize("status", ["won", "lost", "abandoned"])
+def test_finished_runs_link_back_to_start(
+    player: FlaskClient, seeded_beginner: int, db_session: Session, status: str
+) -> None:
+    """Provide a way to start over when the owned run has ended."""
+    start = player.post("/runs", data={"difficulty": "beginner"})
+    play_url = start.headers["Location"]
+    runs = RunRepository(db_session)
+    run = runs.get(int(play_url.rsplit("/", 1)[1]))
+    assert run is not None
+    run.status = status
+    run.ended_at = datetime.now(UTC)
+    runs.commit()
+
+    response = player.get(play_url)
+    assert response.status_code == 200
+    html = response.get_data(as_text=True)
+    assert 'data-testid="game-run-over">This run is over.' in html
+    assert 'href="/start">Start a run' in html
+    assert 'id="stage-data"' not in html
+    assert 'data-testid="game-editor"' not in html
 
 
 @pytest.mark.parametrize("difficulty", ["unknown", None])

@@ -17,8 +17,8 @@ from src.business.campaign_selector import (
     NoCampaignAvailableError,
 )
 from src.business.difficulty import Difficulty
-from src.business.game_service import GameService
-from src.data.models.campaign import Campaign
+from src.business.game_service import GameService, StageView
+from src.data.models.campaign import Campaign, Stage, TestCase
 from src.data.models.game_run import GameRun
 from src.data.repositories.campaign_repository import CampaignRepository
 from src.data.repositories.run_repository import RunRepository
@@ -115,6 +115,43 @@ def test_start_run_without_campaign_does_not_abandon_active_run() -> None:
     runs.active_for.assert_not_called()
     runs.add.assert_not_called()
     runs.commit.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("number", "starter"), [(1, "n = int(input())"), (2, None), (2, "# stub")]
+)
+def test_stage_view_contains_current_prompt_and_public_examples(
+    number: int, starter: str | None
+) -> None:
+    """Use the stage's own starter and default missing code to empty."""
+    runs = Mock(spec=RunRepository)
+    run = GameRun(
+        campaign_id=42,
+        difficulty="beginner",
+        status="in_progress",
+        current_stage=number,
+        lives=3,
+    )
+    runs.get_for_user.return_value = run
+    runs.current_stage_for.return_value = Stage(
+        id=45, prompt="Print twice the input.", starter_code=starter
+    )
+    runs.samples_for_stage.return_value = [
+        TestCase(input="3", expected_output="6", kind="sample"),
+    ]
+
+    view = GameService(Mock(spec=CampaignSelector), runs, Mock())
+    assert view.get_stage_view(PLAYER_ID, 12) == StageView(
+        difficulty=Difficulty.BEGINNER,
+        number=number,
+        lives=3,
+        prompt="Print twice the input.",
+        starter_code=starter or "",
+        samples=({"input": "3", "expected_output": "6"},),
+    )
+    runs.get_for_user.assert_called_once_with(12, PLAYER_ID)
+    runs.current_stage_for.assert_called_once_with(run)
+    runs.samples_for_stage.assert_called_once_with(45)
 
 
 def test_start_run_does_not_import_an_llm_client() -> None:

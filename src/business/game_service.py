@@ -7,6 +7,7 @@ Author(s): Tyler Black
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
+from typing import TypedDict
 
 from src.business.campaign_selector import CampaignSelector
 from src.business.difficulty import Difficulty
@@ -20,6 +21,29 @@ class TierOverview:
 
     difficulty: Difficulty
     available: bool
+
+
+class RunNotFoundError(LookupError):
+    """The requested run is absent or belongs to another player."""
+
+
+class PublicSample(TypedDict):
+    """Input and expected output of a player-visible example."""
+
+    input: str
+    expected_output: str
+
+
+@dataclass(frozen=True)
+class StageView:
+    """Player-visible content and progress for an active stage."""
+
+    difficulty: Difficulty
+    number: int
+    lives: int
+    prompt: str
+    starter_code: str
+    samples: tuple[PublicSample, ...]
 
 
 class GameService:
@@ -75,6 +99,25 @@ class GameService:
         """Return the player's in-progress run, if any."""
         return self._runs.active_for(user_id)
 
-    def get_run(self, run_id: int, user_id: int) -> GameRun | None:
-        """Return run progress only to the player who owns it."""
-        return self._runs.get_for_user(run_id, user_id)
+    def get_stage_view(self, user_id: int, run_id: int) -> StageView | None:
+        """Return the owned run's public stage, or None for a finished run."""
+        run = self._runs.get_for_user(run_id, user_id)
+        if run is None:
+            raise RunNotFoundError(run_id)
+        if run.status != "in_progress":
+            return None
+
+        stage = self._runs.current_stage_for(run)
+        return StageView(
+            difficulty=Difficulty(run.difficulty),
+            number=run.current_stage,
+            lives=run.lives,
+            prompt=stage.prompt,
+            starter_code=stage.starter_code or "",
+            samples=tuple(
+                PublicSample(
+                    input=case.input, expected_output=case.expected_output
+                )
+                for case in self._runs.samples_for_stage(stage.id)
+            ),
+        )

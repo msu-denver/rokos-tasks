@@ -19,6 +19,7 @@ Author(s): Tyler Black
 <body>
   <header class="site-header">
     <a href="/" data-testid="header-wordmark" class="header-wordmark">Roko's Tasks</a>
+    {% block header_status %}{% endblock %}
     {% block header_actions %}
       <div class="header-actions">
         {% if current_user.is_authenticated %}
