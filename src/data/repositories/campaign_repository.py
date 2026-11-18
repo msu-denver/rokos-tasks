@@ -139,3 +139,12 @@ class CampaignRepository(BaseRepository[Campaign]):
             .order_by(Campaign.id)
         )
         return self._session.execute(stmt).scalars().all()
+
+    def validated_difficulties(self) -> set[str]:
+        """List tiers that have at least one validated campaign."""
+        query = (
+            select(Campaign.difficulty)
+            .where(Campaign.status == "validated")
+            .distinct()
+        )
+        return set(self._session.scalars(query))

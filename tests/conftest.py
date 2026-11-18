@@ -23,7 +23,9 @@ from sqlalchemy.orm import Session
 from werkzeug.serving import make_server
 
 from src.app import create_app
+from src.business.campaigns.seed_loader import SeedLoader
 from src.data.database import db
+from src.data.repositories.campaign_repository import CampaignRepository
 
 FAILURE_SCREENSHOT_DIR = Path(".pr/e2e-failures")
 TEST_DATABASE_URL = os.getenv(
@@ -99,6 +101,20 @@ def app(db_session: Session) -> Flask:
 def client(app: Flask) -> FlaskClient:
     """Return a Flask test client for the app."""
     return app.test_client()
+
+
+@pytest.fixture
+def seeded_beginner(db_session: Session) -> int:
+    """Make the shipped Beginner campaign available to route and UI tests."""
+    seed_file = (
+        Path(__file__).resolve().parents[1]
+        / "content/campaigns/seed/beginner/cafe_tab_splitter.json"
+    )
+    repository = CampaignRepository(db_session)
+    campaign = SeedLoader(repository).load_file(seed_file)
+    campaign_id = campaign.id
+    repository.commit()
+    return campaign_id
 
 
 @pytest.fixture

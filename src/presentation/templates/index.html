@@ -1,7 +1,6 @@
 {#
 File: index.html
-Description: Placeholder home page extending base layout until the real
-    home screen (US2/US3) is built.
+Description: Home page with registration and the player start link.
 Author(s): Tyler Black
 #}
 {% extends "base.html" %}
@@ -11,8 +10,10 @@ Author(s): Tyler Black
   <h1 data-testid="app-title">Roko's Tasks</h1>
   {% if current_user.is_authenticated %}
     <p>Logged in as <span data-testid="home-username">{{ current_user.username }}</span></p>
+    <a class="btn btn-primary" href="{{ url_for('game.start') }}" data-testid="home-start-link">Start a run</a>
+  {% else %}
+    <p data-testid="app-status">The Overlord is still compiling. Check back soon.</p>
+    <p><a href="{{ url_for('auth.register') }}" data-testid="home-register-link">Register</a></p>
   {% endif %}
-  <p data-testid="app-status">The Overlord is still compiling. Check back soon.</p>
-  <p><a href="{{ url_for('auth.register') }}" data-testid="home-register-link">Register</a></p>
 </div>
 {% endblock %}
