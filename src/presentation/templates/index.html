@@ -1,18 +1,14 @@
 {#
 File: index.html
-Description: Placeholder home page until the real home screen (US2/US3)
-    is built.
+Description: Placeholder home page extending base layout until the real
+    home screen (US2/US3) is built.
 Author(s): Tyler Black
 #}
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Roko's Tasks</title>
-</head>
-<body>
+{% extends "base.html" %}
+
+{% block content %}
+<div class="floating-panel">
   <h1 data-testid="app-title">Roko's Tasks</h1>
   <p data-testid="app-status">The Overlord is still compiling. Check back soon.</p>
-</body>
-</html>
+</div>
+{% endblock %}

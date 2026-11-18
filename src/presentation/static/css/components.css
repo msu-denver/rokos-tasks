@@ -1,0 +1,256 @@
+/*
+File: components.css
+Description: Shared design system components including layout, typography,
+    buttons, panels, forms, and accessibility rules.
+Author(s): Tyler Black
+*/
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  background-color: var(--bg);
+  background-image:
+    linear-gradient(
+      to right,
+      var(--grid) var(--border-1),
+      transparent var(--border-1)
+    ),
+    linear-gradient(
+      to bottom,
+      var(--grid) var(--border-1),
+      transparent var(--border-1)
+    );
+  background-size: var(--grid-size) var(--grid-size);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: var(--text-14);
+  line-height: 1.5;
+}
+
+/* Site header and brand wordmark */
+.site-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-6);
+  border-bottom: var(--border-1) solid var(--line);
+  background-color: var(--surface);
+}
+
+.header-wordmark,
+[data-testid="header-wordmark"] {
+  font-family: var(--font-display);
+  font-size: var(--text-22);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-strong);
+  text-decoration: none;
+}
+
+.header-wordmark:hover,
+[data-testid="header-wordmark"]:hover {
+  color: var(--cyan);
+}
+
+/* Main content region */
+main {
+  padding: var(--space-6);
+}
+
+/* Floating panel with cut corners, inner bevel, and hard offset shadow */
+.floating-panel {
+  background-color: var(--surface-raised);
+  padding: var(--space-6);
+  margin-top: var(--space-6);
+  margin-bottom: var(--space-6);
+  clip-path: polygon(
+    var(--cut-window) 0%,
+    100% 0%,
+    100% calc(100% - var(--cut-window)),
+    calc(100% - var(--cut-window)) 100%,
+    0% 100%,
+    0% var(--cut-window)
+  );
+  box-shadow:
+    inset var(--border-1) var(--border-1) 0 var(--bevel-light),
+    inset
+      calc(-1 * var(--border-1))
+      calc(-1 * var(--border-1))
+      0
+      var(--bevel-dark);
+  filter: drop-shadow(
+    var(--shadow-offset-window) var(--shadow-offset-window) 0 var(--magenta)
+  );
+  border-radius: 0;
+}
+
+.floating-panel--cyan {
+  filter: drop-shadow(
+    var(--shadow-offset-window) var(--shadow-offset-window) 0 var(--cyan)
+  );
+}
+
+/* Form fields and labels */
+label,
+.form-label {
+  display: block;
+  font-family: var(--font-body);
+  font-size: var(--text-12);
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: var(--space-1);
+}
+
+input[type="text"],
+input[type="email"],
+input[type="password"],
+textarea,
+select,
+.form-input {
+  display: block;
+  width: 100%;
+  font-family: var(--font-mono);
+  font-size: var(--text-14);
+  color: var(--ink-strong);
+  background-color: var(--surface);
+  border: var(--border-1) solid var(--line);
+  padding: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-3);
+  border-radius: 0;
+}
+
+input[type="text"]:focus,
+input[type="email"]:focus,
+input[type="password"]:focus,
+textarea:focus,
+select:focus,
+.form-input:focus {
+  border-color: var(--cyan);
+  outline: var(--focus-outline) solid var(--cyan);
+  outline-offset: var(--focus-offset);
+}
+
+/* Field error text */
+.field-error,
+.form-error {
+  display: block;
+  font-family: var(--font-body);
+  font-size: var(--text-12);
+  color: var(--red);
+  margin-top: calc(-1 * var(--space-2));
+  margin-bottom: var(--space-3);
+}
+
+/* Buttons */
+.btn,
+button,
+input[type="submit"],
+input[type="button"] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: var(--text-14);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: var(--space-2) var(--space-4);
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  clip-path: polygon(
+    var(--cut-button) 0%,
+    100% 0%,
+    calc(100% - var(--cut-button)) 100%,
+    0% 100%
+  );
+  border-radius: 0;
+}
+
+/* Primary button: filled cyan parallelogram with magenta hard shadow */
+.btn-primary,
+.btn--primary {
+  background: var(--cyan);
+  color: var(--bg);
+  filter: drop-shadow(
+    var(--shadow-offset-button) var(--shadow-offset-button) 0 var(--magenta)
+  );
+}
+
+.btn-primary:hover,
+.btn--primary:hover {
+  filter: drop-shadow(
+    var(--shadow-offset-button) var(--shadow-offset-button) 0 var(--cyan)
+  );
+}
+
+/* Secondary button: cyan outline */
+.btn-secondary,
+.btn--secondary {
+  background: transparent;
+  color: var(--cyan);
+  box-shadow: inset 0 0 0 var(--border-1) var(--cyan);
+}
+
+.btn-secondary:hover,
+.btn--secondary:hover {
+  background-color: var(--surface-raised);
+  color: var(--ink-strong);
+}
+
+/* Flash messages */
+.flash-container {
+  margin: var(--space-4) var(--space-6);
+}
+
+.flash-message,
+[data-testid="flash-message"] {
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-2);
+  background-color: var(--surface-raised);
+  border-left: var(--space-1) solid var(--cyan);
+  color: var(--ink-strong);
+  font-family: var(--font-body);
+  font-size: var(--text-14);
+  border-radius: 0;
+}
+
+.flash-message--error {
+  border-left-color: var(--red);
+}
+
+/* Links */
+a {
+  color: var(--cyan);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* Global focus outline */
+:focus-visible {
+  outline: var(--focus-outline) solid var(--cyan);
+  outline-offset: var(--focus-offset);
+}
+
+/* Motion accessibility preferences */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

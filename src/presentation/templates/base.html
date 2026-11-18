@@ -1,0 +1,33 @@
+{#
+File: base.html
+Description: Base HTML layout providing typography, design tokens, shared
+    component stylesheets, top-level navigation header, and flash messages.
+Author(s): Tyler Black
+#}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Roko's Tasks{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Michroma&family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/tokens.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/components.css') }}">
+</head>
+<body>
+  <header class="site-header">
+    <a href="/" data-testid="header-wordmark" class="header-wordmark">Roko's Tasks</a>
+    {% block header_actions %}{% endblock %}
+  </header>
+  <div class="flash-container">
+    {% for message in get_flashed_messages() %}
+      <div class="flash-message" data-testid="flash-message">{{ message }}</div>
+    {% endfor %}
+  </div>
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

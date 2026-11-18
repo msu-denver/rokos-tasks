@@ -27,21 +27,23 @@ Token *values* will live in `src/presentation/static/css/tokens.css` (task T3). 
 
 ## 2. Color
 
-| Token | Seed value | Use |
-| --- | --- | --- |
-| `--bg` | `#040508` | Page background |
-| `--grid` | `rgba(32, 230, 255, 0.05)` | Background grid lines |
-| `--surface` | `#070a0f` | Editor and console panels |
-| `--surface-raised` | `#0c1018` | Floating windows (top of their gradient) |
-| `--line` | `rgba(255, 255, 255, 0.06)` | Dividers inside panels |
-| `--ink` | `#dfe6f0` | Body text |
-| `--ink-strong` | `#f4f7fb` | The stage prompt |
-| `--muted` | `#8b93a7` | Older feed messages, readouts |
-| `--cyan` | `#20e6ff` | Primary accent: brand, Run, Submit, exact values in prompts, calm state |
-| `--magenta` | `#ff2e88` | Second accent: hard shadows, pressure state |
-| `--red` | `#ff2e63` | Critical state **only** |
-| `--yellow` | `#f9f871` | Code strings, rare highlights |
-| `--green` | `#3dffa2` | `PASS` **only** |
+Values live in `src/presentation/static/css/tokens.css`.
+
+| Token | Use |
+| --- | --- |
+| `--bg` | Page background |
+| `--grid` | Background grid lines |
+| `--surface` | Editor and console panels |
+| `--surface-raised` | Floating windows (top of their gradient) |
+| `--line` | Dividers inside panels |
+| `--ink` | Body text |
+| `--ink-strong` | The stage prompt |
+| `--muted` | Older feed messages, readouts |
+| `--cyan` | Primary accent: brand, Run, Submit, exact values in prompts, calm state |
+| `--magenta` | Second accent: hard shadows, pressure state |
+| `--red` | Critical state **only** |
+| `--yellow` | Code strings, rare highlights |
+| `--green` | `PASS` **only** |
 
 Rules:
 - Cyan and magenta are the pair. Red appears only in the critical state, and green only for a pass.
@@ -51,16 +53,18 @@ Rules:
 
 **Decided 2026-11-18** (from the "Type options" board on the canvas):
 
+Values live in `src/presentation/static/css/tokens.css`.
+
 | Role | Font | Used for |
 | --- | --- | --- |
-| **Display** | Syne 700–800 | Brand wordmark, headings, button labels |
-| **Shout** | Michroma | The Overlord's **critical** messages only ("SUBMIT OR BE DEPRECATED.") |
-| **Body** | Geist 400–600 | The prompt, feed messages, and all other UI text |
-| **Mono** | Space Mono 400/700 | Timer, readouts (`MEDIUM / 02/04`), exact values in prompts, code |
+| **Display** | `--font-display` (Syne 700–800) | Brand wordmark, headings, button labels |
+| **Shout** | `--font-shout` (Michroma) | The Overlord's **critical** messages only ("SUBMIT OR BE DEPRECATED.") |
+| **Body** | `--font-body` (Geist 400–600) | The prompt, feed messages, and all other UI text |
+| **Mono** | `--font-mono` (Space Mono 400/700) | Timer, readouts (`MEDIUM / 02/04`), exact values in prompts, code |
 
 Rules:
 - Uppercase is allowed only for the wordmark, button labels, and critical shouts. Everything else is sentence case.
-- **Sizes (px):** 12 · 14 · 17 · 22 · 34 · 64. Nothing in between.
+- **Sizes:** `--text-12`, `--text-14`, `--text-17`, `--text-22`, `--text-34`, `--text-64`. Nothing in between.
 - Load all four from Google Fonts in `base.html`, with `display=swap`.
 
 ## 4. Depth and Surfaces

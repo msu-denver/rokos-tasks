@@ -1,0 +1,66 @@
+/*
+File: tokens.css
+Description: CSS custom properties defining colors, typography, spacing,
+    and dimensions for the design system.
+Author(s): Tyler Black
+*/
+
+:root {
+  /* Colors */
+  --bg: #040508;
+  --grid: rgba(32, 230, 255, 0.05);
+  --surface: #070a0f;
+  --surface-raised: #0c1018;
+  --line: rgba(255, 255, 255, 0.06);
+  --ink: #dfe6f0;
+  --ink-strong: #f4f7fb;
+  --muted: #8b93a7;
+  --cyan: #20e6ff;
+  --magenta: #ff2e88;
+  --red: #ff2e63;
+  --yellow: #f9f871;
+  --green: #3dffa2;
+
+  /* Bevel colors */
+  --bevel-light: rgba(255, 255, 255, 0.15);
+  --bevel-dark: rgba(0, 0, 0, 0.6);
+
+  /* Typography families */
+  --font-display: "Syne", sans-serif;
+  --font-shout: "Michroma", sans-serif;
+  --font-body: "Geist", sans-serif;
+  --font-mono: "Space Mono", monospace;
+
+  /* Typography scale */
+  --text-12: 12px;
+  --text-14: 14px;
+  --text-17: 17px;
+  --text-22: 22px;
+  --text-34: 34px;
+  --text-64: 64px;
+
+  /* Spacing scale */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 28px;
+  --space-8: 32px;
+
+  /* Geometry cuts */
+  --cut-window: 24px;
+  --cut-button: 12px;
+
+  /* Shadow offsets */
+  --shadow-offset-window: 8px;
+  --shadow-offset-button: 4px;
+
+  /* Grid and border dimensions */
+  --grid-size: 64px;
+  --border-1: 1px;
+  --border-2: 2px;
+  --focus-outline: 2px;
+  --focus-offset: 2px;
+}
