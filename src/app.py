@@ -93,3 +93,8 @@ def create_app(config_overrides: dict[str, Any] | None = None) -> Flask:
     app.register_blueprint(auth_blueprint)
     app.register_blueprint(game_blueprint)
     return app
+
+
+def create_dev_app() -> Flask:
+    """Build the local preview with a separate browser session cookie."""
+    return create_app({"SESSION_COOKIE_NAME": "rokos_dev_session"})

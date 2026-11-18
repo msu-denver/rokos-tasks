@@ -124,6 +124,7 @@ def live_server(app: Flask) -> Iterator[str]:
     Yields:
         The server's base URL, for example ``http://127.0.0.1:54321``.
     """
+    app.config["WTF_CSRF_ENABLED"] = True
     server = make_server("127.0.0.1", 0, app, threaded=True)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()

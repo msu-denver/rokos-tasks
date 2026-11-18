@@ -67,9 +67,9 @@ fill-expected:
 ## What CI runs: lint, campaign validation, and coverage.
 check: lint validate-campaigns coverage
 
-## Flask with auto-reload on http://localhost:8000.
+## Flask with auto-reload on http://localhost:8001.
 dev:
-	$(PYTHON) -m flask --app src.app run --debug --port 8000
+	$(PYTHON) -m flask --app src.app:create_dev_app run --debug --port 8001
 
 ## Start web and db containers with Docker Compose.
 up:

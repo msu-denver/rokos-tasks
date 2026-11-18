@@ -34,7 +34,7 @@ make setup                    # install pinned dependencies
 make db                       # start PostgreSQL
 make migrate                  # create/update tables
 make seed                     # load Beginner and Easy campaigns
-make dev                      # http://localhost:8000
+make dev                      # http://localhost:8001
 ```
 
 Full stack in Docker (web + db): see [Deployment](#deployment).
