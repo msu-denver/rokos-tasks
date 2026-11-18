@@ -54,7 +54,7 @@ Every task also inherits the team gates: `make check` green, self-review, Manual
 - **[HIGH]** `base.html` (the Jinja layout every page extends) loads `tokens.css` and the shared component styles.
 - **[HIGH]** `docs/design.md` (drafted 2026-11-18; fonts decided) has its top bar confirmed, and refers to tokens by name only once `tokens.css` exists. AGENTS.md links to it.
 - **[MED]** No page or component hard-codes a color or font. Reviews treat a hard-coded value as a MED finding.
-- **[LOW]** Exact component styles beyond the wireframe.
+- **[LOW]** Exact component styles beyond design 6 on the design canvas.
 
 ### T4: US1: User model and registration
 `task` · Sub-issue of US1 · Needs T2, T3
@@ -127,4 +127,4 @@ Every task also inherits the team gates: `make check` green, self-review, Manual
 
 1. **Runner sandbox (US6) is 8 points in a Thanksgiving week.** Should the runner owner start the container skeleton in Sprint 1 if they have spare time? (It wouldn't count toward Sprint 1 points.)
 2. **Seed content:** is one Beginner + one Easy campaign enough for `v1`, or do you want one per tier (Medium+ shown as "Coming soon" until the LLM fills them in)?
-3. **Wireframe:** `wireframes/game.html` isn't committed yet. Should it move to `docs/wireframes/` as the design reference for T3 and T9?
+3. ~~**Wireframe:**~~ Resolved: `docs/design.md` and the design canvas replace `wireframes/game.html` as the design reference.

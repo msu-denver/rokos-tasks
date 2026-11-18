@@ -49,6 +49,8 @@ jobs:
           image_pattern = r"!\[[^\]]*\]\([^)]+\)|<img\b[^>]*>"
           images = re.findall(image_pattern, section, flags=re.I)
           text = " ".join(re.sub(image_pattern, "", section).split())
+          # Abbreviations like "e.g. Chrome" aren't sentence ends.
+          text = re.sub(r"\b(e\.g|i\.e|vs|etc)\.", r"\1", text, flags=re.I)
           # A sentence ends at . ! or ? followed by a space and a capital
           # letter, or at the end of the text ("Python 3.13" is safe).
           sentences = len(re.findall(r"[.!?](?=\s+[A-Z]|$)", text))
