@@ -72,7 +72,7 @@ class GameService:
         ]
 
     def active_run(self, user_id: int) -> GameRun | None:
-        """Return the player's in-progress run for the resume link."""
+        """Return the player's in-progress run, if any."""
         return self._runs.active_for(user_id)
 
     def get_run(self, run_id: int, user_id: int) -> GameRun | None:

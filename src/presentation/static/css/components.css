@@ -498,15 +498,7 @@ a:hover {
   padding-block: var(--space-4);
 }
 
-.start-heading {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2) var(--space-4);
-}
-
-.start-heading h1 {
+.start-panel > h1 {
   margin: 0;
 }
 

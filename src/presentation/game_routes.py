@@ -20,7 +20,6 @@ def _render_start(game: GameService, error: str | None = None) -> str:
     return render_template(
         "game/start.html",
         tiers=game.tier_overview(),
-        active_run=game.active_run(current_user.id),
         error=error,
     )
 
@@ -28,7 +27,7 @@ def _render_start(game: GameService, error: str | None = None) -> str:
 @game_blueprint.get("/start")
 @login_required
 def start() -> str:
-    """Show the difficulty tiers and any run the player can resume."""
+    """Show difficulty tiers and their campaign availability."""
     return _render_start(build_game_service())
 
 

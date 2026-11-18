@@ -1,6 +1,6 @@
 """
 File: test_game_routes.py
-Description: Tests difficulty availability, starting, resuming, and ownership.
+Description: Tests difficulty availability, run creation, and ownership.
 Author(s): Tyler Black
 """
 
@@ -69,10 +69,10 @@ def test_start_screen_shows_all_tier_rules_and_availability(
             assert f'data-testid="{card_id}-button"' not in html
 
 
-def test_start_resume_and_replace_run(
+def test_start_and_replace_run_without_resume_link(
     player: FlaskClient, seeded_beginner: int, db_session: Session
 ) -> None:
-    """Start a run, offer resumption, and persist an atomic replacement."""
+    """Hide the resume control and persist an atomic run replacement."""
     first = player.post("/runs", data={"difficulty": "beginner"})
     assert first.status_code == 302
     first_url = first.headers["Location"]
@@ -82,7 +82,7 @@ def test_start_resume_and_replace_run(
     assert 'data-testid="play-lives">4<' in play_html
 
     start_html = player.get("/start").get_data(as_text=True)
-    assert f'href="{first_url}" data-testid="start-resume-run"' in start_html
+    assert 'data-testid="start-resume-run"' not in start_html
 
     unavailable = player.post("/runs", data={"difficulty": "hard"})
     assert unavailable.status_code == 200
@@ -90,7 +90,7 @@ def test_start_resume_and_replace_run(
     assert 'data-testid="start-error">No campaigns for this tier yet.' in (
         unavailable_html
     )
-    assert f'href="{first_url}"' in unavailable_html
+    assert 'data-testid="start-resume-run"' not in unavailable_html
 
     second = player.post("/runs", data={"difficulty": "beginner"})
     assert second.status_code == 302

@@ -22,7 +22,7 @@ def test_start_beginner_run(
     db_session: Session,
     seeded_beginner: int,
 ) -> None:
-    """Start Beginner, then check the tier layout with a run to resume."""
+    """Start Beginner, then verify the tier layout without a resume link."""
     AuthService(UserRepository(db_session)).register(
         "RunStarter", "password123", "password123"
     )
@@ -62,9 +62,10 @@ def test_start_beginner_run(
     browser.get(f"{live_server}/start")
     ready.until(
         expected_conditions.visibility_of_element_located(
-            selector("start-resume-run")
+            selector("start-title")
         )
     )
+    assert not browser.find_elements(*selector("start-resume-run"))
     for width, height, needs_scroll in ((1280, 640, False), (390, 560, True)):
         browser.execute_cdp_cmd(
             "Emulation.setDeviceMetricsOverride",
