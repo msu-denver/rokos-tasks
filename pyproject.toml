@@ -1,0 +1,47 @@
+# File: pyproject.toml
+# Description: Ruff, pytest, and coverage configuration. Dependencies are
+#     pinned in requirements.txt, not here.
+# Author(s): Tyler Black
+
+[tool.ruff]
+line-length = 79
+target-version = "py313"
+extend-exclude = ["htmlcov"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "N", "D", "B", "I", "UP"]
+# The course header docstring ("File: ... / Description: ... /
+# Author(s): ...", docs/roadmap.md §6.1) starts on the second line, has no
+# summary sentence, and no blank line after it. These three rules forbid
+# that, and Ruff can't exempt module docstrings only.
+ignore = ["D205", "D212", "D415"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+# Test functions are named for what they check; a docstring would repeat
+# the name. The labeled white-box and black-box tests still need one.
+"tests/**" = ["D103"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = [".", "scripts"]
+addopts = "--strict-markers -ra"
+markers = [
+    "whitebox: course-required white-box test",
+    "blackbox: course-required black-box test",
+    "e2e: Selenium browser test",
+]
+
+[tool.coverage.run]
+source = ["src"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 90
+show_missing = true
+skip_covered = true
+
+[tool.coverage.html]
+directory = "htmlcov"
