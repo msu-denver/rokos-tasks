@@ -221,3 +221,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Agent PR scratch (screenshots, PR bodies, e2e failure shots)
+.pr/
+
+# macOS
+.DS_Store
