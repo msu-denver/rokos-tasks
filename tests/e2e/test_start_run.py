@@ -6,6 +6,7 @@ Author(s): Tyler Black
 
 import pytest
 from selenium import webdriver
+from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions
@@ -188,6 +189,55 @@ def test_game_editor_restores_pending_and_empty_drafts(
             )
         )
         previous = draft
+
+
+@pytest.mark.e2e
+def test_python_editor_pairs_quotes_and_completes_with_tab(
+    browser: webdriver.Chrome,
+    live_server: str,
+    db_session: Session,
+    seeded_beginner: int,
+) -> None:
+    """Use actual keystrokes for quote pairing and Python completion."""
+    ready = _start_beginner(browser, live_server, db_session)
+    ready.until(
+        lambda driver: driver.execute_script(
+            "return window.monaco?.editor.getEditors().length > 0;"
+        )
+    )
+    for source, keys, expected in (
+        ("message = ", '"text', 'message = "text"'),
+        ("message = ", "'text", "message = 'text'"),
+        ("", "pri" + Keys.TAB, "print"),
+        (
+            "def calc_total():\n    pass\n\n",
+            "calc_t" + Keys.TAB,
+            "def calc_total():\n    pass\n\ncalc_total",
+        ),
+        (
+            "price_total = 0\n",
+            "price_t" + Keys.TAB,
+            "price_total = 0\nprice_total",
+        ),
+        ("def calc_total():\n", Keys.TAB, "def calc_total():\n    "),
+    ):
+        browser.execute_script(
+            "const editor = monaco.editor.getEditors()[0];"
+            "const model = editor.getModel();"
+            "model.setValue(arguments[0]);"
+            "editor.setPosition(model.getPositionAt(arguments[0].length));"
+            "editor.focus();",
+            source,
+        )
+        ActionChains(browser).send_keys(keys).perform()
+        ready.until(
+            lambda driver, code=expected: driver.execute_script(
+                "return monaco.editor.getModels()[0].getValue()"
+                " === arguments[0];",
+                code,
+            ),
+            f"Keystrokes {keys!r} should produce {expected!r}",
+        )
 
 
 @pytest.mark.e2e

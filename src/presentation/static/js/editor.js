@@ -6,6 +6,13 @@ Author(s): Tyler Black
 
 const MONACO_BASE = "https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/";
 const SAVE_INTERVAL_MS = 1000;
+const PYTHON_BUILTINS = [
+  "abs", "all", "any", "bin", "bool", "bytes", "chr", "dict", "divmod",
+  "enumerate", "filter", "float", "format", "frozenset", "hex", "input",
+  "int", "isinstance", "iter", "len", "list", "map", "max", "min", "next",
+  "oct", "ord", "pow", "print", "range", "repr", "reversed", "round", "set",
+  "slice", "sorted", "str", "sum", "tuple", "type", "zip",
+];
 
 function load_monaco() {
   return new Promise((resolve, reject) => {
@@ -59,6 +66,27 @@ function autosave(key) {
   };
 }
 
+function register_python_completions(monaco) {
+  // Match Monaco's document-word provider priority so both sets are offered.
+  return monaco.languages.registerCompletionItemProvider("*", {
+    provideCompletionItems(model, position) {
+      if (model.getLanguageId() !== "python") return;
+      const {word, startColumn, endColumn} = model.getWordUntilPosition(position);
+      const line = position.lineNumber;
+      const range = new monaco.Range(line, startColumn, line, endColumn);
+      const suggestions = PYTHON_BUILTINS
+        .filter((name) => name.startsWith(word) && name !== word)
+        .map((name) => ({
+          label: name,
+          kind: monaco.languages.CompletionItemKind.Function,
+          insertText: name,
+          range,
+        }));
+      return {suggestions};
+    },
+  });
+}
+
 function editor_options(monaco, value) {
   const styles = getComputedStyle(document.documentElement);
   const token = (name) => styles.getPropertyValue(name).trim();
@@ -79,6 +107,13 @@ function editor_options(monaco, value) {
       "editorCursor.foreground": token("--cyan"),
       "editorLineNumber.foreground": token("--muted"),
       "editorLineNumber.activeForeground": token("--ink-strong"),
+      "editorSuggestWidget.background": token("--surface"),
+      "editorSuggestWidget.border": token("--muted"),
+      "editorSuggestWidget.foreground": ink,
+      "editorSuggestWidget.highlightForeground": token("--cyan"),
+      "editorSuggestWidget.selectedBackground": token("--surface-raised"),
+      "symbolIcon.functionForeground": token("--cyan"),
+      "symbolIcon.textForeground": token("--muted"),
       "editorBracketHighlight.foreground1": ink,
       "editorBracketHighlight.foreground2": ink,
       "editorBracketHighlight.foreground3": ink,
@@ -100,6 +135,9 @@ function editor_options(monaco, value) {
     tabSize: 4,
     insertSpaces: true,
     detectIndentation: false,
+    autoClosingQuotes: "languageDefined",
+    tabCompletion: "on",
+    wordBasedSuggestions: "currentDocument",
     automaticLayout: true,
     minimap: {enabled: false},
     scrollBeyondLastLine: false,
@@ -118,6 +156,8 @@ export async function init_editor(container, starter_code) {
     const monaco = await load_monaco();
     host.hidden = false;
     const editor = monaco.editor.create(host, editor_options(monaco, textarea.value));
+    const completions = register_python_completions(monaco);
+    editor.onDidDispose(() => completions.dispose());
     editor.onDidChangeModelContent(() => save(editor.getValue()));
     if (document.activeElement === textarea) {
       const model = editor.getModel();
