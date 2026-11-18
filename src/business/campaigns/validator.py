@@ -217,30 +217,6 @@ class CampaignValidator:
                 errors=errors,
             )
 
-        for stage in stages:
-            if not isinstance(stage, dict):
-                continue
-            stage_num = stage.get("stage", "?")
-            ref_code = stage.get("reference_solution")
-            if not ref_code or not isinstance(ref_code, str):
-                continue
-            samples = stage.get("samples", [])
-            probe_input = (
-                samples[0].get("input", "")
-                if samples and isinstance(samples[0], dict)
-                else ""
-            )
-            try:
-                run1 = run_reference(ref_code, probe_input)
-                run2 = run_reference(ref_code, probe_input)
-                if run1.stdout != run2.stdout:
-                    errors.append(
-                        f"[{filename}] Stage {stage_num}: reference solution "
-                        f"is non-deterministic (outputs differed across runs)."
-                    )
-            except ReferenceTimeoutError:
-                pass
-
         cls._validate_incremental_contracts(
             stages=stages,
             filename=filename,
@@ -296,7 +272,7 @@ class CampaignValidator:
         filename: str,
         errors: list[str],
     ) -> None:
-        """Check a single test case against the reference solution."""
+        """Check a test case against two runs of the reference solution."""
         inp = test_case.get("input", "")
         expected = test_case.get("expected_output", "")
         try:
@@ -307,7 +283,14 @@ class CampaignValidator:
                     f"solution exited with code {res.returncode}: "
                     f"{res.stderr.strip()}"
                 )
-            elif normalize_output(res.stdout) != normalize_output(expected):
+                return
+            repeated = run_reference(ref_code, inp)
+            if not repeated.success or repeated.stdout != res.stdout:
+                errors.append(
+                    f"[{filename}] Stage {stage_num} {kind} {idx}: reference "
+                    "solution is non-deterministic (runs did not agree)."
+                )
+            if normalize_output(res.stdout) != normalize_output(expected):
                 errors.append(
                     f"[{filename}] Stage {stage_num} {kind} {idx}: "
                     f"expected output does not match reference stdout."

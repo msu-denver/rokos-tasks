@@ -15,7 +15,8 @@ A comedic coding game: an AI Overlord gives timed feature requests, and you writ
 
 ## Run It
 
-Needs Python 3.13 (or Docker). Chrome is needed for the Selenium tests.
+Use Docker for the full stack, or Python 3.13 with Docker for PostgreSQL.
+Chrome is needed for the Selenium tests.
 
 **With Docker:**
 
@@ -30,6 +31,9 @@ make up                       # http://localhost:8000
 python3.13 -m venv .venv      # or: uv venv --python 3.13 .venv
 source .venv/bin/activate
 make setup                    # install pinned dependencies
+make db                       # start PostgreSQL
+make migrate                  # create/update tables
+make seed                     # load Beginner and Easy campaigns
 make dev                      # http://localhost:8000
 ```
 

@@ -11,7 +11,11 @@ from unittest.mock import patch
 
 import pytest
 
-from src.business.campaigns.reference_runner import ReferenceTimeoutError
+from src.business.campaigns.reference_runner import (
+    ReferenceRunResult,
+    ReferenceTimeoutError,
+    run_reference,
+)
 from src.business.campaigns.validator import (
     CampaignValidator,
     normalize_output,
@@ -297,28 +301,39 @@ class TestCampaignValidator:
     def test_hidden_test_times_out(self, valid_campaign_data: dict) -> None:
         """Verify reference timeout on a hidden test."""
         data = copy.deepcopy(valid_campaign_data)
-        with patch("src.business.campaigns.validator.run_reference") as m_run:
-            from src.business.campaigns.reference_runner import (
-                ReferenceRunResult,
-                ReferenceTimeoutError,
-            )
+        reference = data["stages"][0]["reference_solution"]
 
-            m_run.side_effect = [
-                ReferenceRunResult("6", "", 0),
-                ReferenceTimeoutError("timed out"),
-                ReferenceRunResult("6", "", 0),
-                ReferenceRunResult("6", "", 0),
-                ReferenceRunResult("11", "", 0),
-                ReferenceRunResult("21", "", 0),
-                ReferenceRunResult("11", "", 0),
-                ReferenceRunResult("11", "", 0),
-                ReferenceRunResult("11", "", 0),
-            ]
+        def run_with_timeout(code: str, stdin: str) -> ReferenceRunResult:
+            if code == reference and stdin == "10":
+                raise ReferenceTimeoutError("timed out")
+            return run_reference(code, stdin)
+
+        with patch(
+            "src.business.campaigns.validator.run_reference",
+            side_effect=run_with_timeout,
+        ):
             errors = CampaignValidator.validate(data)
             assert any(
                 "hidden_test 1: reference solution timed out" in err
                 for err in errors
             )
+
+    def test_reference_nondeterminism_on_hidden_input(
+        self, valid_campaign_data: dict
+    ) -> None:
+        """Reject a reference that varies only on a hidden test."""
+        valid_campaign_data["stages"][0]["reference_solution"] = (
+            "import time\n"
+            "number = int(input())\n"
+            "print(time.time_ns() if number == 10 else number + 1)\n"
+        )
+
+        errors = CampaignValidator.validate(valid_campaign_data)
+
+        assert any(
+            "hidden_test 1: reference solution is non-deterministic" in error
+            for error in errors
+        )
 
     def test_non_dict_elements_skipped_safely(
         self, valid_campaign_data: dict

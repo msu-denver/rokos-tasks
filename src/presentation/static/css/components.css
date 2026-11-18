@@ -64,6 +64,7 @@ body {
 
 .header-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-4);
 }
@@ -97,12 +98,28 @@ main {
   padding: var(--space-6);
 }
 
+h1 {
+  margin: 0 0 var(--space-4);
+  font-family: var(--font-display);
+  font-size: var(--text-34);
+  line-height: 1.2;
+}
+
 /* Floating panel with cut corners, inner bevel, and hard offset shadow */
 .floating-panel {
-  background-color: var(--surface-raised);
+  position: relative;
+  isolation: isolate;
   padding: var(--space-6);
   margin-top: var(--space-6);
   margin-bottom: var(--space-6);
+}
+
+.floating-panel::before,
+.floating-panel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
   clip-path: polygon(
     var(--cut-window) 0%,
     100% 0%,
@@ -111,6 +128,18 @@ main {
     0% 100%,
     0% var(--cut-window)
   );
+}
+
+.floating-panel::before {
+  background: var(--panel-shadow, var(--magenta));
+  transform: translate(
+    var(--shadow-offset-window),
+    var(--shadow-offset-window)
+  );
+}
+
+.floating-panel::after {
+  background: var(--surface-raised);
   box-shadow:
     inset var(--border-1) var(--border-1) 0 var(--bevel-light),
     inset
@@ -118,16 +147,10 @@ main {
       calc(-1 * var(--border-1))
       0
       var(--bevel-dark);
-  filter: drop-shadow(
-    var(--shadow-offset-window) var(--shadow-offset-window) 0 var(--magenta)
-  );
-  border-radius: 0;
 }
 
 .floating-panel--cyan {
-  filter: drop-shadow(
-    var(--shadow-offset-window) var(--shadow-offset-window) 0 var(--cyan)
-  );
+  --panel-shadow: var(--cyan);
 }
 
 /* Form fields and labels */
@@ -176,7 +199,7 @@ select:focus,
   display: block;
   font-family: var(--font-body);
   font-size: var(--text-12);
-  color: var(--red);
+  color: var(--magenta);
   margin-top: calc(-1 * var(--space-2));
   margin-bottom: var(--space-3);
 }
@@ -186,6 +209,12 @@ select:focus,
 button,
 input[type="submit"],
 input[type="button"] {
+  --button-shape: polygon(
+    var(--cut-button) 0%,
+    100% 0%,
+    calc(100% - var(--cut-button)) 100%,
+    0% 100%
+  );
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -198,30 +227,51 @@ input[type="button"] {
   border: none;
   cursor: pointer;
   text-decoration: none;
-  clip-path: polygon(
-    var(--cut-button) 0%,
-    100% 0%,
-    calc(100% - var(--cut-button)) 100%,
-    0% 100%
-  );
+  clip-path: var(--button-shape);
   border-radius: 0;
 }
 
 /* Primary button: filled cyan parallelogram with magenta hard shadow */
 .btn-primary,
 .btn--primary {
-  background: var(--cyan);
+  position: relative;
+  isolation: isolate;
+  background: transparent;
+  clip-path: none;
   color: var(--bg);
-  filter: drop-shadow(
-    var(--shadow-offset-button) var(--shadow-offset-button) 0 var(--magenta)
+}
+
+.btn-primary::before,
+.btn-primary::after,
+.btn--primary::before,
+.btn--primary::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  clip-path: var(--button-shape);
+}
+
+.btn-primary::before,
+.btn--primary::before {
+  background: var(--magenta);
+  transform: translate(
+    var(--shadow-offset-button),
+    var(--shadow-offset-button)
   );
 }
 
-.btn-primary:hover,
-.btn--primary:hover {
-  filter: drop-shadow(
-    var(--shadow-offset-button) var(--shadow-offset-button) 0 var(--cyan)
-  );
+.btn-primary::after,
+.btn--primary::after,
+.btn-primary:hover::before,
+.btn--primary:hover::before {
+  background: var(--cyan);
+}
+
+input.btn-primary,
+input.btn--primary {
+  background: var(--cyan);
+  clip-path: var(--button-shape);
 }
 
 /* Secondary button: cyan outline */
@@ -256,7 +306,7 @@ input[type="button"] {
 }
 
 .flash-message--error {
-  border-left-color: var(--red);
+  border-left-color: var(--magenta);
 }
 
 /* Links */

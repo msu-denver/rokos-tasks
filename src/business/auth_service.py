@@ -22,6 +22,7 @@ USERNAME_TAKEN_ERROR = "That username is taken."
 PASSWORD_SHORT_ERROR = "Password must be at least 8 characters."
 PASSWORD_LONG_ERROR = "Password must be 128 characters or fewer."
 PASSWORD_MISMATCH_ERROR = "Passwords don't match."
+_DUMMY_PASSWORD_HASH = generate_password_hash("unused login timing value")
 
 
 class UserRepositoryProtocol(Protocol):
@@ -141,11 +142,9 @@ class AuthService:
         if not USERNAME_PATTERN.fullmatch(trimmed_username) or not password:
             return None
         user = self._user_repository.get_by_username(trimmed_username)
-        if user is None:
-            return None
-        if not check_password_hash(user.password_hash, password):
-            return None
-        return user
+        # Verify a hash even when no account matches the submitted name.
+        password_hash = user.password_hash if user else _DUMMY_PASSWORD_HASH
+        return user if check_password_hash(password_hash, password) else None
 
 
 def is_safe_redirect(target: str | None) -> bool:

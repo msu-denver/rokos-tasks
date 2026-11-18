@@ -12,7 +12,7 @@ Author(s): Tyler Black
     <p>Logged in as <span data-testid="home-username">{{ current_user.username }}</span></p>
     <a class="btn btn-primary" href="{{ url_for('game.start') }}" data-testid="home-start-link">Start a run</a>
   {% else %}
-    <p data-testid="app-status">The Overlord is still compiling. Check back soon.</p>
+    <a class="btn btn-primary" href="{{ url_for('auth.login') }}" data-testid="app-status">Log in</a>
     <p><a href="{{ url_for('auth.register') }}" data-testid="home-register-link">Register</a></p>
   {% endif %}
 </div>

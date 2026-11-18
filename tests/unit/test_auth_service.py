@@ -266,11 +266,23 @@ def test_authenticate_success_in_any_username_case(
     assert authenticated_user.id == 1
 
 
-def test_authenticate_returns_none_for_unknown_user() -> None:
+def test_authenticate_returns_none_for_unknown_user(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Verify authenticate returns None when username does not exist."""
     service = AuthService(FakeUserRepository())
+    checked: list[str] = []
+
+    def check_hash(password_hash: str, password: str) -> bool:
+        checked.append(password_hash)
+        return check_password_hash(password_hash, password)
+
+    monkeypatch.setattr(
+        "src.business.auth_service.check_password_hash", check_hash
+    )
 
     assert service.authenticate("ghost_user", "any_password") is None
+    assert len(checked) == 1
 
 
 def test_authenticate_returns_none_for_wrong_password() -> None:
