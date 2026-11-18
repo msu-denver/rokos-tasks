@@ -63,11 +63,14 @@ you're working for.
 
 ## 6. Open the PR as a draft
 
-- Follow [skills/open-pr](skills/open-pr/SKILL.md): base `dev`, the
-  standard format, opened as a **draft**.
-- Agents can't upload images to GitHub. Tell your human: "Drag
-  `.pr/screenshot.png` into the Manual Testing section, check it, then
-  mark the PR ready for review."
+- Follow [skills/open-pr](skills/open-pr/SKILL.md) to open a **draft**
+  against `dev` in the standard format. Draft status is mandatory when
+  the user has yet to attach the manual-testing screenshot in the
+  current agent chat, including for stacked PRs and handoffs that ask
+  for a regular PR.
+- Tell the user the PR stays in draft until they attach the screenshot
+  in chat or add it under **Manual Testing** on GitHub. The human marks
+  it ready once the screenshot appears in the PR and matches the test.
 - Move the board card to **In Review** once the PR is ready.
 
 ## 7. After review

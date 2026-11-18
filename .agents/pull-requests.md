@@ -54,13 +54,17 @@ someone actually used the change.
 
 ## Screenshot
 
-Agents can't upload images to GitHub, so:
-
-1. The agent saves the screenshot to `.pr/screenshot.png` (gitignored)
-   and opens the PR as a **draft** with this placeholder under Manual
-   Testing: `<!-- SCREENSHOT: drag .pr/screenshot.png here -->`.
-2. The human drags the image in over the placeholder, checks that the
-   sentence matches what the screenshot shows, and clicks **Ready for
-   review**.
+1. Save the manual-testing screenshot to `.pr/screenshot.png`
+   (gitignored). Leave `<!-- SCREENSHOT: drag .pr/screenshot.png here -->`
+   under Manual Testing while the image is pending.
+2. **If the user has yet to attach the screenshot in the current agent
+   chat, always open the PR as a draft.** This applies to stacked PRs
+   and handoffs that request a regular PR. The local screenshot is for
+   the user to attach.
+3. Tell the user that the PR stays in draft until they attach the
+   manual-testing screenshot in this chat or add it under Manual
+   Testing on GitHub. Before marking the PR **Ready for review**, the
+   human adds the screenshot to the PR and checks that it matches the
+   manual-testing sentence. Only a human marks the PR ready.
 
 Never commit screenshots to the repo.

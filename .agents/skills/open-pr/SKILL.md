@@ -47,6 +47,11 @@ Fill in the author line, for example `Author: Jane Doe with Claude Opus 5.5`.
 
 ## 6. Open as a draft
 
+Always pass `--draft` when the user has yet to attach the manual-testing
+screenshot in the current agent chat. This applies to stacked PRs and
+handoffs requesting a regular PR. Share the path to the saved image so
+the user can attach it.
+
 ```bash
 git push -u origin HEAD
 gh pr create --draft --base dev --title "<type>(US#): <summary>" --body-file .pr/body.md
@@ -54,10 +59,11 @@ gh pr create --draft --base dev --title "<type>(US#): <summary>" --body-file .pr
 
 ## 7. Hand off
 
-Tell your human, word for word:
+When the screenshot is still pending, tell the user:
 
-> Draft PR opened: <url>. Drag `.pr/screenshot.png` into the Manual
-> Testing section, check that the sentence matches, then click
-> **Ready for review**.
+> I opened <url> as a draft. It stays in draft until you attach the
+> manual-testing screenshot in this chat or add it under **Manual Testing**
+> on GitHub. You can use `.pr/screenshot.png`. Once the screenshot is
+> visible in the PR and matches the test, mark it **Ready for review**.
 
 Never mark the PR ready, request reviewers, or merge it yourself.
