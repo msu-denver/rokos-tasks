@@ -3,8 +3,8 @@
   "configurations": [
     {
       "name": "web",
-      "runtimeExecutable": "make",
-      "runtimeArgs": ["dev", "PYTHON=.venv/bin/python"],
+      "runtimeExecutable": ".venv/bin/python",
+      "runtimeArgs": ["-m", "flask", "--app", "src.app", "run", "--port", "8000"],
       "port": 8000
     }
   ]
