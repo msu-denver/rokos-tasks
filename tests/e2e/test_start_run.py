@@ -22,7 +22,7 @@ def test_start_beginner_run(
     db_session: Session,
     seeded_beginner: int,
 ) -> None:
-    """Log in, select Beginner, and see Stage 1 with four lives."""
+    """Start Beginner, then check the tier layout with a run to resume."""
     AuthService(UserRepository(db_session)).register(
         "RunStarter", "password123", "password123"
     )
@@ -58,3 +58,37 @@ def test_start_beginner_run(
     )
     assert stage.text == "Stage 1"
     assert browser.find_element(*selector("play-lives")).text == "4"
+
+    browser.get(f"{live_server}/start")
+    ready.until(
+        expected_conditions.visibility_of_element_located(
+            selector("start-resume-run")
+        )
+    )
+    for width, height, needs_scroll in ((1280, 640, False), (390, 560, True)):
+        browser.execute_cdp_cmd(
+            "Emulation.setDeviceMetricsOverride",
+            {
+                "width": width,
+                "height": height,
+                "deviceScaleFactor": 1,
+                "mobile": False,
+            },
+        )
+        horizontal, vertical = browser.execute_script(
+            "const page = document.scrollingElement;"
+            "return [page.scrollWidth - page.clientWidth,"
+            "page.scrollHeight - page.clientHeight];"
+        )
+        assert horizontal == 0
+        assert (vertical > 0) == needs_scroll, (width, height, vertical)
+
+    last_tier = browser.find_element(*selector("start-tier-impossible"))
+    scroll, top, bottom, viewport_height = browser.execute_script(
+        "window.scrollTo(0, document.scrollingElement.scrollHeight);"
+        "const {top, bottom} = arguments[0].getBoundingClientRect();"
+        "return [window.scrollY, top, bottom, window.innerHeight];",
+        last_tier,
+    )
+    assert scroll > 0
+    assert 0 <= top < bottom <= viewport_height

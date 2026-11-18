@@ -493,21 +493,38 @@ a:hover {
 }
 
 /* Difficulty cards and run readouts */
+.start-panel {
+  margin-block: 0;
+  padding-block: var(--space-4);
+}
+
+.start-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+}
+
+.start-heading h1 {
+  margin: 0;
+}
+
 .tier-grid {
   display: grid;
   grid-template-columns: repeat(
     auto-fit,
     minmax(min(100%, calc(var(--grid-size) * 4)), 1fr)
   );
-  gap: var(--space-4);
-  margin-top: var(--space-4);
+  gap: var(--space-3) var(--space-4);
+  margin-top: var(--space-3);
 }
 
 .tier-card {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
-  padding: var(--space-4);
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
   border: var(--border-1) solid var(--line);
   background: var(--surface);
 }
@@ -516,13 +533,14 @@ a:hover {
   margin: 0;
   font-family: var(--font-display);
   font-size: var(--text-22);
+  line-height: 1.2;
   color: var(--ink-strong);
 }
 
 .tier-rules {
   display: grid;
   grid-template-columns: 1fr auto;
-  gap: var(--space-2);
+  gap: var(--space-1) var(--space-2);
   margin: 0;
 }
 

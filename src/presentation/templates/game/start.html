@@ -8,11 +8,13 @@ Author(s): Tyler Black
 {% block title %}Start a run - Roko's Tasks{% endblock %}
 
 {% block content %}
-<div class="floating-panel">
-  <h1 data-testid="start-title">Start a run</h1>
-  {% if active_run %}
-    <a class="btn btn-secondary" href="{{ url_for('game.play', run_id=active_run.id) }}" data-testid="start-resume-run">Resume run</a>
-  {% endif %}
+<div class="floating-panel start-panel">
+  <div class="start-heading">
+    <h1 data-testid="start-title">Start a run</h1>
+    {% if active_run %}
+      <a class="btn btn-secondary" href="{{ url_for('game.play', run_id=active_run.id) }}" data-testid="start-resume-run">Resume run</a>
+    {% endif %}
+  </div>
   {% if error %}
     <p class="start-error" role="alert" data-testid="start-error">{{ error }}</p>
   {% endif %}
