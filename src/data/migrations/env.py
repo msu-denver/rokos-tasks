@@ -11,8 +11,8 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
+from src.data import models  # noqa: F401 - Register models for autogenerate.
 from src.data.database import Base
-from src.data.models.user import User  # noqa: F401
 
 config = context.config
 

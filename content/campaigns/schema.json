@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CampaignSchema",
+  "description": "Validation schema for Roko's Tasks campaign definitions.",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "difficulty": {
+      "type": "string",
+      "enum": [
+        "beginner",
+        "easy",
+        "medium",
+        "hard",
+        "expert",
+        "impossible"
+      ]
+    },
+    "stages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "stage": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "prompt": {
+            "type": "string",
+            "minLength": 1
+          },
+          "starter_code": {
+            "type": ["string", "null"]
+          },
+          "samples": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "input": {
+                  "type": "string"
+                },
+                "expected_output": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "input",
+                "expected_output"
+              ],
+              "additionalProperties": false
+            },
+            "minItems": 1
+          },
+          "hidden_tests": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "properties": {
+                "input": {
+                  "type": "string"
+                },
+                "expected_output": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "input",
+                "expected_output"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "reference_solution": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "stage",
+          "prompt",
+          "starter_code",
+          "samples",
+          "hidden_tests",
+          "reference_solution"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1
+    }
+  },
+  "required": [
+    "title",
+    "difficulty",
+    "stages"
+  ],
+  "additionalProperties": false
+}

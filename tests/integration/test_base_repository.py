@@ -1,7 +1,7 @@
 """
 File: test_base_repository.py
 Description: Unit and integration tests for BaseRepository operations
-    (add, flush id assignment, get, and error handling).
+    (add, flush id assignment, get, commit, rollback, and error handling).
 Author(s): Tyler Black
 """
 
@@ -87,4 +87,7 @@ def test_base_repository_commit_and_rollback(db_session: Session) -> None:
     repo.commit()
     assert repo.get(entity.id) is not None
 
+    entity2 = DummyEntity(name="delta")
+    repo.add(entity2)
     repo.rollback()
+    assert repo.get(entity2.id) is None
