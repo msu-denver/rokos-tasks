@@ -12,6 +12,7 @@ from alembic import context
 from sqlalchemy import engine_from_config, pool
 
 from src.data.database import Base
+from src.data.models.user import User  # noqa: F401
 
 config = context.config
 

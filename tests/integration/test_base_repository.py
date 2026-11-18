@@ -78,3 +78,13 @@ def test_base_repository_requires_model_cls(db_session: Session) -> None:
     repo = BaseRepository(db_session)
     with pytest.raises(NotImplementedError):
         repo.get(1)
+
+
+def test_base_repository_commit_and_rollback(db_session: Session) -> None:
+    repo = BaseRepository(db_session, DummyEntity)
+    entity = DummyEntity(name="gamma")
+    repo.add(entity)
+    repo.commit()
+    assert repo.get(entity.id) is not None
+
+    repo.rollback()

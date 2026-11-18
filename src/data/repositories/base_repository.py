@@ -56,3 +56,17 @@ class BaseRepository[T]:
         if self.model_cls is None:
             raise NotImplementedError("model_cls must be defined.")
         return self._session.get(self.model_cls, ident)
+
+    def commit(self) -> None:
+        """Commit the active database transaction.
+
+        Delegates the commit operation to the underlying database session.
+        """
+        self._session.commit()
+
+    def rollback(self) -> None:
+        """Roll back the active database transaction.
+
+        Delegates the rollback operation to the underlying database session.
+        """
+        self._session.rollback()
