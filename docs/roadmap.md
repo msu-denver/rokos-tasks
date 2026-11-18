@@ -1,8 +1,8 @@
-# Project Roadmap & Kickoff Guide
+# Project Roadmap
 
-> **Companion to [PLAN.md](PLAN.md).** PLAN.md says *what* the game is; this document says *how we build it* while meeting every CS3250 Project 3 requirement: stack, repo layout, environment, code standards, testing, Git/Scrum process, the graded user-story backlog, sprint plan, and UML/README plan.
->
-> **Status:** draft for Sprint 0 (2026-11-17). Anything marked **(Proposed)** needs team agreement — see [§15 Kickoff Decisions](#15-kickoff-decisions).
+**What this doc is:** *how* we build the game while meeting every CS 3250 Project 3 requirement. It covers the course checklist, stack, repo layout, environment, code standards, testing, agent setup, Git and Scrum process, the reasoning behind the backlog and sprint plan, UML, kickoff decisions, and risks. For *what* the game is, see [game-design.md](game-design.md).
+
+> **Status:** draft for Sprint 0 (2026-11-17). Anything marked **(Proposed)** needs team agreement. See [§15 Kickoff Decisions](#15-kickoff-decisions).
 >
 > **Course template repo:** [msu-denver/26FCS3250-002-prj-3](https://github.com/msu-denver/26FCS3250-002-prj-3) (README template, Scrum note templates, UML starters, `burndown.xlsx`).
 
@@ -33,11 +33,11 @@ Every graded item, and where this plan covers it.
 
 | Requirement | Points | Where handled |
 | :--- | :---: | :--- |
-| README: mission statement | 5 | [README → Mission Statement](README.md#mission-statement) |
-| README: use case diagram | 5 | [README → Use Case Diagram](README.md#use-case-diagram), [§14.2](#142-uml-diagrams) |
-| README: sequence diagram (non-auth story) | 5 | [README → Sequence Diagram](README.md#sequence-diagram), [§14.2](#142-uml-diagrams) |
+| README: mission statement | 5 | [README → Mission Statement](../README.md#mission-statement) |
+| README: use case diagram | 5 | [README → Use Case Diagram](../README.md#use-case-diagram), [§14.2](#142-uml-diagrams) |
+| README: sequence diagram (non-auth story) | 5 | [README → Sequence Diagram](../README.md#sequence-diagram), [§14.2](#142-uml-diagrams) |
 | README: user stories | 10 | [§11](#11-user-stories), [§12](#12-product-backlog) |
-| README: class diagram (model classes only) | 5 | [README → Model](README.md#model), [§14.2](#142-uml-diagrams) |
+| README: class diagram (model classes only) | 5 | [README → Model](../README.md#model), [§14.2](#142-uml-diagrams) |
 | README: coverage report (Python `coverage`) | 5 | [§7](#7-testing--coverage) |
 | Repo in msu-denver org, `main` + `dev`, `main` protected (≥ 1 approval) | 5 | [§9](#9-git--github-workflow) |
 | Scrum notes (planning, daily, review, retro) | 10 | [§10](#10-scrum-process) |
@@ -65,7 +65,7 @@ Every graded item, and where this plan covers it.
 4. **Python everywhere it counts.** Code quality is graded on Python, so the app is server-rendered Python with as little JavaScript as possible.
 5. **One environment, one set of commands.** Humans, AI agents, CI, and the grader all use the same Docker setup.
 6. **Fair before fancy.** Wrong tests, lost work, and unexplained failures are the bugs that matter most.
-7. **Vague jokes, exact contract.** The Overlord can be as sarcastic as we like; the Input/Output spec is always precise.
+7. **Plain-text prompts, exact contract.** The Overlord's stage prompt is plain text and can be as sarcastic as we like, but it always states the exact input/output format and an example.
 
 ---
 
@@ -77,13 +77,13 @@ Every graded item, and where this plan covers it.
 | Auth | **Flask-Login** + Werkzeug password hashing + **Flask-WTF** (CSRF-protected forms) | Required registration/login with minimal custom security code |
 | Database | **PostgreSQL 17** | Non-SQLite DB for the bonus |
 | Data access | **SQLAlchemy 2** (ORM) + **Alembic** migrations, wrapped in **repository classes** | Clean data-access layer for the 3-layer bonus |
-| Game page | One vanilla **JavaScript** module (no build step) + **Monaco** editor and **Pyodide** loaded from a CDN | Editor and in-browser Run Sample without a Node toolchain |
+| Game page | Native browser **ES modules** (no bundler, no Node), with **Monaco** editor and **Pyodide** loaded from a CDN. **Alpine.js** (one script tag) is optional for reactive state like lives, timer, and verdict | The game page is the one heavy interactive screen: a single `game.js` would pass 1,000 lines and cause merge conflicts, so it's split into small modules. React/TypeScript was rejected: it adds Node, a bundler, and a second test/lint stack, none of it graded (coverage.py is Python-only), and Selenium already covers JS behavior |
 | Overlord art | Inline **SVG** + CSS classes per state | Easy to animate; no framework needed |
 | Code sandbox | **Custom `runner` service** (Python standard library only, own container) | See [§3.2](#32-why-a-custom-runner-instead-of-judge0) |
 | LLM (optional US11) | **Azure OpenAI** via the official `openai` SDK, structured outputs | Our credit is on Azure; structured outputs force our JSON schema |
 | Production server | **Gunicorn** | Standard WSGI server inside Docker |
 | Lint / format | **Ruff** (lint + format, line length 79) + **pycodestyle** in CI | PEP 8 is graded; pycodestyle is the reference checker |
-| Tests | **pytest** + **coverage.py** (HTML report → `htmlcov/`) | Course requires Python's `coverage` tool |
+| Tests | **pytest** + **coverage.py** (HTML report → `htmlcov/`) + **Selenium** (headless Chromium) for end-to-end tests | Course requires Python's `coverage` tool; Selenium covers the real browser flows |
 | Task runner | **Make** | One command per task |
 | CI | **GitHub Actions** | Runs lint, header check, tests, and a Docker build on every PR |
 
@@ -144,14 +144,16 @@ src/ ★
   presentation/
     auth_routes.py  game_routes.py  leaderboard_routes.py  forms.py
     templates/              Jinja templates
-    static/                 css/, js/game.js, js/pyodide_worker.js, img/overlord.svg
+    static/                 css/, img/overlord.svg, js/ (ES modules: editor.js, timer.js,
+                            console.js, overlord.js, api.js, pyodide_worker.js, plus a
+                            small game.js entry that wires them up)
   business/
     auth_service.py  game_service.py  grading_service.py  score_calculator.py
     campaign_service.py  campaign_validator.py  dialogue_service.py  runner_client.py
     llm/                    client.py, budget_ledger.py, generator.py, solvers.py, prompts/   (US11)
   data/
     database.py             engine + session
-    models.py               model classes (see §14.4)
+    models.py               model classes (see §14.3)
     repositories/           user_repository.py, campaign_repository.py, run_repository.py, ...
     migrations/             Alembic
   runner/                   sandbox service (runs in its own container)
@@ -159,7 +161,7 @@ content/
   campaigns/seed/           beginner/, easy/, medium/, hard/, expert/, impossible/  (*.json)
   dialogue/overlord.yaml    all Overlord lines, keyed by game event
 tests/ ★
-  unit/  integration/  runner/   (white-box and black-box tests marked — see §7)
+  unit/  integration/  runner/  e2e/   (white-box and black-box tests marked; e2e = Selenium — see §7)
 uml/ ★                      use_case.wsd, sequence-US6.wsd, class.wsd + rendered .png
 scrum/ ★
   sprint_0/  sprint_1/  sprint_2/  sprint_3/   planning.md, daily_scrums.md, review.md, retrospective.md, board.png
@@ -169,9 +171,11 @@ htmlcov/ ★                  committed coverage report (regenerated, never hand
 pics/                       burndown.png and other README images
 scripts/                    check_headers.py, burndown.py
 docs/
-  game-design.md            (PLAN.md moves here)
-  roadmap.md                (this file moves here)
-  agents/                   deep agent docs (see §8)
+  game-design.md            what the game is
+  roadmap.md                this file
+  design.md                 visual rules (colors, type, depth, feed)
+  github-setup.md           repo settings and required checks
+.agents/                    deep agent docs + shared skills (see §8)
 .devcontainer/  .github/  .claude/
 AGENTS.md  CLAUDE.md  GEMINI.md
 ```
@@ -287,7 +291,7 @@ Author(s): Jane Doe, John Smith
 | Kind | Target | Why it fits |
 | :--- | :--- | :--- |
 | **White-box** | `GradingService` output normalization and verdict logic | Tests are designed from the code's branches: CRLF line endings, trailing spaces, trailing blank lines, timeout path, runtime-error path, syntax-error path, first-failure stop — aiming for 100% branch coverage of that module |
-| **Black-box** | `ScoreCalculator` | Tests are derived only from the scoring rules in PLAN.md §3.3 using equivalence classes and boundary values (0 seconds left, 0 lives, failed campaign, each multiplier) without looking at the implementation |
+| **Black-box** | `ScoreCalculator` | Tests are derived only from the scoring rules in game-design.md §3.3 using equivalence classes and boundary values (0 seconds left, 0 lives, failed campaign, each multiplier) without looking at the implementation |
 
 * Mark them with pytest markers (`@pytest.mark.whitebox`, `@pytest.mark.blackbox`) and a docstring stating **purpose, functionality tested, and expected outcome**.
 * The README "Testing" section describes both tests and their actual outcome.
@@ -296,12 +300,13 @@ Author(s): Jane Doe, John Smith
 * **Unit:** services, repositories (against the Compose Postgres), campaign validator checks.
 * **Integration:** Flask test client for key routes, including a full stage pass/fail flow.
 * **Runner:** hostile-code suite ([§3.2](#32-why-a-custom-runner-instead-of-judge0)).
-* **LLM:** `fake` and `replay` modes only — tests never call Azure.
+* **End-to-end:** Selenium (headless Chromium) in `tests/e2e/`, using the shared `live_server` and `browser` fixtures. Required in addition to coverage: at least one e2e test per user-facing story's [HIGH] acceptance criteria.
+* **LLM:** `fake` and `replay` modes or a mocked client only — tests never call Azure.
 
 ### 7.3 Coverage
 * `make coverage` runs `coverage run -m pytest` then `coverage html`, writing to `htmlcov/`, which is **committed**.
 * Regenerate and commit `htmlcov/` before each sprint release; include the overall percentage (and a screenshot) in the README.
-* No minimum is required, but aim for **≥ 70%** of `src/business/`.
+* **Team rule: ≥ 90% line + branch coverage of `src/` from any mix of tests, plus Selenium e2e tests for every user-facing story**, enforced with `fail_under = 90`. Feature PRs don't commit `htmlcov/`; the release PR at sprint end does. Details: [.agents/testing.md](../.agents/testing.md).
 
 ---
 
@@ -316,7 +321,8 @@ Author(s): Jane Doe, John Smith
 | `GEMINI.md` | Gemini CLI | `@AGENTS.md` import (or configure Gemini's context file name to `AGENTS.md`) |
 | `.github/copilot-instructions.md` | Copilot | One paragraph pointing to `AGENTS.md` |
 | `src/runner/AGENTS.md` (+ `CLAUDE.md`) | All tools, when working there | Sandbox-specific rules |
-| `docs/agents/*.md` | Loaded on demand via links from `AGENTS.md` | Deep docs |
+| `.agents/*.md` | Loaded on demand via links from `AGENTS.md` | Deep docs |
+| `.agents/skills/*/SKILL.md` | Codex and other tools that read `.agents/skills`; Claude via the `.claude/skills` symlink; any agent by following the link in `AGENTS.md` | `team-review` and `open-pr` procedures |
 
 **Antigravity:** verify in Sprint 0 which files it reads; if it ignores `AGENTS.md`, add a rule file pointing to it.
 
@@ -335,25 +341,27 @@ Author(s): Jane Doe, John Smith
    * Don't edit agent instruction files, the roadmap, or Scrum notes unless the task says to.
 4. **Architecture map** — which folder owns what.
 5. **Workflow** — work from a GitHub issue; PR into `dev`; Definition of Done.
-6. **Links** to `docs/agents/*`.
+6. **Links** to `.agents/*`.
 
-### 8.3 `docs/agents/` Deep Docs
+### 8.3 `.agents/` Deep Docs
 
 | File | Covers |
 | :--- | :--- |
-| `coding-standards.md` | §6 in full, with good/bad examples |
-| `architecture.md` | Layer rules, class responsibilities, model classes |
-| `testing.md` | White/black-box conventions, markers, fixtures, coverage, fake vs replay LLM |
-| `campaign-authoring.md` | Seed campaign template, I/O-contract rules, edge-case checklist |
-| `llm-usage-and-budget.md` | LLM modes, ledger, caps, who may run live |
-| `overlord-voice.md` | Tone guide, do/don't examples, sample lines |
-| `security.md` | Runner threat model; what must never change without review |
-| `workflow.md` | Branches, commits, PRs, releases, Scrum notes |
+| `workflow.md` | Issue → branch → gates → draft PR → review → merge |
+| `code-review.md` | HIGH/MED/LOW/NIT rubric, when MED/LOW block, anti-ping-pong rules, finding format |
+| `pull-requests.md` | Standard PR format and the `## Manual Testing` rules |
+| `tickets.md` | Acceptance-criteria ratings ([HIGH]/[MED]/[LOW]) and tech-debt tickets |
+| `testing.md` | 90% coverage, required Selenium e2e tests, test layout, labeled tests, LLM test modes |
+| `llm-policy.md` | Agents never call the LLM API; what they may do instead |
+| `coding-standards.md` | §6 condensed, plus layer rules |
+| `skills/team-review/`, `skills/open-pr/` | Step-by-step review and pre-PR procedures |
+
+Planned when the code exists: `campaign-authoring.md`, `overlord-voice.md`, `security.md` (runner threat model).
 
 ### 8.4 Keeping Agents Consistent
 * Task status lives on the **GitHub Project board**, not in agent files. Agents read issues with `gh issue view <n>`.
-* Changes to `AGENTS.md` or `docs/agents/` go through a normal PR reviewed by the Scrum Master.
-* `.claude/settings.json` (shared) denies reading `.env*` and running the live `make` targets.
+* Changes to `AGENTS.md` or `.agents/` go through a normal PR reviewed by the Scrum Master.
+* `.claude/settings.json` (shared) denies reading `.env`, running the live `make` targets, merging or approving PRs, and pushing to `main`/`dev`. Other tools rely on [.agents/llm-policy.md](../.agents/llm-policy.md).
 
 ---
 
@@ -365,7 +373,7 @@ Author(s): Jane Doe, John Smith
 
 ### 9.2 Branches
 * **`main`** — stable releases only. **Protected:** PR required, **≥ 1 approval**, CI must pass, no direct pushes.
-* **`dev`** — ongoing development. Protected: PR required, CI must pass (one approval recommended).
+* **`dev`** — ongoing development. Protected: PR required, ≥ 1 approval, CI must pass.
 * **Feature branches** from `dev`, named with the story: `feature/US6-runner-sandbox`, `fix/US7-checkpoint-restore`, `chore/sprint0-devcontainer`.
 
 ### 9.3 Merging & Releases
@@ -378,13 +386,17 @@ Author(s): Jane Doe, John Smith
 * Each user story has one or more GitHub Issues. Supporting issues are titled with the story ID: `US6: Build sandbox runner container`.
 * Commits and PRs reference the issue number: `feat(US6): add CPU and memory limits to runner (#14)`.
 * Commit early and often from your own account — no "one teammate commits everything."
+* Every acceptance criterion is rated **[HIGH]** (set in stone), **[MED]** (expected; explain deviations), or **[LOW]** (implementer's call). Templates in `.github/ISSUE_TEMPLATE/`; rules in [.agents/tickets.md](../.agents/tickets.md).
 
 ### 9.5 CI (GitHub Actions)
-On every PR to `dev` and `main`: `make lint` (Ruff, pycodestyle, header check) → `make coverage` → `make validate-campaigns` → `docker compose build`. No Azure secrets in CI; `LLM_MODE=fake`.
+On every PR to `dev` and `main`: `make lint` (Ruff, pycodestyle, header check) → `make coverage` → `make validate-campaigns` → `docker compose build`. No Azure secrets in CI; `LLM_MODE=fake`. A separate `pr-format` check rejects any non-draft PR without a one-sentence `## Manual Testing` section and exactly one screenshot. Setup status: [docs/github-setup.md](github-setup.md).
 
 ### 9.6 Definition of Done
-* All acceptance criteria met (Given/When/Then pass).
-* Tests added/updated; CI green.
+* All [HIGH] acceptance criteria met; [MED] deviations explained in the PR.
+* Tests added/updated; `make check` green, including Selenium and ≥ 90% coverage.
+* At least one self-review round with every finding fixed or moved to a `tech-debt` issue ([.agents/code-review.md](../.agents/code-review.md)).
+* PR in the standard format with a one-sentence `## Manual Testing` and one screenshot ([.agents/pull-requests.md](../.agents/pull-requests.md)).
+* No open HIGH findings.
 * Header comments, docstrings, PEP 8 clean.
 * Reviewed and approved by at least one teammate.
 * Merged into `dev`; issue closed; board card in **Done**.
@@ -395,7 +407,7 @@ On every PR to `dev` and `main`: `make lint` (Ruff, pycodestyle, header check) �
 
 ### 10.1 Sprint Structure
 * **Sprint 0 — planning only (no feature code):** product vision, user stories, estimates, prioritized backlog, UML diagrams, repo setup, and development environment configuration.
-* **Sprints 1–3 — one week each**, each ending in a tagged release on `main` (`v1`, `v2`, `v3`). The course allows 2–3 sprints; we plan 3.
+* **Sprints 1–3**, each ending in a tagged release on `main` (`v1`, `v2`, `v3`). The course allows 2–3 sprints; we plan 3. **The project is due 12/6**, so Sprint 1 is short (5 days) and Sprint 3 ends with a feature freeze.
 
 ### 10.2 Roles
 * **Product Owner** — owns and orders the backlog; accepts stories at Sprint Review.
@@ -433,7 +445,7 @@ GitHub Projects with columns **To Do → In Progress → In Review → Done** (c
 
 ## 11. User Stories
 
-**The canonical user stories live in [README.md → User Stories](README.md#user-stories)**, in the course template format (US1–US17, "As a… I want… so that I can…", Given/When/Then acceptance criteria). They are kept only there so they can't drift out of sync.
+**The canonical user stories live in [README.md → User Stories](../README.md#user-stories)**, in the course template format (US1–US17, "As a… I want… so that I can…", Given/When/Then acceptance criteria). They are kept only there so they can't drift out of sync.
 
 * **Required:** US1–US10, the complete playable game on hand-written campaigns. Every one must ship, since each unfinished required story costs −5.
 * **Optional:** US11–US17, worth +1 each (max 5). US11 (AI-generated campaigns) is the signature optional story.
@@ -443,7 +455,7 @@ GitHub Projects with columns **To Do → In Progress → In Review → Done** (c
 
 ## 12. Product Backlog
 
-**Canonical table: [README.md → Product Backlog](README.md#product-backlog).** Summary of how it was built:
+**Canonical table: [README.md → Product Backlog](../README.md#product-backlog).** Summary of how it was built:
 
 * **User value** 1–3, **story points** Fibonacci, **priority score = user value ÷ story points** (course formula).
 * **Totals:** 37 required points, 31 optional points, 68 in the backlog.
@@ -452,40 +464,105 @@ GitHub Projects with columns **To Do → In Progress → In Review → Done** (c
   * **(Proposed) Team decision:** US11 leads the optional stories despite a lower score (D10).
 * **Changing a story's value or points:** update the README table, re-check ranks and the sprint plan, and record why in the next sprint planning notes.
 
+* **By score alone**, the optional order would be US12, US15, US13, US14, US11, US16, US17. US13 follows US11 because it fits the remaining Sprint 3 capacity.
+
+### 12.1 Dependency Diagram
+
+An arrow points from a story to the stories that depend on it: US1 → US2 means US2 needs US1 finished first. Solid boxes are required stories; dashed boxes are optional. Arrows already implied through another story are left out (US11 also depends on US3, which US6 already requires).
+
+```mermaid
+flowchart TD
+    US1["US1: Register"] --> US2["US2: Log In and Log Out"]
+    US2 --> US3["US3: Start a Run"]
+    US3 --> US4["US4: View Stage and Write Code"]
+    US4 --> US5["US5: Run Sample Tests"]
+    US4 --> US6["US6: Submit and Get Graded"]
+
+    US5 --> US15["US15: How-to-Play Tutorial"]
+    US6 --> US15
+    US6 --> US11["US11: AI-Generated Campaigns"]
+    US6 --> US8["US8: Stage Timer"]
+    US6 --> US7["US7: Lives, Checkpoints, Progression"]
+    US6 --> US10["US10: Overlord Reactions and Feedback"]
+
+    US5 --> US17["US17: Playable Finale"]
+    US7 --> US17
+    US7 --> US13["US13: Bonus Life"]
+    US7 --> US9["US9: Scores and Leaderboard"]
+    US9 --> US14["US14: Profile Statistics"]
+    US10 --> US12["US12: Animated Overlord"]
+    US10 --> US16["US16: Contest a Verdict"]
+
+    classDef optional stroke-dasharray: 5 5
+    class US11,US12,US13,US14,US15,US16,US17 optional
+```
+
 ---
 
 ## 13. Sprint Plan
 
-**Canonical plan: [README.md → Sprint Planning](README.md#sprint-planning).**
+**Canonical plan: [README.md → Sprint Planning](../README.md#sprint-planning).**
 
 | Sprint | Stories | Points | Remaining after |
 | --- | --- | :---: | :---: |
-| Sprint 1 | US1 → US2 → US3 → US4 → US5 | 15 | 53 |
-| Sprint 2 | US6 → US7 → US8 | 16 | 37 |
-| Sprint 3 | US10 → US9 → US11 → US13 | 16 | 21 |
+| Sprint 1 (11/18–11/22) | US1 → US2 → US3 → US4 → US5 | 15 | 53 |
+| Sprint 2 (11/23–11/29) | US6 → US7 → US8 | 16 | 37 |
+| Sprint 3 (11/30–12/6) | US10 → US9 → US11 | 14 | 23 |
 
 * **Capacity of 16 is a placeholder.** Covering all 37 required points in three sprints needs at least ~13 points per sprint. If real capacity is lower, drop optional stories, never required ones.
-* **Thanksgiving falls in Sprint 1** under the example dates. Consider lower capacity and moving US5 to Sprint 2.
-* **Stretch order** if a sprint finishes early: US12, US15, US14, US16, US17.
-* **If Sprint 3 runs short:** cut US13, then US11, and protect US9 and US10.
+* **Due 12/6.** Sprint 1 is short (11/18–11/22), and Thanksgiving (11/26) falls in Sprint 2.
+* **Sprint 3 feature freeze: Thursday 12/3.** 12/4–12/5 is for game balancing (timers, lives, campaign difficulty), bug fixes, final coverage report, README, and the final progress report. Tag `v3` by 12/5 and submit 12/6.
+* **LLM prompt tuning** for US11 happens along the way. The LLM owner drafts prompts and the generator in `fake`/`replay` mode as soon as the campaign schema exists (Sprint 1), and tunes them with live runs in Sprint 3.
+* **Stretch order** if a sprint finishes early: US13, US12, US15, US14, US16, US17.
+* **If Sprint 3 runs short:** cut US11 and protect US9 and US10.
+
+### 13.1 Sprint Goals
+* **Sprint 1:** a player can register, log in, start a run, see a stage, and run sample tests in the browser.
+* **Sprint 2:** a player can play a full campaign: submit, get graded, lose and keep lives, advance through stages, and race the timer.
+* **Sprint 3:** the Overlord reacts and explains failures, scores reach the leaderboard, and AI-generated campaigns can join the pool.
+
+### 13.2 Dependency Check
+* **Sprint 1:** each story depends on the one before it, so they're ordered to finish in sequence.
+* **Sprint 2:** US7 and US8 depend on US6, which comes first.
+* **Sprint 3:** US9 depends on US7 (done in Sprint 2). US11 depends on US3 and US6 (Sprints 1–2).
+* **Not planned (23 points):** US13, US12, US15, US14, US16, US17, pulled in that order if a sprint finishes early.
 
 ---
 
 ## 14. README & UML Plan
 
 ### 14.1 README
-[README.md](README.md) follows the course template section by section: Overview (mission statement, vision, use case diagram), User Stories, Product Backlog, Sprint Planning, Sequence Diagram, Model, Development Process (board, branches, Scrum notes, burndown), Testing (white-box, black-box, coverage), and Deployment. Placeholders marked _TBD_ get filled in as the project progresses.
+[README.md](../README.md) has two parts:
+
+1. **Developer quick reference:** how to run, how to test, a rules summary, and a map of the docs. Keep it to what someone needs at a glance.
+2. **Course deliverables:** the sections the course README template grades, trimmed to the essentials (mission, vision, use case diagram, user stories, backlog, sprint plan, sequence and class diagrams, process and burndown, testing, deployment).
+
+Put explanations and reasoning in this file or [game-design.md](game-design.md), and link to them from the README.
 
 ### 14.2 UML Diagrams
 PlantUML sources live in `uml/` (as in the course template) and are exported to PNG next to them for the README:
 
 | Diagram | Source | Notes |
 | --- | --- | --- |
-| Use case | [uml/use_case.wsd](uml/use_case.wsd) | Actors: Visitor, Player, LLM Owner, Azure OpenAI. Every use case is labeled with its story; optional ones are grey |
-| Sequence | [uml/sequence-US6.wsd](uml/sequence-US6.wsd) | US6 Submit, through all three layers and the runner container |
-| Class | [uml/class.wsd](uml/class.wsd) | Model classes only: `User`, `Campaign`, `Stage`, `TestCase`, `GameRun`, `Checkpoint`, `Submission`, `LlmUsageRecord`, plus enums |
+| Use case | [uml/use_case.wsd](../uml/use_case.wsd) | Actors: Visitor, Player, LLM Owner, Azure OpenAI. Every use case is labeled with its story; optional ones are grey |
+| Sequence | [uml/sequence-US6.wsd](../uml/sequence-US6.wsd) | US6 Submit, through all three layers and the runner container |
+| Class | [uml/class.wsd](../uml/class.wsd) | Model classes only: `User`, `Campaign`, `Stage`, `TestCase`, `GameRun`, `Checkpoint`, `Submission`, `LlmUsageRecord`, plus enums |
 
 **Rendering:** install PlantUML (`brew install plantuml`, or the VS Code PlantUML extension), then export each `.wsd` to PNG in `uml/`. Re-export whenever a source changes, and keep the class diagram in sync with `src/data/models.py`.
+
+### 14.3 Model Classes
+
+| Class | Responsibility |
+| --- | --- |
+| `User` | A registered player account; verifies its own password |
+| `Campaign` | A multi-stage project (e.g. ASCII Pong) at one difficulty; either a hand-written seed or AI-generated; only `VALIDATED` campaigns are playable |
+| `Stage` | One feature request: the Overlord's prompt, the exact input/output contract, and starter code |
+| `TestCase` | One input with its expected output; samples are visible to players, hidden cases are used for grading |
+| `GameRun` | One player's attempt at a campaign: lives, current stage, timer deadline, score, and status |
+| `Checkpoint` | The player's passing code saved at the end of a stage |
+| `Submission` | One graded submission and its verdict |
+| `LlmUsageRecord` | One live LLM call's tokens and cost, for the budget cap (US11) |
+| `Difficulty` | The six tiers and their rules (stages, time, lives, multiplier) |
 
 ---
 
@@ -494,8 +571,8 @@ PlantUML sources live in `uml/` (as in the course template) and are exported to 
 | # | Decision | Recommendation |
 | :--- | :--- | :--- |
 | D1 | Roles (PO, SM, LLM owner, runner owner) | Assign in Sprint 0 |
-| D2 | Real sprint dates and due date | 3 one-week sprints after Sprint 0, ending a few days before the due date |
-| D3 | Web framework and frontend | **Decided (2026-11-17):** Flask + Jinja templates + one vanilla-JS game page. React/TypeScript/Tailwind was considered and rejected to keep one toolchain and keep the graded code in Python |
+| D2 | Real sprint dates and due date | **Decided (2026-11-18):** due 12/6. Sprint 0 11/17–11/18, Sprint 1 11/18–11/22, Sprint 2 11/23–11/29, Sprint 3 11/30–12/6 with a feature freeze 12/3 |
+| D3 | Web framework and frontend | **Decided (2026-11-17, game page updated 2026-11-18):** Flask + Jinja templates, with the game page as native ES modules (no build step) and Alpine.js optional. React/TypeScript/Tailwind was considered and rejected to keep one toolchain and keep the graded code in Python |
 | D4 | Public hosting | **Optional** — grading runs via Docker. Only needed for a live class demo; keep it off the Azure credit |
 | D5 | Bonus-life rule (US13) | First-submit clear with ≥ 50% of the timer left |
 | D6 | Failure detail on Hard+ (US10) | Test number + traceback only |
@@ -523,9 +600,9 @@ PlantUML sources live in `uml/` (as in the course template) and are exported to 
 
 **Environment (one or two people)**
 - [ ] Dev container, `Dockerfile`, `Dockerfile.runner`, `docker-compose.yml`, `requirements.txt`, `pyproject.toml`, Makefile, `.env.example`, pre-commit, CI workflow, header checker, burndown script.
-- [ ] `AGENTS.md` + shims + `docs/agents/` skeleton.
+- [x] `AGENTS.md` + shims + `.agents/` docs and skills, PR and issue templates, `pr-format` check.
 - [ ] Empty app skeleton that starts with `docker compose up` (configuration only — no feature code in Sprint 0).
-- [ ] Move `PLAN.md` → `docs/game-design.md` and this file → `docs/roadmap.md`.
+- [x] Move `PLAN.md` → `docs/game-design.md` and this file → `docs/roadmap.md`.
 
 **Everyone**
 - [ ] Open the repo in the dev container or Codespaces, run `make up`, open `http://localhost:8000`, and post a screenshot in team chat.
@@ -543,7 +620,7 @@ PlantUML sources live in `uml/` (as in the course template) and are exported to 
 | A required story isn't finished (−5 each) | Med | High | Small required set; required stories planned first; optional work only after required is done |
 | Registration/login broken at grading (−10 each) | Low | High | US1/US2 ship in Sprint 1 with integration tests; re-tested before every release |
 | Grader can't run the app | Low | High | `docker compose up` with no secrets needed; multi-arch images; tested on a clean machine before final release |
-| Thanksgiving week cuts Sprint 1 capacity | High | Med | Lower Sprint 1 capacity; move US5 to Sprint 2 if needed |
+| Short Sprint 1 and Thanksgiving (11/26) in Sprint 2 cut capacity | High | Med | If Sprint 1 slips, US5 moves to Sprint 2 first. The runner owner starts the US6 sandbox early. Optional work is dropped before required work |
 | Scrum notes fall behind | Med | Med | Notes committed the same day; Scrum Master owns them |
 | Missing headers / PEP 8 issues | Med | Med | Ruff + pycodestyle + header check in pre-commit and CI |
 | Sparse commit history on `main` or `dev` | Med | Med | Merge commits, mid-sprint `dev` → `main` merges, everyone commits from their own account |

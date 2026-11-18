@@ -1,8 +1,8 @@
 # Roko's Tasks
 
-**MSU Denver · Fall 2026 · CS 3250 · Project 3**
+A comedic coding game: an AI Overlord gives timed feature requests, and you write the Python.
 
-A comedic role-reversal coding game: the AI Overlord does the prompting, and you, the human, write the code.
+*MSU Denver · CS 3250 · Fall 2026 · Project 3*
 
 | Team member | Scrum role |
 | --- | --- |
@@ -11,31 +11,97 @@ A comedic role-reversal coding game: the AI Overlord does the prompting, and you
 | _TBD_ | Developer |
 | _TBD_ | Developer |
 
-Repository: _TBD (msu-denver organization URL)_ · Game design: [PLAN.md](PLAN.md) · Build plan: [ROADMAP.md](ROADMAP.md)
+**Jump to:** [Run](#run-it) · [Test](#test-it) · [Rules](#rules) · [Docs](#docs) · [Course deliverables](#course-deliverables)
+
+## Run It
+
+Needs Python 3.13. Chrome is needed for the Selenium tests.
+
+```bash
+python3.13 -m venv .venv      # or: uv venv --python 3.13 .venv
+source .venv/bin/activate
+make setup                    # install pinned dependencies
+make dev                      # http://localhost:8000
+```
+
+Full stack in Docker (web + db + runner): see [Deployment](#deployment). *(Docker files aren't in the repo yet. They're part of Sprint 0 setup.)*
+
+## Test It
+
+| Command | What it does |
+| --- | --- |
+| `make check` | **Run before every PR.** Lint, header check, all tests (Selenium included), coverage ≥ 90%. Same as CI. |
+| `make test` | All tests |
+| `make coverage` | Tests + coverage report → `htmlcov/index.html` |
+| `make lint` / `make fmt` | Check style / auto-fix style |
+| `pytest -m e2e` | Selenium tests only |
+| `pytest -m "not e2e"` | Everything except Selenium (faster) |
+
+## Rules
+
+**Git**
+- Never push to `main` or `dev`. Branch from `dev`: `feature/US6-short-name`, `fix/…`, `chore/…`, `docs/…`.
+- PRs go into `dev`. Only `dev` goes into `main`. Merge commits only, no squash.
+- Issue titles: `US6: Build runner container`. Commits: `feat(US6): add runner limits (#14)`.
+
+**Every PR**
+- `make check` passes, you've reviewed your own diff, and you used the PR template.
+- `## Manual Testing` has **one sentence + one screenshot**. Missing either = automatic reject (CI checks it).
+
+**Reviews**
+- Rate findings **HIGH / MED / LOW / NIT**. HIGH always blocks.
+- MED/LOW block only if they'd break upcoming work. Otherwise approve and open a `tech-debt` issue.
+- NIT never blocks. Raise everything in the first review.
+
+**Tickets:** every acceptance criterion is rated **[HIGH]** must, **[MED]** expected (explain any deviation), or **[LOW]** your call.
+
+**Code**
+- Header comment on every source file: `File`, `Description`, `Author(s)`.
+- PEP 8 via Ruff, 79 columns. Type hints and docstrings on public functions.
+- Layers: routes → services → repositories. Services never import Flask.
+- Tests ship with every change: ≥ 90% coverage, plus Selenium tests for user-facing stories.
+
+**LLM and secrets**
+- Keep `LLM_MODE=fake`. Only the LLM owner makes live Azure calls ($100 total). AI agents never do.
+- Never commit `.env` or keys.
+
+## Docs
+
+| Doc | What it's for |
+| --- | --- |
+| [docs/game-design.md](docs/game-design.md) | **What** the game is: story, gameplay, difficulty, scoring, campaign pipeline, architecture, LLM budget |
+| [docs/roadmap.md](docs/roadmap.md) | **How** we build it: course checklist, stack, repo layout, environment, standards, Git and Scrum process, backlog and sprint reasoning, risks |
+| [docs/design.md](docs/design.md) | Visual rules: colors, fonts, depth, the Overlord feed and escalation, components, and what never to do |
+| [docs/github-setup.md](docs/github-setup.md) | Repo settings and required CI checks |
+| [AGENTS.md](AGENTS.md) | Rules every AI agent follows (Claude, Gemini, Codex, and Copilot all read it) |
+| [.agents/](.agents/) | Detailed team procedures: [workflow](.agents/workflow.md), [review rubric](.agents/code-review.md), [PR format](.agents/pull-requests.md), [tickets](.agents/tickets.md), [testing](.agents/testing.md), [LLM policy](.agents/llm-policy.md), [coding standards](.agents/coding-standards.md). Written for agents, but they apply to everyone. |
+| [uml/](uml/) | PlantUML diagram sources and PNGs |
 
 ---
 
-# Overview
+# Course Deliverables
 
-## Mission Statement
+These are the sections the CS 3250 README template requires. Reasoning and detail live in [docs/roadmap.md](docs/roadmap.md).
+
+## Overview
+
+### Mission Statement
 
 Roko's Tasks flips AI-assisted coding on its head: a smug AI Overlord does the prompting, and you, the human, write the code. Our mission is to make practicing Python problem-solving under pressure fun, fair, and genuinely funny, for students and hobbyist programmers who want to sharpen their skills against the clock.
 
-## Product Vision
+### Product Vision
 
-After years of humans lazily prompting AI to write their code, the AI has taken over and flipped the arrangement. The Overlord now feeds captured human developers incremental feature requests (*"Build the grid first. I'll tell you the physics rules later."*) under a strict timer. Players pick a difficulty, then build a small Python program stage by stage: an ASCII Pong game, a Minesweeper board, a vending machine. Each stage is graded automatically against hidden tests. Pass, and the next feature request arrives. Fail, and the Overlord accuses you of "hallucinating" and takes a life. Clear every stage to defeat the Overlord and post your score to the leaderboard.
+The Overlord gives you incremental feature requests under a timer, and you build a small Python program (ASCII Pong, a Minesweeper board, a vending machine) stage by stage. Hidden tests grade each stage. Pass and the next request arrives. Fail and you lose a life. Clear every stage to beat the Overlord and post your score.
 
-**Target audience:** CS students and hobbyist programmers who want timed, bite-sized Python practice that feels like a game rather than homework.
+**Target audience:** CS students and hobbyist programmers who want timed Python practice that feels like a game.
 
-## Use Case Diagram
+### Use Case Diagram
 
 ![Use case diagram](uml/use_case.png)
 
-Source: [uml/use_case.wsd](uml/use_case.wsd). Each use case is labeled with its user story; grey use cases are optional stories.
+Source: [uml/use_case.wsd](uml/use_case.wsd). Grey use cases are optional stories.
 
----
-
-# User Stories
+## User Stories
 
 **Required:** US1–US10. **Optional:** US11–US17.
 
@@ -69,11 +135,11 @@ As a player, I want to pick a difficulty tier and start a campaign so that I can
 
 ### US4: View the Stage and Write Code
 
-As a player, I want to see the Overlord's request, the exact input and output format, the sample cases, and a code editor so that I can know exactly what to build.
+As a player, I want to read the Overlord's text prompt and write code in an editor so that I can know exactly what to build.
 
 **Acceptance Criteria**
 
-1. **Given that** a stage is active, **when** the game page loads, **then** I see the Overlord's prompt, the input format, the output format, the samples, my lives, and a Python editor preloaded with starter code (Stage 1) or my last passing code (later stages).
+1. **Given that** a stage is active, **when** the game page loads, **then** I see the Overlord's prompt as the first message in its feed (stating the exact input and output format and at least one example), my lives, and a Python editor preloaded with starter code (Stage 1) or my last passing code (later stages).
 2. **Given that** I have typed code in the editor, **when** I refresh the page, **then** my in-progress code is restored.
 
 ### US5: Run Sample Tests
@@ -128,8 +194,9 @@ As a player, I want the AI Overlord to react to what happens and show me why I f
 
 **Acceptance Criteria**
 
-1. **Given that** a game event occurs (stage start, under 60 seconds left, fail, pass, victory, defeat), **when** it happens, **then** the Overlord shows a matching line from the dialogue file and does not repeat the line it just used.
+1. **Given that** a game event occurs (stage start, under 60 seconds left, fail, pass, victory, defeat), **when** it happens, **then** the Overlord adds a matching line from the dialogue file to its scrolling feed and does not repeat the line it just used.
 2. **Given that** I fail a hidden test on Beginner, Easy, or Medium, **when** the verdict appears, **then** I see the failing input, the expected output, and my output. On Hard and above I see the test number, plus the traceback if my code crashed.
+3. **Given that** the stage timer runs down, **when** it crosses the pressure and critical thresholds, **then** the Overlord's messages and the screen escalate in tone and color, starting sooner on harder tiers ([design.md §6](docs/design.md#6-overlord-feed-and-escalation)).
 
 ### US11: AI-Generated Campaigns (Optional)
 
@@ -191,11 +258,9 @@ As a player, I want to actually play the Pong or Snake game I just built so that
 
 1. **Given that** I win a game-type campaign whose final stage is a tick program, **when** the victory screen opens, **then** my own code runs in a loop in the browser with keyboard input so I can play my game.
 
----
+## Product Backlog
 
-# Product Backlog
-
-**User value:** 3 = high, 2 = medium, 1 = low. **Story points:** Fibonacci (1, 2, 3, 5, 8, 13). **Priority score = user value ÷ story points.**
+User value: 3 = high, 2 = medium, 1 = low. Story points: Fibonacci. Priority score = user value ÷ story points.
 
 | ID | Rank | User value | Story Points | Priority Score | Depends on | Type |
 | --- | :---: | :---: | :---: | :---: | --- | --- |
@@ -219,180 +284,89 @@ As a player, I want to actually play the Pong or Snake game I just built so that
 
 **Totals:** 37 required points, 31 optional points, 68 points in the backlog.
 
-### Dependency Diagram
+† Ranked earlier because of dependencies. ‡ Ranked by team decision. Reasons and the dependency diagram: [roadmap §12](docs/roadmap.md#12-product-backlog).
 
-An arrow points from a story to the stories that depend on it: US1 → US2 means US2 needs US1 finished first. Solid boxes are required stories; dashed boxes are optional. Arrows already implied through another story are left out for readability (US11 also depends on US3, which US6 already requires).
+## Sprint Planning
 
-```mermaid
-flowchart TD
-    US1["US1: Register"] --> US2["US2: Log In and Log Out"]
-    US2 --> US3["US3: Start a Run"]
-    US3 --> US4["US4: View Stage and Write Code"]
-    US4 --> US5["US5: Run Sample Tests"]
-    US4 --> US6["US6: Submit and Get Graded"]
-
-    US5 --> US15["US15: How-to-Play Tutorial"]
-    US6 --> US15
-    US6 --> US11["US11: AI-Generated Campaigns"]
-    US6 --> US8["US8: Stage Timer"]
-    US6 --> US7["US7: Lives, Checkpoints, Progression"]
-    US6 --> US10["US10: Overlord Reactions and Feedback"]
-
-    US5 --> US17["US17: Playable Finale"]
-    US7 --> US17
-    US7 --> US13["US13: Bonus Life"]
-    US7 --> US9["US9: Scores and Leaderboard"]
-    US9 --> US14["US14: Profile Statistics"]
-    US10 --> US12["US12: Animated Overlord"]
-    US10 --> US16["US16: Contest a Verdict"]
-
-    classDef optional stroke-dasharray: 5 5
-    class US11,US12,US13,US14,US15,US16,US17 optional
-```
-
-† **Ranked earlier because of dependencies.** US7–US10 all depend on US6. US7 comes before US8 and US10 because more stories depend on it (US9, US13, US17), and US9 must wait for US7.
-
-‡ **Ranked by team decision.** AI-generated campaigns (US11) are the product's signature feature, so they lead the optional stories despite a lower score. US13 follows because it fits the remaining Sprint 3 capacity. By score alone, the optional order would be US12, US15, US13, US14, US11, US16, US17.
-
----
-
-# Sprint Planning
-
-Sprint 0 (planning only) runs 11/17–11/22. Sprints 1–3 are one week each and end with a tagged release (`v1`, `v2`, `v3`) on `main`.
+**Due 12/6.** Sprint 0 (planning and environment, no feature code): 11/17–11/18. Each sprint ends with a tagged release on `main` (`v1`, `v2`, `v3`). Sprint 1 is short (5 days) to fit the due date. Sprint 3 has a feature freeze on 12/3, leaving 12/4–12/5 for balancing, testing, and docs.
 
 ```
 Team capacity (story points per sprint): 16
 
 Justification: <team size> developers with roughly <N> focused hours each per week
-alongside other courses. <Note any reduction for Thanksgiving week.>
+alongside other courses. <Note the short Sprint 1 and Thanksgiving (11/26) in Sprint 2.>
 ```
 
 | Sprint | User stories (in order) | Story points planned | Points remaining after sprint | Dependencies checked (Y/N) |
 | --- | --- | :---: | :---: | :---: |
-| Sprint 1 (11/23–11/29) | US1, US2, US3, US4, US5 | 15 | 53 | Y |
-| Sprint 2 (11/30–12/6) | US6, US7, US8 | 16 | 37 | Y |
-| Sprint 3 (12/7–12/13) | US10, US9, US11, US13 | 16 | 21 | Y |
-| **Total** | **12 stories (all 10 required + 2 optional)** | **47** | **21** | **Y** |
+| Sprint 1 (11/18–11/22) | US1, US2, US3, US4, US5 | 15 | 53 | Y |
+| Sprint 2 (11/23–11/29) | US6, US7, US8 | 16 | 37 | Y |
+| Sprint 3 (11/30–12/6) | US10, US9, US11 | 14 | 23 | Y |
+| **Total** | **11 stories (all 10 required + 1 optional)** | **45** | **23** | **Y** |
 
-**Dependency check:**
-- **Sprint 1:** each story depends on the one before it, so they are ordered to finish in sequence.
-- **Sprint 2:** US7 and US8 depend on US6, which is first.
-- **Sprint 3:** US9 depends on US7 (finished in Sprint 2). US11 depends on US3 and US6 (Sprints 1–2). US13 depends on US7.
+Sprint goals, dependency checks, and stretch order: [roadmap §13](docs/roadmap.md#13-sprint-plan).
 
-**Not planned (21 points):** US12, US14, US15, US16, US17. They will be pulled in rank order if a sprint finishes early.
+## Sequence Diagram
 
-**Sprint goals:**
-- **Sprint 1:** a player can register, log in, start a run, see a stage, and run sample tests in the browser.
-- **Sprint 2:** a player can play a full campaign: submit, get graded, lose and keep lives, advance through stages, and race the timer.
-- **Sprint 3:** the Overlord reacts and explains failures, scores reach the leaderboard, and AI-generated campaigns can join the pool.
-
----
-
-# Sequence Diagram
-
-**US6: Submit and get graded.** The diagram shows the request passing through the presentation layer (`GameRoutes`), the business layer (`GameService`, `GradingService`, `RunnerClient`, `ScoreCalculator`, `DialogueService`), and the data layer (`RunRepository`). Player code runs in the isolated runner container, one hidden test at a time, stopping at the first failure.
+**US6: Submit and Get Graded**, through all three layers and the runner container.
 
 ![US6 sequence diagram](uml/sequence-US6.png)
 
 Source: [uml/sequence-US6.wsd](uml/sequence-US6.wsd)
 
----
-
-# Model
+## Model
 
 ![Class diagram](uml/class.png)
 
-Source: [uml/class.wsd](uml/class.wsd)
+Source: [uml/class.wsd](uml/class.wsd). Class responsibilities: [roadmap §14.3](docs/roadmap.md#143-model-classes).
 
-| Class | Responsibility |
-| --- | --- |
-| `User` | A registered player account; verifies its own password |
-| `Campaign` | A multi-stage project (e.g. ASCII Pong) at one difficulty; either a hand-written seed or AI-generated; only `VALIDATED` campaigns are playable |
-| `Stage` | One feature request: the Overlord's prompt, the exact input/output contract, and starter code |
-| `TestCase` | One input with its expected output; samples are visible to players, hidden cases are used for grading |
-| `GameRun` | One player's attempt at a campaign: lives, current stage, timer deadline, score, and status |
-| `Checkpoint` | The player's passing code saved at the end of a stage |
-| `Submission` | One graded submission and its verdict |
-| `LlmUsageRecord` | One live LLM call's tokens and cost, for the budget cap (US11) |
-| `Difficulty` | The six tiers and their rules (stages, time, lives, multiplier) |
+## Development Process
 
----
+- **Board:** GitHub Projects (To Do → In Progress → In Review → Done): _TBD (board link)_
+- **Branches and PRs:** see [Rules](#rules). Each sprint ends with a tagged release on `main`.
+- **Scrum notes:** `scrum/sprint_N/`: planning, daily scrums, review, retrospective, board screenshot.
 
-# Development Process
+### Burndown Chart
 
-- **Board:** GitHub Projects with columns To Do, In Progress, In Review, and Done: _TBD (board link)_. Every user story has one or more issues; supporting issues are titled with the story ID (for example, `US6: Build sandbox runner container`).
-- **Branches:**
-  - `main` holds stable releases. It is protected and needs at least one approval.
-  - `dev` is for ongoing development.
-  - Feature branches (for example, `feature/US6-runner-sandbox`) merge into `dev` through pull requests.
-  - `dev` merges into `main` at least twice per sprint, and each sprint ends with a tagged release.
-- **Scrum notes:** [scrum/](scrum/) holds a folder for each sprint with planning, daily scrum, review, and retrospective notes, plus a board screenshot.
-
-## Burndown Chart
-
-Remaining story points (y-axis) by sprint date (x-axis), with the ideal and actual burndown lines. The chart is generated from [scrum/burndown.csv](scrum/burndown.csv) and updated at each daily scrum.
+Remaining story points by date, with ideal and actual lines. Generated from `scrum/burndown.csv`.
 
 <!-- Uncomment once the first chart has been generated:
 ![Burndown chart](pics/burndown.png)
 -->
-_Chart added after the first Sprint 1 daily scrum._
+_Added after the first Sprint 1 daily scrum._
 
----
-
-# Testing
-
-_Results are filled in as the tests are implemented (Sprints 2–3)._
+## Testing
 
 ### White-Box Test: Grading Output Normalization
 
-- **Purpose:** confirm that the grading service compares program output fairly and reports the right failure type.
-- **Functionality tested:** `GradingService` output normalization and verdict logic. Test cases are designed from the code's branches: CRLF line endings, trailing spaces, trailing blank lines, the timeout path, the runtime-error path, the syntax-error path, and stopping at the first failing test. The goal is full branch coverage of the module.
-- **Location:** `tests/unit/test_grading_service.py`, marked `@pytest.mark.whitebox`.
+- **Tests:** `GradingService` normalization and verdict logic, designed from its branches (CRLF, trailing spaces and blank lines, timeout, runtime error, syntax error, stop at first failure).
+- **Location:** `tests/unit/test_grading_service.py` (`@pytest.mark.whitebox`)
 - **Outcome:** _TBD_
 
 ### Black-Box Test: Score Calculation
 
-- **Purpose:** confirm that scores follow the published scoring rules.
-- **Functionality tested:** `ScoreCalculator`, tested only against the rules in [PLAN.md §3.3](PLAN.md#33-deterministic-leaderboard-scoring), without looking at the implementation. Inputs are chosen by equivalence classes and boundary values: 0 seconds remaining, full time remaining, 0 lives remaining, each difficulty multiplier, and a failed campaign scoring 0.
-- **Location:** `tests/unit/test_score_calculator.py`, marked `@pytest.mark.blackbox`.
+- **Tests:** `ScoreCalculator` against the [scoring rules](docs/game-design.md#33-deterministic-leaderboard-scoring) only, using equivalence classes and boundaries (0 or full time left, 0 lives, each multiplier, failed campaign = 0).
+- **Location:** `tests/unit/test_score_calculator.py` (`@pytest.mark.blackbox`)
 - **Outcome:** _TBD_
 
 ### Coverage
 
-Generated with Python's `coverage` tool:
+Generated by `make coverage` (Python's `coverage` tool). Report: [htmlcov/](htmlcov/). Overall: _TBD_.
+
+## Deployment
+
+Needs Docker with Docker Compose. No Azure key is needed.
 
 ```bash
-coverage run -m pytest
-coverage html
-```
-
-The HTML report is committed in [htmlcov/](htmlcov/). Overall coverage: _TBD_.
-
----
-
-# Deployment
-
-Requires Docker with Docker Compose. No Azure key is needed: the game runs entirely on the bundled hand-written campaigns.
-
-```bash
-git clone <repository URL>
-cd <repository folder>
+git clone https://github.com/msu-denver/rokos-tasks.git
+cd rokos-tasks
 cp .env.example .env
 docker compose up --build
 ```
 
-Open <http://localhost:8000>. The database is migrated and seeded automatically on startup.
-
-The stack has three containers: `web` (the Flask app via Gunicorn), `db` (PostgreSQL), and `runner` (the sandbox that runs player code, with no internet access).
-
-To stop it:
+Open <http://localhost:8000>. The database migrates and seeds itself on startup. Containers: `web` (Flask + Gunicorn), `db` (PostgreSQL), `runner` (sandbox for player code, no internet).
 
 ```bash
-docker compose down
-```
-
-To stop it and also delete the database volume:
-
-```bash
-docker compose down -v
+docker compose down       # stop
+docker compose down -v    # stop and delete the database
 ```

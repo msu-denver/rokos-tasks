@@ -1,8 +1,20 @@
-# Game Design & Architecture Document (GDAD)
+# Game Design
+
+**What this doc is:** *what* the game is. Story, gameplay, difficulty and scoring, how campaigns are made and validated, system architecture, and the LLM budget. For *how we build it*, see [roadmap.md](roadmap.md).
 
 > **Status:** living draft. Items marked **(Proposed)** are suggestions the team has not agreed on yet. See [§8 Open Questions](#8-open-questions).
->
-> **Build plan, tech stack, environment, and user-story backlog:** see [ROADMAP.md](ROADMAP.md).
+
+## Contents
+1. [Concept, Story & Visual Direction](#1-concept-story--visual-direction)
+2. [Core Gameplay Loop & Mechanics](#2-core-gameplay-loop--mechanics)
+3. [Difficulty Tiers, Round Rules & Scoring System](#3-difficulty-tiers-round-rules--scoring-system)
+4. [Campaign Generation & Validation Pipeline](#4-campaign-generation--validation-pipeline)
+5. [System Architecture](#5-system-architecture)
+6. [LLM Usage & Budget](#6-llm-usage--budget)
+7. [Development Environment (Proposed)](#7-development-environment-proposed)
+8. [Open Questions](#8-open-questions)
+
+---
 
 ## 1. Concept, Story & Visual Direction
 
@@ -11,15 +23,15 @@
   * The AI Overlord mimics bad human-prompting habits—issuing incremental specifications (*"Build the grid first, I'll tell you the physics rules in the next round"*) while refusing to care about clean architecture or code style as long as the program runs and passes tests.
   * Whenever a player's submission fails a hidden test, crashes (syntax/runtime error), or times out, the Overlord accuses the human of **"hallucinating"** and deducts a life.
   * When a player clears a stage especially well (see [§2.5](#25-bonus-life)), the Overlord grudgingly acknowledges *"acceptable biological efficiency"* and awards a one-time **+1 Bonus Life**.
-* **Design Rule — Vague Jokes, Exact Contract:** The Overlord's prompt is where all the attitude, sarcasm, and "lazy prompter" humor lives. The **Input / Output format** block under it is always precise, dry, and complete. Specs never change *during* a stage—only between stages. This is how the game stays witty without being unfair.
-* **2D Cartoon Presentation:**
-  * **Left Viewport (The Overlord's Desk):** A 2D cartoon AI avatar rendered with layered SVGs or HTML5 Canvas sprites, casually lounging and firing off prompts. Character states react dynamically to live game events:
+* **Design Rule — Plain-Text Prompts, Exact Contract:** Like a human prompting an AI, the Overlord gives each stage as **one plain-text prompt** in its feed. There's no form or spec card. The prompt can be as sarcastic as we like, but it must state exactly what the program reads, what it prints, and at least one example. The follow-up messages carry the rest of the attitude. Specs never change *during* a stage, only between stages. This is how the game stays witty without being unfair.
+* **Presentation** (visual rules: [design.md](design.md)):
+  * **Left Viewport (The Overlord):** An SVG AI avatar above **the feed**, a single scrolling text box. The stage prompt is its first message, and the Overlord adds reactions as the stage goes on. They get more aggressive as time runs low, and sooner on harder tiers ([design.md §6](design.md#6-overlord-feed-and-escalation)). Avatar states react to game events:
     * *Unimpressed / Typing* — Round start
     * *Tapping Fingers* — Under 60 seconds remaining
     * *Smug / Mocking* — *"Human hallucination detected"* on a failed Submit
     * *Reluctantly Impressed* — One-time +1 bonus life awarded
     * *Short-Circuited / Defeated* — Campaign victory
-  * **Right Viewport (The Human Terminal):** A Python code editor (Monaco Editor) paired with the Overlord's dialogue bubble, the stage card (Input/Output format + samples), stage countdown timer, lives counter, **Run Sample** / **Submit** buttons, and a console showing stdout, stderr/tracebacks, and expected-vs-actual diffs.
+  * **Right Viewport (The Human Terminal):** A Python code editor (Monaco Editor), stage countdown timer, lives counter, **Run Sample** / **Submit** buttons, and a console showing stdout, stderr/tracebacks, and expected-vs-actual diffs.
 * **Overlord Dialogue:** Lines live in a single data file (YAML/JSON) organized by game event, written against a shared voice/tone guide, so the humor stays consistent no matter which developer (or AI tool) adds lines. Live LLM-generated quips are optional and used sparingly ([§6](#6-llm-usage--budget)).
 
 ---
@@ -35,23 +47,16 @@
 ### 2.2 The Stage Contract (stdin → stdout)
 Every stage is graded as a **complete Python program** that reads text from `stdin` and prints text to `stdout`. Tests never call player functions, so **there are no required function names, classes, or file structures**—players may organize their code however they like.
 
-Each stage card shows the player:
-* **Overlord Prompt** — the flavor text / feature request.
-* **Input Format** — exactly what the program will receive on stdin, with constraints.
-* **Output Format** — exactly what the program must print.
-* **Samples** — 1–2 visible input/output pairs.
+Each stage gives the player:
+* **Prompt** — one plain-text message in the Overlord's feed. It states the feature, exactly what arrives on stdin (with constraints), exactly what to print, and 1–2 examples.
+* **Samples** — the same 1–2 examples, also stored as structured input/output pairs so **Run Sample** can test against them. The campaign validator rejects a stage if a sample's input or output doesn't appear in its prompt.
 * **Starter Code** — Stage 1 starter includes the line(s) that read the input; later stages start from the player's own checkpoint code.
 
 Each stage **extends the previous stage's contract** (more input fields, richer output), so the player builds on their own previous code.
 
 **Example — Minesweeper (Medium), Stage 2 of 3:**
 
-> **🤖 OVERLORD:** *"Your 'board' is a sad grid of dots. A real minesweeper board tells you things. Every safe cell should report how many mines are touching it, diagonals included. Zero touching? Leave it as a dot. And no, I won't be changing the input. I'm not a monster. Yet."*
->
-> **Input (unchanged from Stage 1):** First line `R C M` (1 ≤ R, C ≤ 20). Then `M` lines `r c` — 0-indexed mine positions.
-> **Output:** `R` lines of `C` characters. Mine = `*`. Safe cell = count of adjacent mines (8 directions) as a digit, or `.` if 0.
->
-> **Sample:** input `3 4 2 / 0 0 / 1 2` → output `*211 / 12*1 / .111`
+> **Overlord:** Your "board" is a sad grid of dots. Now every safe cell shows how many mines touch it, diagonals included, or `.` if none do. The input hasn't changed: the first line is `R C M` (1 ≤ R, C ≤ 20), then `M` lines of `r c`, the 0-indexed mine positions. Print `R` lines of `C` characters, with `*` for a mine. Example: `3 4 2`, `0 0`, `1 2` prints `*211`, `12*1`, `.111`. And no, I won't be changing the input. I'm not a monster. Yet.
 
 | Stage | Feature added | Contract change |
 | :--- | :--- | :--- |
@@ -127,7 +132,7 @@ Because every player who receives a given campaign gets identical hidden tests a
 
 The biggest risk to "fun, not frustrating" is a **wrong hidden test**. The pipeline below exists to make sure that never reaches a player. It runs **offline as a background job**, never when a player starts a run.
 
-AI-generated campaigns are **optional story US11** in the course backlog ([ROADMAP.md §11](ROADMAP.md#11-user-stories)); the game is complete on hand-written seed campaigns without it. The validator and consensus checks (§4.4) are built first for the seed library either way.
+AI-generated campaigns are **optional story US11** in the course backlog ([roadmap.md §11](roadmap.md#11-user-stories)); the game is complete on hand-written seed campaigns without it. The validator and consensus checks (§4.4) are built first for the seed library either way.
 
 ### 4.1 Core Rule
 **The LLM never writes expected outputs, and never grades its own work.** The LLM generates *content* (specs, starter code, test **inputs**, candidate solutions). **Our code** computes expected outputs by running solutions in the sandbox, and **our code** decides whether a campaign is valid.
@@ -144,7 +149,7 @@ AI-generated campaigns are **optional story US11** in the course backlog ([ROADM
 | Our code (harness) | Runs the program on hidden inputs, compares stdout | On Submit |
 
 ### 4.3 Pipeline Steps (per campaign)
-1. **Generate (1 LLM call):** The generator returns the **entire** campaign as JSON matching our schema—title, all stages, each with Overlord prompt, input format, output format, starter code, 1–2 sample inputs, 6–12 hidden test inputs (covering edge cases: min/max sizes, corners, empty cases), and a small `validate_input.py` that asserts an input matches the stated format and constraints. Stage 3 exists before anyone plays Stage 1.
+1. **Generate (1 LLM call):** The generator returns the **entire** campaign as JSON matching our schema—title, all stages, each with the Overlord's plain-text prompt (stating the exact input/output format and examples), starter code, 1–2 sample inputs, 6–12 hidden test inputs (covering edge cases: min/max sizes, corners, empty cases), and a small `validate_input.py` that asserts an input matches the stated format and constraints. Stage 3 exists before anyone plays Stage 1.
 2. **Solve independently (~3 LLM calls per stage):** Three separate solver calls each write a solution using **only the player-visible spec, samples, and their own previous-stage solution**—mimicking a real player. Use two different models if available to reduce correlated mistakes.
 3. **Compute expected outputs by consensus (our code):** Run every solver's solution on every input in the sandbox.
    * All solvers agree → that output becomes the expected output.
@@ -182,9 +187,7 @@ Hand-written seed campaigns use the **same JSON schema**. Humans write the specs
   "stages": [
     {
       "stage": 2,
-      "prompt": "Your 'board' is a sad grid of dots...",
-      "input_format": "First line R C M (1<=R,C<=20). Then M lines 'r c', 0-indexed mine positions.",
-      "output_format": "R lines of C chars. Mine='*'. Safe cell = adjacent mine count (8 dirs) as a digit, or '.' if 0.",
+      "prompt": "Your \"board\" is a sad grid of dots. Now every safe cell shows ... Example: `3 4 2`, `0 0`, `1 2` prints `*211`, `12*1`, `.111`. ...",
       "starter_code": null,
       "samples": [{ "input": "3 4 2\n0 0\n1 2", "expected_output": "*211\n12*1\n.111" }],
       "hidden_tests": [
@@ -219,7 +222,7 @@ Player's browser ──────► Flask web app (container: web) ───�
 
 * **Azure is only the AI engine.** It hosts the model deployment and nothing else—no game logic, no database, no code execution.
 * **Only the backend talks to Azure.** The browser never sees the API key.
-* **Stack (decided 2026-11-17):** Flask (Python) with Jinja templates in a three-layer architecture (presentation / business logic / data access), PostgreSQL via SQLAlchemy repositories, one vanilla-JS game page using Monaco and Pyodide from a CDN, and Docker Compose with three containers. Full details in [ROADMAP.md §3–4](ROADMAP.md#3-tech-stack).
+* **Stack (decided 2026-11-17):** Flask (Python) with Jinja templates in a three-layer architecture (presentation / business logic / data access), PostgreSQL via SQLAlchemy repositories, a game page built from native browser ES modules (no build step; Alpine.js optional) using Monaco and Pyodide from a CDN, and Docker Compose with three containers. Full details in [roadmap.md §3–4](roadmap.md#3-tech-stack).
 
 ### 5.2 Sandboxed Execution
 Player code is untrusted. Submit (and the validation pipeline) runs code only inside a locked-down **runner** container:
@@ -228,7 +231,7 @@ Player code is untrusted. Submit (and the validation pipeline) runs code only in
 * CPU, memory, file-size, process-count, and wall-clock limits per test; output size capped
 * read-only root filesystem, all capabilities dropped
 
-**(Proposed)** Build this as a small **custom runner service** rather than using Judge0, whose sandbox needs privileged containers and has historically required cgroup v1, which clashes with Docker Desktop and Codespaces (details in [ROADMAP.md §3.2](ROADMAP.md#32-why-a-custom-runner-instead-of-judge0)). The same sandbox serves both Submit grading and campaign validation.
+**(Proposed)** Build this as a small **custom runner service** rather than using Judge0, whose sandbox needs privileged containers and has historically required cgroup v1, which clashes with Docker Desktop and Codespaces (details in [roadmap.md §3.2](roadmap.md#32-why-a-custom-runner-instead-of-judge0)). The same sandbox serves both Submit grading and campaign validation.
 
 ---
 
@@ -259,12 +262,12 @@ The backend's LLM module has three modes, set by an environment variable (e.g. `
 
 ## 7. Development Environment (Proposed)
 
-Summary only — the full environment, course-required repo layout, code standards, Git/Scrum workflow, user stories, and sprint plan are in [ROADMAP.md](ROADMAP.md).
+Summary only — the full environment, course-required repo layout, code standards, Git/Scrum workflow, user stories, and sprint plan are in [roadmap.md](roadmap.md).
 
 * **Dev Container + Docker Compose** (web, PostgreSQL, runner) so every teammate gets an identical environment in VS Code locally, in **GitHub Codespaces** from any browser (Chromebook/iPad friendly), or in JetBrains IDEs. The grader runs the same stack with `docker compose up --build` and no Azure key.
 * Python 3.13, all dependencies frozen in `requirements.txt`, and a single task runner (`make up`, `make test`, `make coverage`, `make check`) used identically by humans, AI agents, and CI.
 * **GitHub Actions CI** runs Ruff, pycodestyle, the header-comment check, tests with coverage, and seed-campaign validation on every PR to `dev` and `main`.
-* **Agent instructions:** `AGENTS.md` is the single source of truth (read by Codex and Copilot); `CLAUDE.md` and `GEMINI.md` import it; `.github/copilot-instructions.md` points to it. Deep docs live in `docs/agents/`.
+* **Agent instructions:** `AGENTS.md` is the single source of truth (read by Codex and Copilot); `CLAUDE.md` and `GEMINI.md` import it; `.github/copilot-instructions.md` points to it. Deep docs and shared skills live in `.agents/`.
 * **Scrum board:** GitHub Projects with To Do / In Progress / In Review / Done; issues titled by story (`US6: …`). Task status lives on the board, not in agent instruction files.
 
 ---
