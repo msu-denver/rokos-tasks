@@ -11,6 +11,35 @@ Author(s): Tyler Black
   box-sizing: border-box;
 }
 
+/* Animated inputs for the panel energy loop (one loop drives every layer) */
+@property --energy {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+
+@property --pulse {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0.6;
+}
+
+@keyframes panel-energy {
+  0% {
+    --energy: 0;
+    --pulse: 0.5;
+  }
+
+  50% {
+    --pulse: 1;
+  }
+
+  100% {
+    --energy: 1;
+    --pulse: 0.5;
+  }
+}
+
 body {
   margin: 0;
   padding: 0;
@@ -34,6 +63,20 @@ body {
   line-height: 1.5;
 }
 
+/* Old-monitor vignette: darkens the grid toward the screen edges */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 50%,
+    var(--vignette) 100%
+  );
+}
+
 /* Site header and brand wordmark */
 .site-header {
   display: flex;
@@ -42,8 +85,14 @@ body {
   justify-content: space-between;
   gap: var(--space-3);
   padding: var(--space-4) var(--space-6);
-  border-bottom: var(--border-1) solid var(--line);
-  background-color: var(--surface);
+  background:
+    linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--cyan) 45%, transparent),
+        color-mix(in srgb, var(--magenta) 45%, transparent)
+      )
+      bottom / 100% var(--border-1) no-repeat,
+    var(--surface);
 }
 
 .header-wordmark,
@@ -55,6 +104,9 @@ body {
   letter-spacing: 0.05em;
   color: var(--ink-strong);
   text-decoration: none;
+  text-shadow:
+    calc(-1 * var(--anaglyph-offset-sm)) 0 var(--anaglyph-cyan),
+    var(--anaglyph-offset-sm) 0 var(--anaglyph-red);
 }
 
 .header-wordmark:hover,
@@ -93,25 +145,58 @@ body {
   text-decoration: none;
 }
 
-/* Main content region */
+/* Main content region, capped and centered */
 main {
+  max-width: var(--width-page);
+  margin-inline: auto;
   padding: var(--space-6);
 }
 
+/* Headings get a faint red/cyan anaglyph split */
 h1 {
   margin: 0 0 var(--space-4);
   font-family: var(--font-display);
   font-size: var(--text-34);
   line-height: 1.2;
+  color: var(--ink-strong);
+  text-shadow:
+    calc(-1 * var(--anaglyph-offset)) 0 var(--anaglyph-cyan),
+    var(--anaglyph-offset) 0 var(--anaglyph-red);
 }
 
-/* Floating panel with cut corners, inner bevel, and hard offset shadow */
+/*
+Floating panel: cut corners, inner bevel, and a hard offset shadow that
+carries energy. One loop (panel-energy) drives the glow pulse, the bright
+band running along the shadow edge, the holographic top edge, and the
+surface glint.
+*/
 .floating-panel {
+  --panel-shadow: var(--magenta);
+  --panel-hot: var(--magenta-hot);
+  --panel-glow: var(--glow-magenta);
   position: relative;
   isolation: isolate;
   padding: var(--space-6);
   margin-top: var(--space-6);
   margin-bottom: var(--space-6);
+  filter: drop-shadow(
+      0 0 calc(var(--glow-tight) * (0.5 + var(--pulse))) var(--panel-glow)
+    )
+    drop-shadow(0 0 calc(var(--glow-wide) * var(--pulse)) var(--panel-glow));
+  animation: panel-energy var(--energy-period) linear infinite;
+}
+
+.floating-panel--cyan {
+  --panel-shadow: var(--cyan);
+  --panel-hot: var(--cyan-hot);
+  --panel-glow: var(--glow-cyan);
+}
+
+/* Narrow, centered panel for forms and short pages */
+.floating-panel--form {
+  max-width: var(--width-form);
+  margin-inline: auto;
+  margin-top: var(--grid-size);
 }
 
 .floating-panel::before,
@@ -130,16 +215,52 @@ h1 {
   );
 }
 
+/* Shadow layer with a hot band sweeping along its edge */
 .floating-panel::before {
-  background: var(--panel-shadow, var(--magenta));
+  background:
+    linear-gradient(
+        115deg,
+        transparent 44%,
+        var(--panel-hot) 50%,
+        transparent 56%
+      )
+      calc(100% - var(--energy) * 100%) 0 / 300% 100% no-repeat,
+    var(--panel-shadow);
   transform: translate(
     var(--shadow-offset-window),
     var(--shadow-offset-window)
   );
 }
 
+/* Surface: metal shading, a drifting glint, and a holographic top edge */
 .floating-panel::after {
-  background: var(--surface-raised);
+  background:
+    linear-gradient(90deg, var(--cyan), var(--magenta), var(--cyan))
+      calc(var(--energy) * 100%) 0 / 200% var(--border-1) repeat-x,
+    linear-gradient(
+        115deg,
+        transparent 40%,
+        var(--sheen) 50%,
+        transparent 60%
+      )
+      calc(var(--energy) * 100%) 0 / 300% 100% no-repeat,
+    linear-gradient(to bottom, var(--surface-raised), var(--surface));
+  background:
+    linear-gradient(
+        90deg in oklch,
+        var(--cyan),
+        var(--magenta),
+        var(--cyan)
+      )
+      calc(var(--energy) * 100%) 0 / 200% var(--border-1) repeat-x,
+    linear-gradient(
+        115deg,
+        transparent 40%,
+        var(--sheen) 50%,
+        transparent 60%
+      )
+      calc(var(--energy) * 100%) 0 / 300% 100% no-repeat,
+    linear-gradient(to bottom, var(--surface-raised), var(--surface));
   box-shadow:
     inset var(--border-1) var(--border-1) 0 var(--bevel-light),
     inset
@@ -147,10 +268,6 @@ h1 {
       calc(-1 * var(--border-1))
       0
       var(--bevel-dark);
-}
-
-.floating-panel--cyan {
-  --panel-shadow: var(--cyan);
 }
 
 /* Form fields and labels */
@@ -164,6 +281,7 @@ label,
   margin-bottom: var(--space-1);
 }
 
+/* Fields sit in a recessed well */
 input[type="text"],
 input[type="email"],
 input[type="password"],
@@ -175,11 +293,25 @@ select,
   font-family: var(--font-mono);
   font-size: var(--text-14);
   color: var(--ink-strong);
-  background-color: var(--surface);
+  background-color: var(--bg);
   border: var(--border-1) solid var(--line);
+  box-shadow:
+    inset 0 var(--border-2) 0 var(--well),
+    inset 0 calc(-1 * var(--border-1)) 0 var(--bevel-light);
   padding: var(--space-2) var(--space-3);
   margin-bottom: var(--space-3);
   border-radius: 0;
+  transition:
+    border-color var(--press-duration) ease-out,
+    box-shadow var(--press-duration) ease-out;
+}
+
+input[type="text"],
+input[type="email"],
+input[type="password"],
+select,
+.form-input {
+  max-width: var(--width-form);
 }
 
 input[type="text"]:focus,
@@ -191,6 +323,9 @@ select:focus,
   border-color: var(--cyan);
   outline: var(--focus-outline) solid var(--cyan);
   outline-offset: var(--focus-offset);
+  box-shadow:
+    inset 0 var(--border-2) 0 var(--well),
+    0 0 var(--glow-wide) var(--glow-cyan);
 }
 
 /* Field error text */
@@ -229,6 +364,9 @@ input[type="button"] {
   text-decoration: none;
   clip-path: var(--button-shape);
   border-radius: 0;
+  transition:
+    filter var(--press-duration) ease-out,
+    transform var(--press-duration) ease-out;
 }
 
 /* Primary button: filled cyan parallelogram with magenta hard shadow */
@@ -268,6 +406,28 @@ input[type="button"] {
   background: var(--cyan);
 }
 
+/* Hover glows; press pushes the face halfway onto its shadow */
+.btn-primary:hover,
+.btn--primary:hover {
+  filter: drop-shadow(0 0 var(--glow-tight) var(--glow-cyan));
+}
+
+.btn-primary:active,
+.btn--primary:active {
+  transform: translate(
+    calc(var(--shadow-offset-button) / 2),
+    calc(var(--shadow-offset-button) / 2)
+  );
+}
+
+.btn-primary:active::before,
+.btn--primary:active::before {
+  transform: translate(
+    calc(var(--shadow-offset-button) / 2),
+    calc(var(--shadow-offset-button) / 2)
+  );
+}
+
 input.btn-primary,
 input.btn--primary {
   background: var(--cyan);
@@ -286,11 +446,14 @@ input.btn--primary {
 .btn--secondary:hover {
   background-color: var(--surface-raised);
   color: var(--ink-strong);
+  filter: drop-shadow(0 0 var(--glow-tight) var(--glow-cyan));
 }
 
 /* Flash messages */
 .flash-container {
-  margin: var(--space-4) var(--space-6);
+  max-width: calc(var(--width-form) + 2 * var(--space-6));
+  margin: var(--space-4) auto 0;
+  padding-inline: var(--space-6);
 }
 
 .flash-message,
@@ -392,5 +555,9 @@ a:hover {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+
+  .floating-panel {
+    animation: none;
   }
 }

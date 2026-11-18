@@ -9,7 +9,7 @@ Author(s): Tyler Black
 {% block title %}Log In - Roko's Tasks{% endblock %}
 
 {% block content %}
-<div class="floating-panel">
+<div class="floating-panel floating-panel--form">
   <h1 data-testid="login-title">Log In</h1>
   <form method="post" action="{{ url_for('auth.login') }}" novalidate>
     {{ form.hidden_tag() }}

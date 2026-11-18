@@ -11,6 +11,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 TOKENS_FILE = REPO_ROOT / "src/presentation/static/css/tokens.css"
+COMPONENTS_FILE = REPO_ROOT / "src/presentation/static/css/components.css"
 PRESENTATION_DIR = REPO_ROOT / "src/presentation"
 
 EXPECTED_COLOR_TOKENS = (
@@ -46,6 +47,21 @@ EXPECTED_SIZE_TOKENS = (
 )
 
 EXPECTED_SPACING_TOKENS = tuple(f"--space-{index}" for index in range(1, 9))
+
+EXPECTED_EFFECT_TOKENS = (
+    "--cyan-hot",
+    "--magenta-hot",
+    "--glow-cyan",
+    "--glow-magenta",
+    "--anaglyph-cyan",
+    "--anaglyph-red",
+    "--vignette",
+    "--width-form",
+    "--width-page",
+    "--glow-tight",
+    "--glow-wide",
+    "--energy-period",
+)
 
 HEX_PATTERN = re.compile(r"#[0-9a-fA-F]{3,8}\b")
 RGB_PATTERN = re.compile(r"rgba?\(")
@@ -148,3 +164,28 @@ def test_guard_against_hardcoded_colors_and_fonts() -> None:
             )
 
     assert not violations, "\n".join(violations)
+
+
+def test_tokens_css_defines_effect_and_width_tokens() -> None:
+    """Verify tokens.css declares the glow, energy, and width tokens."""
+    declared_tokens = extract_css_custom_properties(
+        TOKENS_FILE.read_text(encoding="utf-8")
+    )
+
+    missing = [
+        token
+        for token in EXPECTED_EFFECT_TOKENS
+        if token not in declared_tokens
+    ]
+    assert not missing, f"Missing effect tokens: {missing}"
+
+
+def test_panel_energy_loop_stops_for_reduced_motion() -> None:
+    """Verify the ambient panel loop is turned off for reduced motion."""
+    css = COMPONENTS_FILE.read_text(encoding="utf-8")
+
+    assert "animation: panel-energy" in css
+    reduced_motion = css[css.index("prefers-reduced-motion: reduce") :]
+    assert re.search(
+        r"\.floating-panel\s*\{\s*animation:\s*none;", reduced_motion
+    ), "The panel energy loop must stop under prefers-reduced-motion"

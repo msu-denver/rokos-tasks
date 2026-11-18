@@ -6,7 +6,7 @@ Author(s): Tyler Black
 {% extends "base.html" %}
 
 {% block content %}
-<div class="floating-panel">
+<div class="floating-panel floating-panel--form">
   <h1 data-testid="app-title">Roko's Tasks</h1>
   {% if current_user.is_authenticated %}
     <p>Logged in as <span data-testid="home-username">{{ current_user.username }}</span></p>

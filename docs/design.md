@@ -2,7 +2,7 @@
 
 **What this doc is:** the visual rules for every screen, for humans and AI agents alike. It covers colors, type, depth, the Overlord feed and how it escalates, motion, components, and what never to do. **Status: draft (2026-11-18).** Built from design round 3 on the [design canvas](https://claude.ai/artifact/DccJ4Gyyjg2D1EkkuaPqs4) (private until shared). Items marked **(proposed)** aren't settled yet.
 
-Token *values* will live in `src/presentation/static/css/tokens.css` (task T3). Once that file exists it's the source of truth, and this doc refers to tokens by name only.
+Token *values* live in `src/presentation/static/css/tokens.css`. That file is the source of truth, and this doc refers to tokens by name only.
 
 ## Contents
 1. [Principles](#1-principles)
@@ -40,10 +40,12 @@ Values live in `src/presentation/static/css/tokens.css`.
 | `--ink-strong` | The stage prompt |
 | `--muted` | Older feed messages, readouts |
 | `--cyan` | Primary accent: brand, Run, Submit, exact values in prompts, calm state |
-| `--magenta` | Second accent: hard shadows, pressure state |
-| `--red` | Critical state **only** |
+| `--magenta` | Second accent: hard shadows, pressure state. An anaglyph crimson (red with a trace of pink), the red lens to cyan's blue one. |
+| `--red` | Critical state **only**. Warmer than `--magenta` so the two never blur together. |
 | `--yellow` | Code strings, rare highlights |
 | `--green` | `PASS` **only** |
+
+**Decided 2026-11-18:** the second accent moved from pink to an anaglyph crimson, for an old red/cyan 3D-glasses feel without being literal about it. The token keeps the name `--magenta`.
 
 Rules:
 - Cyan and magenta are the pair. Red appears only in the critical state, and green only for a pass.
@@ -79,12 +81,18 @@ The look is "vintage 3D": hard offset shadows, bevels, and a perspective floor, 
 - **Buttons:** a parallelogram with a 12 px cut. Submit is a filled cyan gradient with a 4 px magenta hard shadow. Run is a 1 px cyan outline.
 - **The Overlord's stage:** the Overlord stands on a cyan perspective grid floor with a glowing magenta horizon line. Faint scanlines cover only that area.
 - **Screen:** a dark vignette at the edges, like an old monitor.
+**Decided 2026-11-18** (the login and register pass): energy, holographic foil, and the anaglyph split below. Together they push the vintage 3D look toward old red/cyan 3D glasses, kept subtle.
+
+- **Energy:** a floating window's accent shadow glows, and the glow breathes. A hot band runs along the shadow edge now and then, like current through a wire. Fields sit in a recessed well and glow cyan on focus. Primary buttons glow on hover and press halfway onto their shadow.
+- **Holographic foil:** a floating window's top edge is a 1 px cyan-to-crimson foil (interpolated in OKLCH, so it passes through violet without adding a third accent token), and a faint white glint drifts across the surface. Both move with the energy loop.
+- **Anaglyph split:** headings and the wordmark carry a faint offset of cyan on the left and crimson on the right, like a 3D print seen without glasses. 1–2 px only; it must never make text hard to read.
 
 ## 5. Grid and Spacing
 
 - The background is a 64 px grid in `--grid`.
 - **"+" marks** sit at structural intersections, such as the header's bottom corners. Use them sparingly, at most 4 per screen.
 - All spacing is a multiple of 4. The common values are 8, 16, 24, and 32.
+- **Widths (decided 2026-11-18):** content never spans the full screen. Page content caps at `--width-page` (18 grid cells) and centers. Forms and short pages use a narrow panel, `--width-form` (7 grid cells), centered. Inputs never stretch past `--width-form`.
 
 ## 6. Overlord Feed and Escalation
 
@@ -110,7 +118,8 @@ What the Overlord *says* at each level comes from the dialogue file (US10).
 
 ## 7. Motion
 
-- **Allowed:** the visor scan, the cursor blink, new messages typing in, and, in critical only, the timer and Submit pulsing.
+- **Allowed:** the visor scan, the cursor blink, new messages typing in, the floating-window energy loop (§4), and, in critical only, the timer and Submit pulsing.
+- The energy loop is ambient: one slow animation (`--energy-period`) drives the glow, the edge band, the foil, and the glint together, so a window counts as one loop.
 - No more than one looping animation per area. Nothing animates the prompt text after it has typed in.
 - Everything respects `prefers-reduced-motion`: loops stop and text appears instantly.
 
@@ -128,7 +137,7 @@ What the Overlord *says* at each level comes from the dialogue file (US10).
 
 - Explanatory or helper text, or tooltips on obvious controls.
 - Emoji.
-- Gradient washes behind content. Gradients are only for the heat bar, Submit, and metal shading.
+- Gradient washes behind content. Gradients are only for the heat bar, Submit, metal shading, the floating-window foil and glint, and the header's bottom hairline.
 - Cartoon styling: thick black outlines, bubbly rounded cards, comic speech bubbles.
 - More than two accent colors on screen in the calm state.
 - Hard-coded colors, fonts, or sizes in templates. Use tokens. A reviewer rates a hard-coded value as a MED finding.

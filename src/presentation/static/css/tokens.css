@@ -16,14 +16,27 @@ Author(s): Tyler Black
   --ink-strong: #f4f7fb;
   --muted: #8b93a7;
   --cyan: #20e6ff;
-  --magenta: #ff2e88;
-  --red: #ff2e63;
+  /* Second accent: an anaglyph crimson, red with a trace of pink. */
+  --magenta: #ff2d5a;
+  /* Critical state only; warmer than --magenta so the two never blur. */
+  --red: #ff4a2e;
   --yellow: #f9f871;
   --green: #3dffa2;
 
   /* Bevel colors */
   --bevel-light: rgba(255, 255, 255, 0.15);
   --bevel-dark: rgba(0, 0, 0, 0.6);
+
+  /* Glow, energy, and holographic foil */
+  --cyan-hot: #d4fbff;
+  --magenta-hot: #ffd3dd;
+  --glow-cyan: rgba(32, 230, 255, 0.45);
+  --glow-magenta: rgba(255, 45, 90, 0.5);
+  --anaglyph-cyan: rgba(32, 230, 255, 0.55);
+  --anaglyph-red: rgba(255, 45, 90, 0.6);
+  --sheen: rgba(255, 255, 255, 0.035);
+  --well: rgba(0, 0, 0, 0.35);
+  --vignette: rgba(0, 0, 0, 0.7);
 
   /* Typography families */
   --font-display: "Syne", sans-serif;
@@ -52,6 +65,20 @@ Author(s): Tyler Black
   /* Geometry cuts */
   --cut-window: 24px;
   --cut-button: 12px;
+
+  /* Content widths, on the 64 px grid */
+  --width-form: 448px;
+  --width-page: 1152px;
+
+  /* Glow radii and anaglyph offsets */
+  --glow-tight: 6px;
+  --glow-wide: 28px;
+  --anaglyph-offset: 2px;
+  --anaglyph-offset-sm: 1px;
+
+  /* Motion */
+  --energy-period: 7s;
+  --press-duration: 120ms;
 
   /* Shadow offsets */
   --shadow-offset-window: 8px;

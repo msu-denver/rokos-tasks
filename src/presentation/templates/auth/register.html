@@ -9,7 +9,7 @@ Author(s): Tyler Black
 {% block title %}Register - Roko's Tasks{% endblock %}
 
 {% block content %}
-<div class="floating-panel">
+<div class="floating-panel floating-panel--form">
   <h1 data-testid="register-title">Register</h1>
   <form method="post" action="{{ url_for('auth.register') }}" novalidate>
     {{ form.hidden_tag() }}

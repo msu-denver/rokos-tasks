@@ -94,3 +94,13 @@ def test_base_layout_header_actions_logged_in(client: FlaskClient) -> None:
     assert 'data-testid="header-logout"' in html
     assert 'data-testid="header-login"' not in html
     assert 'data-testid="header-register"' not in html
+
+
+def test_form_pages_use_the_narrow_centered_panel(
+    client: FlaskClient,
+) -> None:
+    """Verify login and register render inside the narrow form panel."""
+    for path in ("/login", "/register"):
+        html = client.get(path).get_data(as_text=True)
+
+        assert "floating-panel--form" in html, path
