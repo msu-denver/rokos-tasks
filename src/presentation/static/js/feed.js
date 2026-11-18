@@ -4,7 +4,7 @@ Description: Styles exact prompt values and marks scrolled feed content.
 Author(s): Tyler Black
 */
 
-export function initFeed(feed) {
+export function init_feed(feed) {
   for (const message of feed.children) {
     const parts = message.textContent.split(/`([^`\n]+)`/);
     message.replaceChildren(...parts.map((part, index) => {

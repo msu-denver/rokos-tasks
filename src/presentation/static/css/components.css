@@ -614,7 +614,6 @@ a:hover {
   scrollbar-color: var(--muted) var(--surface);
   color: var(--ink-strong);
   font-size: var(--text-17);
-  white-space: pre-wrap;
 }
 
 .game-feed--scrolled:not(:focus-visible) {
@@ -623,6 +622,7 @@ a:hover {
 
 .game-feed p {
   margin: 0;
+  white-space: pre-wrap;
 }
 
 .game-feed code,

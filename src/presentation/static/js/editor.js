@@ -7,14 +7,14 @@ Author(s): Tyler Black
 const MONACO_BASE = "https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/";
 const SAVE_INTERVAL_MS = 1000;
 
-function loadMonaco() {
+function load_monaco() {
   return new Promise((resolve, reject) => {
     // The blob starts the classic worker on the page's origin.
-    const workerUrl = URL.createObjectURL(new Blob([
+    const worker_url = URL.createObjectURL(new Blob([
       `self.MonacoEnvironment = {baseUrl: ${JSON.stringify(MONACO_BASE)}};`,
       `importScripts(${JSON.stringify(`${MONACO_BASE}vs/base/worker/workerMain.js`)});`,
     ], {type: "text/javascript"}));
-    window.MonacoEnvironment = {getWorkerUrl: () => workerUrl};
+    window.MonacoEnvironment = {getWorkerUrl: () => worker_url};
 
     const loader = document.createElement("script");
     loader.src = `${MONACO_BASE}vs/loader.js`;
@@ -27,12 +27,12 @@ function loadMonaco() {
   });
 }
 
-function initialCode(key, starterCode) {
+function initial_code(key, starter_code) {
   try {
-    return localStorage.getItem(key) ?? starterCode;
+    return localStorage.getItem(key) ?? starter_code;
   } catch {
     // Browsers can deny storage access for this origin.
-    return starterCode;
+    return starter_code;
   }
 }
 
@@ -59,7 +59,7 @@ function autosave(key) {
   };
 }
 
-function editorOptions(monaco, value) {
+function editor_options(monaco, value) {
   const styles = getComputedStyle(document.documentElement);
   const token = (name) => styles.getPropertyValue(name).trim();
   monaco.editor.defineTheme("rokos", {
@@ -92,24 +92,25 @@ function editorOptions(monaco, value) {
     tabSize: 4,
     insertSpaces: true,
     detectIndentation: false,
+    bracketPairColorization: {enabled: false},
     automaticLayout: true,
     minimap: {enabled: false},
     scrollBeyondLastLine: false,
   };
 }
 
-export async function initEditor(container, starterCode) {
+export async function init_editor(container, starter_code) {
   const [textarea, host] = container.children;
   const {run, stage} = container.dataset;
   const key = `rokos:run:${run}:stage:${stage}`;
   const save = autosave(key);
-  textarea.value = initialCode(key, starterCode);
+  textarea.value = initial_code(key, starter_code);
   textarea.addEventListener("input", () => save(textarea.value));
 
   try {
-    const monaco = await loadMonaco();
+    const monaco = await load_monaco();
     host.hidden = false;
-    const editor = monaco.editor.create(host, editorOptions(monaco, textarea.value));
+    const editor = monaco.editor.create(host, editor_options(monaco, textarea.value));
     editor.onDidChangeModelContent(() => save(editor.getValue()));
     if (document.activeElement === textarea) {
       const model = editor.getModel();
