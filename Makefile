@@ -7,7 +7,7 @@
 PYTHON ?= python3
 LINT_PATHS = src tests scripts
 
-.PHONY: setup lint fmt test coverage check dev up down
+.PHONY: setup lint fmt test coverage check dev up down db migrate
 
 ## Install pinned dependencies.
 setup:
@@ -26,14 +26,24 @@ fmt:
 	$(PYTHON) -m ruff format $(LINT_PATHS)
 	$(PYTHON) -m ruff check --fix $(LINT_PATHS)
 
+## Start Postgres db container for local testing if not running in CI.
+db:
+	@if [ "$$CI" != "true" ]; then \
+		docker compose up -d --wait db; \
+	fi
+
+## Run database migrations up to head revision.
+migrate:
+	$(PYTHON) -m alembic upgrade head
+
 ## All tests, Selenium included. LLM_MODE is forced to fake.
-test:
+test: db
 	LLM_MODE=fake $(PYTHON) -m pytest
 
 ## Tests under coverage; fails under 90%. HTML report in htmlcov/.
 ## (The leading "-" keeps going if html trips fail_under, so the report
 ## below still prints the missing lines before failing.)
-coverage:
+coverage: db
 	LLM_MODE=fake $(PYTHON) -m coverage run -m pytest
 	-$(PYTHON) -m coverage html
 	$(PYTHON) -m coverage report

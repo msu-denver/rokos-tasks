@@ -14,6 +14,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
+RUN chmod +x docker/entrypoint.sh
+
 EXPOSE 8000
 
+ENTRYPOINT ["docker/entrypoint.sh"]
 CMD ["gunicorn", "--bind", "0.0.0.0:8000", "src.app:create_app()"]

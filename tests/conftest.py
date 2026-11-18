@@ -1,24 +1,35 @@
 """
 File: conftest.py
 Description: Shared pytest fixtures: the Flask app and test client, a
-    live server for Selenium, and a headless Chrome browser that saves a
-    screenshot to .pr/e2e-failures/ when an e2e test fails.
+    live server for Selenium, a headless Chrome browser that saves a
+    screenshot to .pr/e2e-failures/ when an e2e test fails, and
+    Postgres-backed engine and rolled-back session fixtures.
 Author(s): Tyler Black
 """
 
+import os
 import threading
 from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
+from alembic import command
+from alembic.config import Config
 from flask import Flask
 from flask.testing import FlaskClient
 from selenium import webdriver
+from sqlalchemy import Engine, create_engine
+from sqlalchemy.orm import Session
 from werkzeug.serving import make_server
 
 from src.app import create_app
+from src.data.database import db
 
 FAILURE_SCREENSHOT_DIR = Path(".pr/e2e-failures")
+TEST_DATABASE_URL = os.getenv(
+    "TEST_DATABASE_URL",
+    "postgresql+psycopg://rokos:rokos@localhost:5433/rokos_test",
+)
 
 
 @pytest.hookimpl(wrapper=True)
@@ -29,10 +40,59 @@ def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo):
     return report
 
 
+@pytest.fixture(scope="session")
+def engine() -> Iterator[Engine]:
+    """Create a database engine and run all migrations once for the session.
+
+    Yields:
+        A SQLAlchemy Engine connected to TEST_DATABASE_URL.
+    """
+    alembic_cfg = Config("alembic.ini")
+    alembic_cfg.set_main_option("sqlalchemy.url", TEST_DATABASE_URL)
+    command.upgrade(alembic_cfg, "head")
+
+    test_engine = create_engine(TEST_DATABASE_URL)
+    yield test_engine
+    test_engine.dispose()
+
+
 @pytest.fixture
-def app() -> Flask:
-    """Return a Flask app configured for testing."""
-    return create_app({"TESTING": True})
+def db_session(engine: Engine) -> Iterator[Session]:
+    """Yield a database session inside a rolled-back transaction.
+
+    Args:
+        engine: The session-scoped database engine.
+
+    Yields:
+        A Session bound to the test transaction.
+    """
+    connection = engine.connect()
+    transaction = connection.begin()
+
+    db.init(TEST_DATABASE_URL)
+    db.session_factory.configure(
+        bind=connection,
+        join_transaction_mode="create_savepoint",
+    )
+    session = db.session
+
+    yield session
+
+    db.remove()
+    transaction.rollback()
+    connection.close()
+    db.session_factory.configure(bind=engine)
+
+
+@pytest.fixture
+def app(db_session: Session) -> Flask:
+    """Return a Flask app configured for testing with the test database."""
+    return create_app(
+        {
+            "TESTING": True,
+            "DATABASE_URL": TEST_DATABASE_URL,
+        }
+    )
 
 
 @pytest.fixture
