@@ -74,7 +74,8 @@ def test_start_beginner_run(
     seeded_beginner: int,
 ) -> None:
     """Start Beginner and retain the responsive layout and resume rules."""
-    _start_beginner(browser, live_server, db_session)
+    ready = _start_beginner(browser, live_server, db_session)
+    first_url = browser.current_url
     feed = browser.find_element(*_selector("game-feed"))
     editor = browser.find_element(*_selector("game-editor"))
     assert feed.rect["x"] < editor.rect["x"]
@@ -103,12 +104,16 @@ def test_start_beginner_run(
     )
 
     browser.get(f"{live_server}/start")
-    WebDriverWait(browser, 10).until(
+    ready.until(
         expected_conditions.visibility_of_element_located(
             _selector("start-title")
         )
     )
-    assert not browser.find_elements(*_selector("start-resume-run"))
+    resume = ready.until(
+        expected_conditions.element_to_be_clickable(
+            _selector("start-resume-run")
+        )
+    )
     for width, height, needs_scroll in ((1280, 640, False), (390, 560, True)):
         _set_viewport(browser, width, height)
         horizontal, vertical = browser.execute_script(
@@ -129,6 +134,9 @@ def test_start_beginner_run(
     assert scroll > 0
     assert 0 <= top < bottom <= viewport_height
 
+    resume.click()
+    ready.until(expected_conditions.url_to_be(first_url))
+
 
 @pytest.mark.e2e
 def test_cancel_then_confirm_new_run(
@@ -137,7 +145,7 @@ def test_cancel_then_confirm_new_run(
     db_session: Session,
     seeded_beginner: int,
 ) -> None:
-    """Cancel returns to the active run and Confirm opens a replacement."""
+    """Cancel returns to the tier picker and Confirm opens a replacement."""
     ready = _start_beginner(browser, live_server, db_session)
     first_url = browser.current_url
     start_url = f"{live_server}/start"
@@ -156,12 +164,14 @@ def test_cancel_then_confirm_new_run(
             _selector("start-confirm-abandon-cancel")
         )
     ).click()
-    ready.until(expected_conditions.url_to_be(first_url))
-    ready.until(
-        expected_conditions.visibility_of_element_located(
-            _selector("game-feed")
+    ready.until(expected_conditions.url_to_be(start_url))
+    assert not browser.find_elements(*_selector("start-confirm-abandon"))
+    resume = ready.until(
+        expected_conditions.element_to_be_clickable(
+            _selector("start-resume-run")
         )
     )
+    assert resume.get_attribute("href") == first_url
 
     browser.get(start_url)
     ready.until(can_start).click()

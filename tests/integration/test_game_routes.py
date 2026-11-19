@@ -75,6 +75,39 @@ def test_start_screen_shows_all_tier_rules_and_availability(
             assert f'data-testid="{card_id}-button"' not in html
 
 
+def test_start_screen_hides_resume_for_player_without_runs(
+    player: FlaskClient,
+) -> None:
+    """Hide Resume run when the player has never started a run."""
+    response = player.get("/start")
+    assert response.status_code == 200
+    assert 'data-testid="start-resume-run"' not in response.get_data(
+        as_text=True
+    )
+
+
+@pytest.mark.parametrize("status", ["won", "lost", "abandoned"])
+def test_start_screen_hides_resume_for_finished_run(
+    player: FlaskClient, seeded_beginner: int, db_session: Session, status: str
+) -> None:
+    """Hide Resume run when the player's only run has ended."""
+    start = player.post("/runs", data={"difficulty": "beginner"})
+    assert start.status_code == 302
+    play_url = start.headers["Location"]
+    runs = RunRepository(db_session)
+    run = runs.get(int(play_url.rsplit("/", 1)[1]))
+    assert run is not None
+    run.status = status
+    run.ended_at = datetime.now(UTC)
+    runs.commit()
+
+    response = player.get("/start")
+    assert response.status_code == 200
+    assert 'data-testid="start-resume-run"' not in response.get_data(
+        as_text=True
+    )
+
+
 def test_start_run_cancel_and_confirm_replacement(
     player: FlaskClient, seeded_beginner: int, db_session: Session
 ) -> None:
@@ -85,8 +118,14 @@ def test_start_run_cancel_and_confirm_replacement(
     assert first_url.startswith("/play/")
     assert player.get(first_url).status_code == 200
 
-    start_html = player.get("/start").get_data(as_text=True)
-    assert 'data-testid="start-resume-run"' not in start_html
+    resume_link = (
+        f'href="{first_url}" data-testid="start-resume-run">Resume run</a>'
+    )
+    start = player.get("/start")
+    assert start.status_code == 200
+    start_html = start.get_data(as_text=True)
+    assert resume_link in start_html
+    assert 'data-testid="start-tier-beginner-button"' in start_html
     assert 'data-testid="start-confirm-abandon"' not in start_html
 
     unavailable = player.post("/runs", data={"difficulty": "hard"})
@@ -95,7 +134,7 @@ def test_start_run_cancel_and_confirm_replacement(
     assert 'data-testid="start-error">No campaigns for this tier yet.' in (
         unavailable_html
     )
-    assert 'data-testid="start-resume-run"' not in unavailable_html
+    assert resume_link in unavailable_html
 
     runs = RunRepository(db_session)
     first_id = int(first_url.rsplit("/", 1)[1])
@@ -109,15 +148,15 @@ def test_start_run_cancel_and_confirm_replacement(
     html = pending.get_data(as_text=True)
     assert 'data-testid="start-confirm-abandon"' in html
     assert "abandon your current run with a score of 0" in html
-    cancel_link = (
-        f'href="{first_url}" data-testid="start-confirm-abandon-cancel"'
-    )
+    cancel_link = 'href="/start" data-testid="start-confirm-abandon-cancel"'
     assert cancel_link in html
     assert 'name="difficulty" value="beginner"' in html
 
-    canceled = player.get(first_url)
+    canceled = player.get("/start")
     assert canceled.status_code == 200
-    assert 'data-testid="game-editor"' in canceled.get_data(as_text=True)
+    canceled_html = canceled.get_data(as_text=True)
+    assert 'data-testid="start-tier-beginner-button"' in canceled_html
+    assert resume_link in canceled_html
     db_session.refresh(old_run)
     assert (old_run.status, old_run.score, old_run.ended_at) == (
         "in_progress",
