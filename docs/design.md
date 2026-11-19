@@ -142,7 +142,7 @@ What the Overlord *says* at each level comes from the dialogue file (US10).
 - Emoji.
 - Gradient washes behind content. Gradients are only for the heat bar, Submit, metal shading, the floating-window foil and glint, and the header's bottom hairline.
 - Cartoon styling: thick black outlines, bubbly rounded cards, comic speech bubbles.
-- More than two accent colors on screen in the calm state. The one exception is the difficulty badge (`--tier-*`), which names the tier in its own color.
+- More than two accent colors on screen in the calm state.
 - Hard-coded colors, fonts, or sizes in templates. Use tokens. A reviewer rates a hard-coded value as a MED finding.
 
 ## 10. Accessibility
