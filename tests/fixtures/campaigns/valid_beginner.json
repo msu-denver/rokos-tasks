@@ -5,7 +5,7 @@
     {
       "stage": 1,
       "prompt": "Add one to the input number. Example: `5` prints `6`.",
-      "starter_code": "num = int(input())\nprint(num + 1)\n",
+      "starter_code": null,
       "samples": [
         {
           "input": "5",

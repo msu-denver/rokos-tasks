@@ -5,7 +5,7 @@
     {
       "stage": 1,
       "prompt": "Build a calculator that puts its operators last. Parentheses have had enough attention. The first line contains the token count N (1 to 100). The second line contains exactly N tokens separated by single spaces. Numbers are base-10 integers from -1000 to 1000, with an optional minus sign. The only operators are + and -. Push numbers onto a stack. For an operator, pop the right operand, then the left operand, apply left operator right, and push the result. Every operator has two operands available and evaluation ends with exactly one value. Print that value as a base-10 integer on its own line followed by a newline. Use integers throughout.\n\nExample 1 input:\n5\n7 2 - 3 +\nExample 1 output:\n8",
-      "starter_code": "# RPN calculator\n",
+      "starter_code": null,
       "samples": [
         {
           "input": "5\n7 2 - 3 +",

@@ -182,24 +182,14 @@ class CampaignValidator:
         for stage in stages:
             if not isinstance(stage, dict):
                 continue
+            # The editor always starts empty: every line is the player's.
             stage_num = stage.get("stage")
             starter = stage.get("starter_code")
-            if stage_num == 1:
-                if (
-                    not starter
-                    or not isinstance(starter, str)
-                    or not starter.strip()
-                ):
-                    errors.append(
-                        f"[{filename}] Stage 1 must have non-empty "
-                        f"starter_code."
-                    )
-            elif stage_num is not None:
-                if starter is not None:
-                    errors.append(
-                        f"[{filename}] Stage {stage_num}: starter_code must "
-                        f"be null, got {starter!r}."
-                    )
+            if stage_num is not None and starter is not None:
+                errors.append(
+                    f"[{filename}] Stage {stage_num}: starter_code must "
+                    f"be null, got {starter!r}."
+                )
 
         for stage in stages:
             if not isinstance(stage, dict):

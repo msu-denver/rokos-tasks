@@ -10,7 +10,11 @@ from werkzeug.wrappers import Response
 
 from src.business.campaign_selector import NoCampaignAvailableError
 from src.business.difficulty import Difficulty
-from src.business.game_service import GameService, RunNotFoundError
+from src.business.game_service import (
+    ActiveRunExistsError,
+    GameService,
+    RunNotFoundError,
+)
 from src.business.service_factory import build_game_service
 
 game_blueprint = Blueprint("game", __name__)
@@ -40,9 +44,25 @@ def create_run() -> Response | str:
     except ValueError:
         abort(400)
 
+    replace_active = request.form.get("replace_active") == "yes"
+    expected_active_id = request.form.get("active_run_id", type=int)
+    if "active_run_id" in request.form and expected_active_id is None:
+        abort(400)
+
     game = build_game_service()
     try:
-        run = game.start_run(current_user.id, difficulty)
+        run = game.start_run(
+            current_user.id,
+            difficulty,
+            replace_active=replace_active,
+            expected_active_id=expected_active_id,
+        )
+    except ActiveRunExistsError as error:
+        return render_template(
+            "game/start.html",
+            active_run_id=error.run_id,
+            replacement_difficulty=difficulty,
+        )
     except NoCampaignAvailableError:
         return _render_start(game, "No campaigns for this tier yet.")
     return redirect(url_for("game.play", run_id=run.id))

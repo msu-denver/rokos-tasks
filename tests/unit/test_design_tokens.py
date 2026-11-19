@@ -189,3 +189,30 @@ def test_panel_energy_loop_stops_for_reduced_motion() -> None:
     assert re.search(
         r"\.floating-panel\s*\{\s*animation:\s*none;", reduced_motion
     ), "The panel energy loop must stop under prefers-reduced-motion"
+
+
+def test_game_loops_stop_for_reduced_motion() -> None:
+    """Verify the Impossible badge and visor scan stop for reduced motion."""
+    css = COMPONENTS_FILE.read_text(encoding="utf-8")
+
+    assert "animation: impossible-spin" in css
+    assert "animation: visor-scan" in css
+    reduced_motion = css[css.index("prefers-reduced-motion: reduce") :]
+    assert re.search(
+        r"\.tier-badge--impossible,\s*\.overlord-scan\s*\{\s*"
+        r"animation:\s*none;",
+        reduced_motion,
+    ), "Game loops must stop under prefers-reduced-motion"
+
+
+def test_every_tier_has_a_badge_color() -> None:
+    """Verify each non-Impossible tier has a token and a badge modifier."""
+    tokens = extract_css_custom_properties(
+        TOKENS_FILE.read_text(encoding="utf-8")
+    )
+    css = COMPONENTS_FILE.read_text(encoding="utf-8")
+
+    for tier in ("beginner", "easy", "medium", "hard", "expert"):
+        assert f"--tier-{tier}" in tokens
+        assert f"var(--tier-{tier})" in css
+    assert ".tier-badge--impossible" in css

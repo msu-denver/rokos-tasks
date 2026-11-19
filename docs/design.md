@@ -44,6 +44,7 @@ Values live in `src/presentation/static/css/tokens.css`.
 | `--red` | Critical state **only**. Warmer than `--magenta` so the two never blur together. |
 | `--yellow` | Code strings, rare highlights |
 | `--green` | `PASS` **only** |
+| `--tier-*` | The difficulty badge **only**: a cool-to-hot ramp (Beginner cyan, Easy blue, Medium violet, Hard crimson, Expert orange). Impossible cycles all five. |
 
 **Decided 2026-11-18:** the second accent moved from pink to an anaglyph crimson, for an old red/cyan 3D-glasses feel without being literal about it. The token keeps the name `--magenta`.
 
@@ -93,12 +94,14 @@ The look is "vintage 3D": hard offset shadows, bevels, and a perspective floor, 
 - **"+" marks** sit at structural intersections, such as the header's bottom corners. Use them sparingly, at most 4 per screen.
 - All spacing is a multiple of 4. The common values are 8, 16, 24, and 32.
 - **Widths (decided 2026-11-18):** content never spans the full screen. Page content caps at `--width-page` (18 grid cells) and centers. Forms and short pages use a narrow panel, `--width-form` (7 grid cells), centered. Inputs never stretch past `--width-form`.
+- **Game screen (decided 2026-11-18):** the editor is the point, so the game screen caps at the wider `--width-game` (24 grid cells). On desktop (at least 960 × 560) it's a fixed app shell with no page scroll: the Overlord column keeps a readable measure (5.5–7 grid cells) and the editor takes everything else. Below that, the two windows stack and the page scrolls.
 
 ## 6. Overlord Feed and Escalation
 
 **The feed** is one scrolling text box. It's how the Overlord talks.
-- The **first message is the stage prompt**: plain sentences that state exactly what to read, what to print, and at least one example. Exact values (`0–9`, `w`, `4` then `w` prints `3`) are set in mono cyan.
-- New messages are added at the bottom. Older ones scroll up and fade out at the top edge. The newest one shows a blinking cursor.
+- **Layout (decided 2026-11-18):** the Overlord window has two parts. The Overlord's stage is on top, with room beside him for his follow-up lines (US10). The prompt is pinned below and is always visible; when space runs short, the stage shrinks first, then the prompt scrolls.
+- The **first message is the stage prompt**: plain sentences that state exactly what to read and what to print. How worked examples appear on the game page is undecided; for now the page hides the prompt's trailing `Example N` blocks. Exact values (`0–9`, `w`, `4` then `w` prints `3`) are set in mono cyan.
+- New messages are added at the bottom. Older ones scroll up and fade out at the top edge.
 - No sender names, timestamps, or avatars on messages. It's obviously the Overlord.
 
 **Escalation levels (proposed; tune thresholds during balancing, 12/4–12/5):**
@@ -118,7 +121,7 @@ What the Overlord *says* at each level comes from the dialogue file (US10).
 
 ## 7. Motion
 
-- **Allowed:** the visor scan, the cursor blink, new messages typing in, the floating-window energy loop (§4), and, in critical only, the timer and Submit pulsing.
+- **Allowed:** the visor scan, the Impossible badge's rim, new messages typing in, the floating-window energy loop (§4), and, in critical only, the timer and Submit pulsing.
 - The energy loop is ambient: one slow animation (`--energy-period`) drives the glow, the edge band, the foil, and the glint together, so a window counts as one loop.
 - No more than one looping animation per area. Nothing animates the prompt text after it has typed in.
 - Everything respects `prefers-reduced-motion`: loops stop and text appears instantly.
@@ -127,7 +130,7 @@ What the Overlord *says* at each level comes from the dialogue file (US10).
 
 | Component | Rules |
 | --- | --- |
-| **Top bar** (proposed, design 6) | Wordmark · a mono readout `TIER / 02/04` · lives as tall glowing "integrity cells" (dim outline when lost) · the timer. The heat bar runs along its bottom edge and shows time remaining. |
+| **Top bar** (decided 2026-11-18) | Wordmark with the **difficulty badge** beside it: a neon parallelogram in the tier's `--tier-*` color; Impossible's rim cycles every tier color. Center: the timer (a static `00:00` until US8), with lives beside it as glowing diamonds (dim outline when lost). The **stage bar** runs along the bottom edge, one cell per stage: done is dim cyan, current is bright cyan, upcoming is dark. No `02/04` text; the bar's `aria-label` carries it. The heat bar (US8) drains the current stage's cell. |
 | **Feed** | See §6. A floating window with a magenta shadow. |
 | **Editor** | A floating window with a cyan shadow. The tab shows only the file name. The current line gets a 2 px cyan left edge. |
 | **Console** | One row per example: `PASS`/`FAIL`, the example number, the output. Tracebacks in full on failure. Nothing else. |
@@ -139,7 +142,7 @@ What the Overlord *says* at each level comes from the dialogue file (US10).
 - Emoji.
 - Gradient washes behind content. Gradients are only for the heat bar, Submit, metal shading, the floating-window foil and glint, and the header's bottom hairline.
 - Cartoon styling: thick black outlines, bubbly rounded cards, comic speech bubbles.
-- More than two accent colors on screen in the calm state.
+- More than two accent colors on screen in the calm state. The one exception is the difficulty badge (`--tier-*`), which names the tier in its own color.
 - Hard-coded colors, fonts, or sizes in templates. Use tokens. A reviewer rates a hard-coded value as a MED finding.
 
 ## 10. Accessibility

@@ -34,12 +34,13 @@ function load_monaco() {
   });
 }
 
-function initial_code(key, starter_code) {
+// The editor starts empty: every line in it is the player's own.
+function initial_code(key) {
   try {
-    return localStorage.getItem(key) ?? starter_code;
+    return localStorage.getItem(key) ?? "";
   } catch {
     // Browsers can deny storage access for this origin.
-    return starter_code;
+    return "";
   }
 }
 
@@ -144,12 +145,12 @@ function editor_options(monaco, value) {
   };
 }
 
-export async function init_editor(container, starter_code) {
+export async function init_editor(container) {
   const [textarea, host] = container.children;
   const {run, stage} = container.dataset;
   const key = `rokos:run:${run}:stage:${stage}`;
   const save = autosave(key);
-  textarea.value = initial_code(key, starter_code);
+  textarea.value = initial_code(key);
   textarea.addEventListener("input", () => save(textarea.value));
 
   try {

@@ -5,7 +5,7 @@
     {
       "stage": 1,
       "prompt": "The café staff have declared addition beneath them. Total the tab. The first line contains the item count N (0 to 100). The second line contains exactly N integer prices in cents (each 0 to 10000), separated by single spaces. The second line is empty when N is 0. Print the total as one base-10 integer on its own line, followed by a newline. Use integers throughout.\n\nExample 1 input:\n3\n125 250 50\nExample 1 output:\n425",
-      "starter_code": "item_count = int(input())\nprices = list(map(int, input().split()))\n",
+      "starter_code": null,
       "samples": [
         {
           "input": "3\n125 250 50",

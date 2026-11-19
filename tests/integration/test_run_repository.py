@@ -23,7 +23,7 @@ from src.data.repositories.run_repository import RunRepository
 
 
 def test_concurrent_starts_leave_one_active_run(engine: Engine) -> None:
-    """Both requests succeed and the later one abandons the earlier run."""
+    """Confirmed starts serialize and leave exactly one active run."""
     test_id = uuid4().hex
     with Session(engine, expire_on_commit=False) as session:
         player = User(username=f"Race{test_id[:12]}", password_hash="unused")
@@ -46,7 +46,9 @@ def test_concurrent_starts_leave_one_active_run(engine: Engine) -> None:
             selector = CampaignSelector(CampaignRepository(session), runs)
             service = GameService(selector, runs, lambda: datetime.now(UTC))
             ready.wait()
-            return service.start_run(player_id, Difficulty.IMPOSSIBLE).id
+            return service.start_run(
+                player_id, Difficulty.IMPOSSIBLE, replace_active=True
+            ).id
 
     try:
         with ThreadPoolExecutor(max_workers=2) as workers:

@@ -34,14 +34,14 @@ class RunRepository(BaseRepository[GameRun]):
         return self._session.scalars(query).one_or_none()
 
     def current_stage_for(self, run: GameRun) -> Stage:
-        """Load the current stage's prompt and starter code for play."""
+        """Load the current stage's prompt for play."""
         query = (
             select(Stage)
             .where(
                 Stage.campaign_id == run.campaign_id,
                 Stage.number == run.current_stage,
             )
-            .options(load_only(Stage.id, Stage.prompt, Stage.starter_code))
+            .options(load_only(Stage.id, Stage.prompt))
         )
         return self._session.scalars(query).one()
 

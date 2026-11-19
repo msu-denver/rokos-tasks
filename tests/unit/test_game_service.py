@@ -17,7 +17,11 @@ from src.business.campaign_selector import (
     NoCampaignAvailableError,
 )
 from src.business.difficulty import Difficulty
-from src.business.game_service import GameService, StageView
+from src.business.game_service import (
+    ActiveRunExistsError,
+    GameService,
+    StageView,
+)
 from src.data.models.campaign import Campaign, Stage, TestCase
 from src.data.models.game_run import GameRun
 from src.data.repositories.campaign_repository import CampaignRepository
@@ -70,7 +74,7 @@ def test_selector_raises_when_tier_has_no_validated_campaigns() -> None:
 
 def test_start_run_records_first_stage_and_abandons_previous_run() -> None:
     """Use the tier's lives and one UTC timestamp for the replacement."""
-    old_run = GameRun(status="in_progress", score=50)
+    old_run = GameRun(id=12, status="in_progress", score=50)
     selector = Mock(spec=CampaignSelector)
     selector.choose.return_value = Campaign(id=42)
     runs = Mock(spec=RunRepository)
@@ -78,7 +82,7 @@ def test_start_run_records_first_stage_and_abandons_previous_run() -> None:
     clock = Mock(return_value=NOW)
 
     run = GameService(selector, runs, clock).start_run(
-        PLAYER_ID, Difficulty.EASY
+        PLAYER_ID, Difficulty.EASY, replace_active=True, expected_active_id=12
     )
 
     assert (run.user_id, run.campaign_id, run.difficulty) == (7, 42, "easy")
@@ -101,6 +105,41 @@ def test_start_run_records_first_stage_and_abandons_previous_run() -> None:
     clock.assert_called_once_with()
 
 
+@pytest.mark.parametrize(
+    ("replace_active", "expected_active_id"),
+    [(False, None), (True, 11)],
+    ids=["unconfirmed", "stale-confirmation"],
+)
+def test_start_run_requires_confirmation_for_current_run(
+    replace_active: bool, expected_active_id: int | None
+) -> None:
+    """Keep the active run intact until its replacement is confirmed."""
+    active = GameRun(id=12, status="in_progress", score=50)
+    runs = Mock(spec=RunRepository)
+    runs.active_for.return_value = active
+    clock = Mock()
+    service = GameService(Mock(spec=CampaignSelector), runs, clock)
+
+    with pytest.raises(ActiveRunExistsError) as error:
+        service.start_run(
+            PLAYER_ID,
+            Difficulty.EASY,
+            replace_active=replace_active,
+            expected_active_id=expected_active_id,
+        )
+
+    assert error.value.run_id == 12
+    assert (active.status, active.score, active.ended_at) == (
+        "in_progress",
+        50,
+        None,
+    )
+    runs.lock_player.assert_called_once_with(PLAYER_ID)
+    runs.add.assert_not_called()
+    runs.commit.assert_not_called()
+    clock.assert_not_called()
+
+
 def test_start_run_without_campaign_does_not_abandon_active_run() -> None:
     """Keep the current run when its replacement cannot be assigned."""
     selector = Mock(spec=CampaignSelector)
@@ -109,7 +148,7 @@ def test_start_run_without_campaign_does_not_abandon_active_run() -> None:
 
     with pytest.raises(NoCampaignAvailableError):
         GameService(selector, runs, Mock()).start_run(
-            PLAYER_ID, Difficulty.HARD
+            PLAYER_ID, Difficulty.HARD, replace_active=True
         )
 
     runs.active_for.assert_not_called()
@@ -123,7 +162,7 @@ def test_start_run_without_campaign_does_not_abandon_active_run() -> None:
 def test_stage_view_contains_current_prompt_and_public_examples(
     number: int, starter: str | None
 ) -> None:
-    """Use the stage's own starter and default missing code to empty."""
+    """Expose the prompt and samples while omitting stored starter code."""
     runs = Mock(spec=RunRepository)
     run = GameRun(
         campaign_id=42,
@@ -140,18 +179,57 @@ def test_stage_view_contains_current_prompt_and_public_examples(
         TestCase(input="3", expected_output="6", kind="sample"),
     ]
 
-    view = GameService(Mock(spec=CampaignSelector), runs, Mock())
-    assert view.get_stage_view(PLAYER_ID, 12) == StageView(
+    service = GameService(Mock(spec=CampaignSelector), runs, Mock())
+    view = service.get_stage_view(PLAYER_ID, 12)
+    assert not hasattr(view, "starter_code")
+    assert view == StageView(
         difficulty=Difficulty.BEGINNER,
         number=number,
         lives=3,
         prompt="Print twice the input.",
-        starter_code=starter or "",
         samples=({"input": "3", "expected_output": "6"},),
     )
     runs.get_for_user.assert_called_once_with(12, PLAYER_ID)
     runs.current_stage_for.assert_called_once_with(run)
     runs.samples_for_stage.assert_called_once_with(45)
+
+
+@pytest.mark.parametrize(
+    ("prompt", "expected_description"),
+    [
+        (
+            "Double the input.\n\nExample 1 input:\n3\nExample 1 output:\n6",
+            "Double the input.",
+        ),
+        (
+            "Double the input.\n\nExample 1 input:\n3\nExample 1 output:\n6"
+            "\n\nExample 2 input:\n4\nExample 2 output:\n8",
+            "Double the input.",
+        ),
+        (
+            "Double the input.\nPrint the result.",
+            "Double the input.\nPrint the result.",
+        ),
+        (
+            "Print the labels for example 1 input: x and Example 1 input: y.",
+            "Print the labels for example 1 input: x and Example 1 input: y.",
+        ),
+    ],
+    ids=["one-example", "two-examples", "no-examples", "inline-example"],
+)
+def test_stage_view_description(
+    prompt: str, expected_description: str
+) -> None:
+    """Strip trailing example blocks while preserving the instructions."""
+    stage = StageView(
+        difficulty=Difficulty.BEGINNER,
+        number=1,
+        lives=4,
+        prompt=prompt,
+        samples=(),
+    )
+
+    assert stage.description == expected_description
 
 
 def test_start_run_does_not_import_an_llm_client() -> None:

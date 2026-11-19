@@ -23,6 +23,13 @@ Author(s): Tyler Black
   --yellow: #f9f871;
   --green: #3dffa2;
 
+  /* Difficulty tiers: a cool-to-hot ramp around the hue wheel */
+  --tier-beginner: var(--cyan);
+  --tier-easy: #5c8dff;
+  --tier-medium: #b06bff;
+  --tier-hard: var(--magenta);
+  --tier-expert: #ff8a1f;
+
   /* Bevel colors */
   --bevel-light: rgba(255, 255, 255, 0.15);
   --bevel-dark: rgba(0, 0, 0, 0.6);
@@ -69,6 +76,8 @@ Author(s): Tyler Black
   /* Content widths, on the 64 px grid */
   --width-form: 448px;
   --width-page: 1152px;
+  /* The game screen gives the editor more room (24 grid cells) */
+  --width-game: 1536px;
 
   /* Glow radii and anaglyph offsets */
   --glow-tight: 6px;
@@ -79,6 +88,8 @@ Author(s): Tyler Black
   /* Motion */
   --energy-period: 7s;
   --press-duration: 120ms;
+  --visor-period: 2.4s;
+  --impossible-period: 2.2s;
 
   /* Shadow offsets */
   --shadow-offset-window: 8px;

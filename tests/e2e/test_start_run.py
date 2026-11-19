@@ -17,10 +17,6 @@ from src.business.auth_service import AuthService
 from src.data.repositories.campaign_repository import CampaignRepository
 from src.data.repositories.user_repository import UserRepository
 
-STARTER_CODE = (
-    "item_count = int(input())\nprices = list(map(int, input().split()))\n"
-)
-
 
 def _selector(test_id: str) -> tuple[str, str]:
     return By.CSS_SELECTOR, f'[data-testid="{test_id}"]'
@@ -82,6 +78,23 @@ def test_start_beginner_run(
     feed = browser.find_element(*_selector("game-feed"))
     editor = browser.find_element(*_selector("game-editor"))
     assert feed.rect["x"] < editor.rect["x"]
+
+    _set_viewport(browser, 1280, 720)
+    assert browser.execute_script(
+        "const page = document.scrollingElement;"
+        "return page.scrollHeight === page.clientHeight"
+        " && page.scrollWidth === page.clientWidth;"
+    )
+    assert editor.rect["width"] > feed.rect["width"]
+    prompt_top, editor_bottom, viewport_height = browser.execute_script(
+        "return [arguments[0].getBoundingClientRect().top,"
+        "arguments[1].getBoundingClientRect().bottom, window.innerHeight];",
+        browser.find_element(*_selector("game-prompt")),
+        editor,
+    )
+    assert 0 <= prompt_top < viewport_height
+    assert editor_bottom <= viewport_height
+
     _set_viewport(browser, 390, 560)
     assert editor.rect["y"] >= feed.rect["y"] + feed.rect["height"]
     assert browser.execute_script(
@@ -118,19 +131,65 @@ def test_start_beginner_run(
 
 
 @pytest.mark.e2e
+def test_cancel_then_confirm_new_run(
+    browser: webdriver.Chrome,
+    live_server: str,
+    db_session: Session,
+    seeded_beginner: int,
+) -> None:
+    """Cancel returns to the active run and Confirm opens a replacement."""
+    ready = _start_beginner(browser, live_server, db_session)
+    first_url = browser.current_url
+    start_url = f"{live_server}/start"
+    can_start = expected_conditions.element_to_be_clickable(
+        _selector("start-tier-beginner-button")
+    )
+    confirmation_visible = expected_conditions.visibility_of_element_located(
+        _selector("start-confirm-abandon")
+    )
+
+    browser.get(start_url)
+    ready.until(can_start).click()
+    ready.until(confirmation_visible)
+    ready.until(
+        expected_conditions.element_to_be_clickable(
+            _selector("start-confirm-abandon-cancel")
+        )
+    ).click()
+    ready.until(expected_conditions.url_to_be(first_url))
+    ready.until(
+        expected_conditions.visibility_of_element_located(
+            _selector("game-feed")
+        )
+    )
+
+    browser.get(start_url)
+    ready.until(can_start).click()
+    ready.until(confirmation_visible)
+    ready.until(
+        expected_conditions.element_to_be_clickable(
+            _selector("start-confirm-abandon-submit")
+        )
+    ).click()
+    ready.until(expected_conditions.url_matches(r"/play/\d+$"))
+    assert browser.current_url != first_url
+
+
+@pytest.mark.e2e
 def test_game_editor_restores_pending_and_empty_drafts(
     browser: webdriver.Chrome,
     live_server: str,
     db_session: Session,
     seeded_beginner: int,
 ) -> None:
-    """Show the prompt and Python starter and restore edits after reload."""
+    """Show the prompt, start with empty Python, and restore saved drafts."""
     repository = CampaignRepository(db_session)
     campaign = repository.get(seeded_beginner)
     assert campaign is not None
     stage = campaign.stages[0]
     stage.prompt = stage.prompt.replace("item count N", "item count `N`")
-    expected_prompt = stage.prompt.replace("`", "")
+    description = stage.prompt.split("\n\nExample 1 input:", 1)[0].rstrip()
+    expected_prompt = description.replace("`", "")
     repository.commit()
     ready = _start_beginner(browser, live_server, db_session)
     prompt = browser.find_element(*_selector("game-prompt"))
@@ -139,15 +198,18 @@ def test_game_editor_restores_pending_and_empty_drafts(
     )
     assert prompt.get_property("textContent") == expected_prompt
     assert exact_value.text == "N"
-    assert browser.find_element(*_selector("game-stage-readout")).text == (
-        "Beginner / 01/02"
+    stage_readout = browser.find_element(*_selector("game-stage-readout"))
+    assert stage_readout.get_attribute("aria-label") == (
+        "Beginner, stage 1 of 2"
     )
+    assert browser.find_element(*_selector("game-tier")).text == "BEGINNER"
     assert (
         browser.find_element(*_selector("game-lives")).get_attribute(
             "aria-label"
         )
         == "4 of 4 lives"
     )
+    assert browser.find_element(*_selector("game-timer")).text == "00:00"
     assert browser.find_element(*_selector("game-editor")).is_displayed()
     ready.until(
         lambda driver: (
@@ -161,7 +223,7 @@ def test_game_editor_restores_pending_and_empty_drafts(
         browser.execute_script(
             "return monaco.editor.getModels()[0].getValue();"
         )
-        == STARTER_CODE
+        == ""
     )
     options = browser.execute_script(
         "return monaco.editor.getModels()[0].getOptions();"
@@ -170,13 +232,14 @@ def test_game_editor_restores_pending_and_empty_drafts(
 
     previous = None
     run_id = browser.current_url.rsplit("/", 1)[1]
-    for draft in (STARTER_CODE + "print(sum(prices))\n", ""):
+    draft_key = f"rokos:run:{run_id}:stage:1"
+    for draft in ("print(sum(map(int, input().split())))\n", ""):
         assert (
             browser.execute_script(
                 "monaco.editor.getModels()[0].setValue(arguments[0]);"
                 "return localStorage.getItem(arguments[1]);",
                 draft,
-                f"rokos:run:{run_id}:stage:1",
+                draft_key,
             )
             == previous
         )
@@ -187,6 +250,12 @@ def test_game_editor_restores_pending_and_empty_drafts(
                 " === arguments[0];",
                 expected,
             )
+        )
+        assert (
+            browser.execute_script(
+                "return localStorage.getItem(arguments[0]);", draft_key
+            )
+            == draft
         )
         previous = draft
 
@@ -261,7 +330,7 @@ def test_editor_falls_back_to_autosaving_textarea(
     textarea = ready.until(
         expected_conditions.visibility_of_element_located(textarea_selector)
     )
-    assert textarea.get_property("value") == STARTER_CODE
+    assert textarea.get_property("value") == ""
     textarea.send_keys(Keys.END, "# draft")
     draft = textarea.get_property("value")
     browser.refresh()

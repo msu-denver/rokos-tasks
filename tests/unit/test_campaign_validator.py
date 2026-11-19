@@ -153,25 +153,30 @@ class TestCampaignValidator:
             for err in errors
         )
 
-    def test_starter_code_missing_on_stage_1(
-        self, valid_campaign_data: dict
+    @pytest.mark.parametrize("stage_number", [1, 2])
+    def test_starter_code_rejected(
+        self, valid_campaign_data: dict, stage_number: int
     ) -> None:
-        """Check 6: Reject when stage 1 has empty or null starter code."""
-        data = copy.deepcopy(valid_campaign_data)
-        data["stages"][0]["starter_code"] = None
-        errors = CampaignValidator.validate(data)
-        assert any(
-            "Stage 1 must have non-empty starter_code" in err for err in errors
+        """Check 6: Reject non-null starter code on any stage."""
+        starter_code = "print(1)"
+        valid_campaign_data["stages"][stage_number - 1]["starter_code"] = (
+            starter_code
         )
+        errors = CampaignValidator.validate(valid_campaign_data)
+        assert errors == [
+            f"[<campaign>] Stage {stage_number}: starter_code must be null, "
+            f"got {starter_code!r}."
+        ]
 
-    def test_starter_code_present_on_stage_2(
+    def test_null_starter_code_allowed_on_all_stages(
         self, valid_campaign_data: dict
     ) -> None:
-        """Check 6: Reject when stage 2 has starter code (must be null)."""
-        data = copy.deepcopy(valid_campaign_data)
-        data["stages"][1]["starter_code"] = "print('extra')"
-        errors = CampaignValidator.validate(data)
-        assert any("starter_code must be null" in err for err in errors)
+        """Check 6: Accept a campaign with null starter code on all stages."""
+        assert all(
+            stage["starter_code"] is None
+            for stage in valid_campaign_data["stages"]
+        )
+        assert CampaignValidator.validate(valid_campaign_data) == []
 
     def test_wrong_expected_output(self, valid_campaign_data: dict) -> None:
         """Check 7: Reject when expected_output doesn't match reference."""

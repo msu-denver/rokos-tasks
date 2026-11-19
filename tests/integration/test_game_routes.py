@@ -11,9 +11,11 @@ from datetime import UTC, datetime
 import pytest
 from flask import Flask
 from flask.testing import FlaskClient
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from src.data.models.campaign import Campaign
+from src.data.models.game_run import GameRun
 from src.data.repositories.campaign_repository import CampaignRepository
 from src.data.repositories.run_repository import RunRepository
 
@@ -73,10 +75,10 @@ def test_start_screen_shows_all_tier_rules_and_availability(
             assert f'data-testid="{card_id}-button"' not in html
 
 
-def test_start_and_replace_run_without_resume_link(
+def test_start_run_cancel_and_confirm_replacement(
     player: FlaskClient, seeded_beginner: int, db_session: Session
 ) -> None:
-    """Hide the resume control and persist an atomic run replacement."""
+    """Keep the original on cancel and replace it only on confirmation."""
     first = player.post("/runs", data={"difficulty": "beginner"})
     assert first.status_code == 302
     first_url = first.headers["Location"]
@@ -85,6 +87,7 @@ def test_start_and_replace_run_without_resume_link(
 
     start_html = player.get("/start").get_data(as_text=True)
     assert 'data-testid="start-resume-run"' not in start_html
+    assert 'data-testid="start-confirm-abandon"' not in start_html
 
     unavailable = player.post("/runs", data={"difficulty": "hard"})
     assert unavailable.status_code == 200
@@ -94,14 +97,47 @@ def test_start_and_replace_run_without_resume_link(
     )
     assert 'data-testid="start-resume-run"' not in unavailable_html
 
-    second = player.post("/runs", data={"difficulty": "beginner"})
+    runs = RunRepository(db_session)
+    first_id = int(first_url.rsplit("/", 1)[1])
+    old_run = runs.get(first_id)
+    assert old_run is not None
+    old_run.score = 50
+    runs.commit()
+
+    pending = player.post("/runs", data={"difficulty": "beginner"})
+    assert pending.status_code == 200
+    html = pending.get_data(as_text=True)
+    assert 'data-testid="start-confirm-abandon"' in html
+    assert "abandon your current run with a score of 0" in html
+    cancel_link = (
+        f'href="{first_url}" data-testid="start-confirm-abandon-cancel"'
+    )
+    assert cancel_link in html
+    assert 'name="difficulty" value="beginner"' in html
+
+    canceled = player.get(first_url)
+    assert canceled.status_code == 200
+    assert 'data-testid="game-editor"' in canceled.get_data(as_text=True)
+    db_session.refresh(old_run)
+    assert (old_run.status, old_run.score, old_run.ended_at) == (
+        "in_progress",
+        50,
+        None,
+    )
+    run_ids = select(GameRun.id).where(GameRun.user_id == old_run.user_id)
+    assert db_session.scalars(run_ids).all() == [first_id]
+
+    confirmation = {
+        "difficulty": "beginner",
+        "replace_active": "yes",
+        "active_run_id": first_id,
+    }
+    second = player.post("/runs", data=confirmation)
     assert second.status_code == 302
     second_url = second.headers["Location"]
     assert second_url != first_url
 
-    runs = RunRepository(db_session)
-    old_run = runs.get(int(first_url.rsplit("/", 1)[1]))
-    assert old_run is not None
+    db_session.refresh(old_run)
     assert (old_run.status, old_run.score) == ("abandoned", 0)
     active_run = runs.active_for(old_run.user_id)
     assert active_run is not None
@@ -111,6 +147,16 @@ def test_start_and_replace_run_without_resume_link(
     assert runs.last_started_by_user(old_run.user_id) == {
         active_run.campaign_id: active_run.started_at
     }
+    assert set(db_session.scalars(run_ids)) == {first_id, active_run.id}
+
+    replay = player.post("/runs", data=confirmation)
+    assert replay.status_code == 200
+    assert f'name="active_run_id" value="{active_run.id}"' in (
+        replay.get_data(as_text=True)
+    )
+    db_session.refresh(active_run)
+    assert active_run.status == "in_progress"
+    assert set(db_session.scalars(run_ids)) == {first_id, active_run.id}
 
 
 def test_play_returns_404_for_another_player(
@@ -140,18 +186,21 @@ def test_play_returns_404_for_missing_run(player: FlaskClient) -> None:
 def test_play_serializes_only_public_stage_content(
     player: FlaskClient, seeded_beginner: int, db_session: Session
 ) -> None:
-    """Keep private content out of HTML and safely round-trip public code."""
+    """Keep private content out of HTML and safely round-trip samples."""
     campaigns = CampaignRepository(db_session)
     campaign = campaigns.get(seeded_beginner)
     assert campaign is not None
     stage = campaign.stages[0]
-    prompt = stage.prompt
-    starter_code = f'{stage.starter_code}\nvalue = "</script>"\n'
+    description = stage.prompt.split("\n\nExample 1 input:", 1)[0].rstrip()
+    public_output = 'value = "</script>"'
+    private_starter = "private_legacy_starter_code"
     private_input = "private_test_input"
     private_output = "private_expected_output"
     private_solution = "private_reference_solution"
-    stage.starter_code = starter_code
+    stage.starter_code = private_starter
     stage.reference_solution = private_solution
+    sample = next(case for case in stage.test_cases if case.kind == "sample")
+    sample.expected_output = public_output
     hidden = next(case for case in stage.test_cases if case.kind == "hidden")
     hidden.input = private_input
     hidden.expected_output = private_output
@@ -161,16 +210,23 @@ def test_play_serializes_only_public_stage_content(
     response = player.get(start.headers["Location"])
     assert response.status_code == 200
     html = response.get_data(as_text=True)
-    assert prompt in html
-    for private in (private_input, private_output, private_solution):
+    assert description in html
+    assert "Example 1 input:" not in html
+    for private in (
+        private_starter,
+        private_input,
+        private_output,
+        private_solution,
+    ):
         assert private not in html
     payload = re.search(
         r'<script id="stage-data" type="application/json">(.*?)</script>', html
     )
     assert payload is not None
     assert json.loads(payload[1]) == {
-        "samples": [{"input": "3\n125 250 50", "expected_output": "425"}],
-        "starter_code": starter_code,
+        "samples": [
+            {"input": "3\n125 250 50", "expected_output": public_output}
+        ],
     }
 
 
@@ -190,8 +246,12 @@ def test_play_uses_current_stage_and_remaining_lives(
     response = player.get(play_url)
     assert response.status_code == 200
     html = response.get_data(as_text=True)
-    assert "Beginner / 02/02" in html
+    assert 'aria-label="Beginner, stage 2 of 2"' in html
+    assert html.count("stage-bar-cell--current") == 1
+    assert html.count("stage-bar-cell--done") == 1
+    assert "tier-badge--beginner" in html
     assert 'aria-label="3 of 4 lives"' in html
+    assert re.search(r'data-testid="game-timer"[^>]*>\s*00:00\s*<', html)
     assert "The diners have decided fairness is your problem." in html
     payload = re.search(
         r'<script id="stage-data" type="application/json">(.*?)</script>', html
@@ -202,7 +262,6 @@ def test_play_uses_current_stage_and_remaining_lives(
             {"input": "3\n125 250 50\n3", "expected_output": "142 142 141"},
             {"input": "0\n\n2", "expected_output": "0 0"},
         ],
-        "starter_code": "",
     }
 
 
@@ -227,6 +286,9 @@ def test_finished_runs_link_back_to_start(
     assert 'href="/start">Start a run' in html
     assert 'id="stage-data"' not in html
     assert 'data-testid="game-editor"' not in html
+    body = re.search(r'<body\b[^>]*\sclass="([^"]*)"', html)
+    assert body is None or "page-game" not in body[1].split()
+    assert 'data-testid="game-tier"' not in html
 
 
 @pytest.mark.parametrize("difficulty", ["unknown", None])
@@ -235,6 +297,18 @@ def test_create_run_rejects_invalid_difficulty(
 ) -> None:
     """Reject malformed requests before starting a run."""
     form = {"difficulty": difficulty} if difficulty is not None else {}
+    assert player.post("/runs", data=form).status_code == 400
+
+
+def test_create_run_rejects_invalid_confirmation_id(
+    player: FlaskClient,
+) -> None:
+    """Reject a malformed ID on a replacement request."""
+    form = {
+        "difficulty": "beginner",
+        "replace_active": "yes",
+        "active_run_id": "invalid",
+    }
     assert player.post("/runs", data=form).status_code == 400
 
 

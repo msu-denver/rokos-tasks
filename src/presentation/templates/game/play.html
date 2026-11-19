@@ -1,17 +1,25 @@
 {#
 File: play.html
-Description: Displays a run's current stage and remaining lives.
+Description: Displays a run's current stage, the Overlord, and the editor.
 Author(s): Tyler Black
 #}
 {% extends "base.html" %}
 
 {% block title %}{% if stage %}Stage {{ stage.number }}{% else %}Run over{% endif %} - Roko's Tasks{% endblock %}
 
+{% block body_class %}{% if stage %}page-game{% endif %}{% endblock %}
+
+{% block header_badge %}
+  {% if stage %}
+    <span class="tier-badge tier-badge--{{ stage.difficulty.value }}" data-testid="game-tier">{{ stage.difficulty.label }}</span>
+  {% endif %}
+{% endblock %}
+
 {% block header_status %}
   {% if stage %}
-    <div class="game-status">
-      <span data-testid="game-stage-readout" role="img"
-            aria-label="{{ stage.difficulty.label }}, stage {{ stage.number }} of {{ stage.difficulty.stages }}">{{ stage.difficulty.label }} / {{ '%02d/%02d'|format(stage.number, stage.difficulty.stages) }}</span>
+    <div class="game-hud">
+      {# Static placeholder; the countdown arrives with US8. #}
+      <span class="game-timer" data-testid="game-timer" role="timer">00:00</span>
       <span class="game-lives" data-testid="game-lives" role="img"
             aria-label="{{ stage.lives }} of {{ stage.difficulty.starting_lives }} lives">
         {% for cell in range(stage.difficulty.starting_lives) %}
@@ -22,24 +30,59 @@ Author(s): Tyler Black
   {% endif %}
 {% endblock %}
 
+{% block header_progress %}
+  {% if stage %}
+    <div class="stage-bar" data-testid="game-stage-readout" role="img"
+         aria-label="{{ stage.difficulty.label }}, stage {{ stage.number }} of {{ stage.difficulty.stages }}">
+      {% for number in range(1, stage.difficulty.stages + 1) %}
+        <span class="stage-bar-cell{% if number < stage.number %} stage-bar-cell--done{% elif number == stage.number %} stage-bar-cell--current{% endif %}" aria-hidden="true"></span>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endblock %}
+
 {% block content %}
   {% if stage %}
     <div class="game-layout">
-      <section class="floating-panel game-feed-panel" aria-label="Overlord">
+      <section class="floating-panel game-overlord-panel" aria-label="Overlord">
+        <div class="overlord-stage">
+          {# Static placeholder; avatar states arrive with US10 and US12. #}
+          <svg class="overlord" viewBox="0 0 200 220" aria-hidden="true" focusable="false">
+            <defs>
+              <linearGradient id="overlord-metal" x1="0" y1="0" x2="0" y2="1">
+                <stop class="overlord-metal-top" offset="0"/>
+                <stop class="overlord-metal-bottom" offset="1"/>
+              </linearGradient>
+              <clipPath id="overlord-visor-clip">
+                <polygon points="46,82 154,82 147,100 53,100"/>
+              </clipPath>
+            </defs>
+            <polygon class="overlord-plate" points="14,220 36,172 78,160 122,160 164,172 186,220"/>
+            <rect class="overlord-plate" x="84" y="140" width="32" height="24"/>
+            <polygon class="overlord-plate" points="96,32 104,32 100,10"/>
+            <polygon class="overlord-plate" points="54,30 146,30 168,70 160,126 136,148 64,148 40,126 32,70"/>
+            <polyline class="overlord-seam" points="32,70 168,70"/>
+            <polygon class="overlord-visor" points="46,82 154,82 147,100 53,100"/>
+            <g clip-path="url(#overlord-visor-clip)">
+              <rect class="overlord-scan" x="46" y="82" width="22" height="18"/>
+            </g>
+            <path class="overlord-seam" d="M84 118h32M88 126h24M92 134h16"/>
+          </svg>
+          <ol class="overlord-dialog" data-testid="game-dialog" role="log" aria-label="Overlord dialog"></ol>
+        </div>
         <div class="game-feed" data-testid="game-feed" role="log" aria-label="Overlord feed" tabindex="0">
-          <p data-testid="game-prompt">{{ stage.prompt }}</p>
+          <p data-testid="game-prompt">{{ stage.description }}</p>
         </div>
       </section>
       <section class="floating-panel floating-panel--cyan game-editor-panel" aria-label="Code editor">
         <div class="game-editor-tab">main.py</div>
         <div class="game-editor" data-testid="game-editor" data-run="{{ run_id }}" data-stage="{{ stage.number }}">
-          <textarea aria-label="Python editor" spellcheck="false" autocapitalize="off" autocomplete="off">
-{{ stage.starter_code }}</textarea>
+          <textarea aria-label="Python editor" spellcheck="false" autocapitalize="off" autocomplete="off"></textarea>
           <div hidden></div>
         </div>
       </section>
     </div>
-    <script id="stage-data" type="application/json">{{ {'samples': stage.samples, 'starter_code': stage.starter_code}|tojson }}</script>
+    <script id="stage-data" type="application/json">{{ {'samples': stage.samples}|tojson }}</script>
     <script type="module" src="{{ url_for('static', filename='js/game.js') }}"></script>
   {% else %}
     <section class="floating-panel floating-panel--form" aria-labelledby="game-run-over">
