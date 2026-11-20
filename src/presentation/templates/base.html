@@ -1,0 +1,51 @@
+{#
+File: base.html
+Description: Base HTML layout providing typography, design tokens, shared
+    component stylesheets, top-level navigation header, and flash messages.
+Author(s): Tyler Black
+#}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Roko's Tasks{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Michroma&family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/tokens.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/components.css') }}">
+</head>
+<body class="{% block body_class %}{% endblock %}">
+  <header class="site-header">
+    <div class="header-brand">
+      <a href="/" data-testid="header-wordmark" class="header-wordmark">Roko's Tasks</a>
+      {% block header_badge %}{% endblock %}
+    </div>
+    {% block header_status %}{% endblock %}
+    {% block header_actions %}
+      <div class="header-actions">
+        {% if current_user.is_authenticated %}
+          <span class="header-username" data-testid="header-username">{{ current_user.username }}</span>
+          <form method="post" action="{{ url_for('auth.logout') }}" class="header-logout-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-secondary" data-testid="header-logout">Log Out</button>
+          </form>
+        {% else %}
+          <a href="{{ url_for('auth.login') }}" class="header-link" data-testid="header-login">Log In</a>
+          <a href="{{ url_for('auth.register') }}" class="header-link" data-testid="header-register">Register</a>
+        {% endif %}
+      </div>
+    {% endblock %}
+    {% block header_progress %}{% endblock %}
+  </header>
+  <div class="flash-container">
+    {% for message in get_flashed_messages() %}
+      <div class="flash-message" data-testid="flash-message">{{ message }}</div>
+    {% endfor %}
+  </div>
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

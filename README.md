@@ -15,16 +15,29 @@ A comedic coding game: an AI Overlord gives timed feature requests, and you writ
 
 ## Run It
 
-Needs Python 3.13. Chrome is needed for the Selenium tests.
+Use Docker for the full stack, or Python 3.13 with Docker for PostgreSQL.
+Chrome is needed for the Selenium tests.
+
+**With Docker:**
+
+```bash
+cp .env.example .env
+make up                       # http://localhost:8000
+```
+
+**Or locally:**
 
 ```bash
 python3.13 -m venv .venv      # or: uv venv --python 3.13 .venv
 source .venv/bin/activate
 make setup                    # install pinned dependencies
-make dev                      # http://localhost:8000
+make db                       # start PostgreSQL
+make migrate                  # create/update tables
+make seed                     # load Beginner and Easy campaigns
+make dev                      # http://localhost:8001
 ```
 
-Full stack in Docker (web + db + runner): see [Deployment](#deployment). *(Docker files aren't in the repo yet. They're part of Sprint 0 setup.)*
+Full stack in Docker (web + db): see [Deployment](#deployment).
 
 ## Test It
 
@@ -139,8 +152,9 @@ As a player, I want to read the Overlord's text prompt and write code in an edit
 
 **Acceptance Criteria**
 
-1. **Given that** a stage is active, **when** the game page loads, **then** I see the Overlord's prompt as the first message in its feed (stating the exact input and output format and at least one example), my lives, and a Python editor preloaded with starter code (Stage 1) or my last passing code (later stages).
+1. **Given that** a stage is active, **when** the game page loads, **then** I see the Overlord's prompt as the first message in its feed (stating the exact input and output format), my lives, and a Python editor that is empty (Stage 1) or holds my own last passing code (later stages).
 2. **Given that** I have typed code in the editor, **when** I refresh the page, **then** my in-progress code is restored.
+3. **[MED] Given that** I have a run in progress, **when** I try to start another, **then** I am asked to confirm that starting over will abandon the current run with a score of zero. Cancel keeps the current run. Confirm abandons it and starts the selected run.
 
 ### US5: Run Sample Tests
 
@@ -361,12 +375,12 @@ Needs Docker with Docker Compose. No Azure key is needed.
 git clone https://github.com/msu-denver/rokos-tasks.git
 cd rokos-tasks
 cp .env.example .env
-docker compose up --build
+make up                       # or: docker compose up --build
 ```
 
-Open <http://localhost:8000>. The database migrates and seeds itself on startup. Containers: `web` (Flask + Gunicorn), `db` (PostgreSQL), `runner` (sandbox for player code, no internet).
+Open <http://localhost:8000>. Containers: `web` (Flask + Gunicorn, port 8000), `db` (PostgreSQL 17).
 
 ```bash
-docker compose down       # stop
-docker compose down -v    # stop and delete the database
+make down                 # or: docker compose down
+docker compose down -v    # stop and delete the database volume
 ```

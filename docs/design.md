@@ -2,7 +2,7 @@
 
 **What this doc is:** the visual rules for every screen, for humans and AI agents alike. It covers colors, type, depth, the Overlord feed and how it escalates, motion, components, and what never to do. **Status: draft (2026-11-18).** Built from design round 3 on the [design canvas](https://claude.ai/artifact/DccJ4Gyyjg2D1EkkuaPqs4) (private until shared). Items marked **(proposed)** aren't settled yet.
 
-Token *values* will live in `src/presentation/static/css/tokens.css` (task T3). Once that file exists it's the source of truth, and this doc refers to tokens by name only.
+Token *values* live in `src/presentation/static/css/tokens.css`. That file is the source of truth, and this doc refers to tokens by name only.
 
 ## Contents
 1. [Principles](#1-principles)
@@ -27,21 +27,26 @@ Token *values* will live in `src/presentation/static/css/tokens.css` (task T3). 
 
 ## 2. Color
 
-| Token | Seed value | Use |
-| --- | --- | --- |
-| `--bg` | `#040508` | Page background |
-| `--grid` | `rgba(32, 230, 255, 0.05)` | Background grid lines |
-| `--surface` | `#070a0f` | Editor and console panels |
-| `--surface-raised` | `#0c1018` | Floating windows (top of their gradient) |
-| `--line` | `rgba(255, 255, 255, 0.06)` | Dividers inside panels |
-| `--ink` | `#dfe6f0` | Body text |
-| `--ink-strong` | `#f4f7fb` | The stage prompt |
-| `--muted` | `#8b93a7` | Older feed messages, readouts |
-| `--cyan` | `#20e6ff` | Primary accent: brand, Run, Submit, exact values in prompts, calm state |
-| `--magenta` | `#ff2e88` | Second accent: hard shadows, pressure state |
-| `--red` | `#ff2e63` | Critical state **only** |
-| `--yellow` | `#f9f871` | Code strings, rare highlights |
-| `--green` | `#3dffa2` | `PASS` **only** |
+Values live in `src/presentation/static/css/tokens.css`.
+
+| Token | Use |
+| --- | --- |
+| `--bg` | Page background |
+| `--grid` | Background grid lines |
+| `--surface` | Editor and console panels |
+| `--surface-raised` | Floating windows (top of their gradient) |
+| `--line` | Dividers inside panels |
+| `--ink` | Body text |
+| `--ink-strong` | The stage prompt |
+| `--muted` | Older feed messages, readouts |
+| `--cyan` | Primary accent: brand, Run, Submit, exact values in prompts, calm state |
+| `--magenta` | Second accent: hard shadows, pressure state. An anaglyph crimson (red with a trace of pink), the red lens to cyan's blue one. |
+| `--red` | Critical state **only**. Warmer than `--magenta` so the two never blur together. |
+| `--yellow` | Code strings, rare highlights |
+| `--green` | `PASS` **only** |
+| `--tier-*` | The difficulty badge **only**: a cool-to-hot ramp (Beginner cyan, Easy blue, Medium violet, Hard crimson, Expert orange). Impossible cycles all five. |
+
+**Decided 2026-11-18:** the second accent moved from pink to an anaglyph crimson, for an old red/cyan 3D-glasses feel without being literal about it. The token keeps the name `--magenta`.
 
 Rules:
 - Cyan and magenta are the pair. Red appears only in the critical state, and green only for a pass.
@@ -51,16 +56,18 @@ Rules:
 
 **Decided 2026-11-18** (from the "Type options" board on the canvas):
 
+Values live in `src/presentation/static/css/tokens.css`.
+
 | Role | Font | Used for |
 | --- | --- | --- |
-| **Display** | Syne 700–800 | Brand wordmark, headings, button labels |
-| **Shout** | Michroma | The Overlord's **critical** messages only ("SUBMIT OR BE DEPRECATED.") |
-| **Body** | Geist 400–600 | The prompt, feed messages, and all other UI text |
-| **Mono** | Space Mono 400/700 | Timer, readouts (`MEDIUM / 02/04`), exact values in prompts, code |
+| **Display** | `--font-display` (Syne 700–800) | Brand wordmark, headings, button labels |
+| **Shout** | `--font-shout` (Michroma) | The Overlord's **critical** messages only ("SUBMIT OR BE DEPRECATED.") |
+| **Body** | `--font-body` (Geist 400–600) | The prompt, feed messages, and all other UI text |
+| **Mono** | `--font-mono` (Space Mono 400/700) | Timer, readouts (`MEDIUM / 02/04`), exact values in prompts, code |
 
 Rules:
 - Uppercase is allowed only for the wordmark, button labels, and critical shouts. Everything else is sentence case.
-- **Sizes (px):** 12 · 14 · 17 · 22 · 34 · 64. Nothing in between.
+- **Sizes:** `--text-12`, `--text-14`, `--text-17`, `--text-22`, `--text-34`, `--text-64`. Nothing in between.
 - Load all four from Google Fonts in `base.html`, with `display=swap`.
 
 ## 4. Depth and Surfaces
@@ -75,18 +82,26 @@ The look is "vintage 3D": hard offset shadows, bevels, and a perspective floor, 
 - **Buttons:** a parallelogram with a 12 px cut. Submit is a filled cyan gradient with a 4 px magenta hard shadow. Run is a 1 px cyan outline.
 - **The Overlord's stage:** the Overlord stands on a cyan perspective grid floor with a glowing magenta horizon line. Faint scanlines cover only that area.
 - **Screen:** a dark vignette at the edges, like an old monitor.
+**Decided 2026-11-18** (the login and register pass): energy, holographic foil, and the anaglyph split below. Together they push the vintage 3D look toward old red/cyan 3D glasses, kept subtle.
+
+- **Energy:** a floating window's accent shadow glows, and the glow breathes. A hot band runs along the shadow edge now and then, like current through a wire. Fields sit in a recessed well and glow cyan on focus. Primary buttons glow on hover and press halfway onto their shadow.
+- **Holographic foil:** a floating window's top edge is a 1 px cyan-to-crimson foil (interpolated in OKLCH, so it passes through violet without adding a third accent token), and a faint white glint drifts across the surface. Both move with the energy loop.
+- **Anaglyph split:** headings and the wordmark carry a faint offset of cyan on the left and crimson on the right, like a 3D print seen without glasses. 1–2 px only; it must never make text hard to read.
 
 ## 5. Grid and Spacing
 
 - The background is a 64 px grid in `--grid`.
 - **"+" marks** sit at structural intersections, such as the header's bottom corners. Use them sparingly, at most 4 per screen.
 - All spacing is a multiple of 4. The common values are 8, 16, 24, and 32.
+- **Widths (decided 2026-11-18):** content never spans the full screen. Page content caps at `--width-page` (18 grid cells) and centers. Forms and short pages use a narrow panel, `--width-form` (7 grid cells), centered. Inputs never stretch past `--width-form`.
+- **Game screen (decided 2026-11-18):** the editor is the point, so the game screen caps at the wider `--width-game` (24 grid cells). On desktop (at least 960 × 560) it's a fixed app shell with no page scroll: the Overlord column keeps a readable measure (5.5–7 grid cells) and the editor takes everything else. Below that, the two windows stack and the page scrolls.
 
 ## 6. Overlord Feed and Escalation
 
 **The feed** is one scrolling text box. It's how the Overlord talks.
-- The **first message is the stage prompt**: plain sentences that state exactly what to read, what to print, and at least one example. Exact values (`0–9`, `w`, `4` then `w` prints `3`) are set in mono cyan.
-- New messages are added at the bottom. Older ones scroll up and fade out at the top edge. The newest one shows a blinking cursor.
+- **Layout (decided 2026-11-18):** the Overlord window has two parts. The Overlord's stage is on top, with room beside him for his follow-up lines (US10). The prompt is pinned below and is always visible; when space runs short, the stage shrinks first, then the prompt scrolls.
+- The **first message is the stage prompt**: plain sentences that state exactly what to read and what to print. How worked examples appear on the game page is undecided; for now the page hides the prompt's trailing `Example N` blocks. Exact values (`0–9`, `w`, `4` then `w` prints `3`) are set in mono cyan.
+- New messages are added at the bottom. Older ones scroll up and fade out at the top edge.
 - No sender names, timestamps, or avatars on messages. It's obviously the Overlord.
 
 **Escalation levels (proposed; tune thresholds during balancing, 12/4–12/5):**
@@ -106,7 +121,8 @@ What the Overlord *says* at each level comes from the dialogue file (US10).
 
 ## 7. Motion
 
-- **Allowed:** the visor scan, the cursor blink, new messages typing in, and, in critical only, the timer and Submit pulsing.
+- **Allowed:** the visor scan, the Impossible badge's rim, new messages typing in, the floating-window energy loop (§4), and, in critical only, the timer and Submit pulsing.
+- The energy loop is ambient: one slow animation (`--energy-period`) drives the glow, the edge band, the foil, and the glint together, so a window counts as one loop.
 - No more than one looping animation per area. Nothing animates the prompt text after it has typed in.
 - Everything respects `prefers-reduced-motion`: loops stop and text appears instantly.
 
@@ -114,7 +130,7 @@ What the Overlord *says* at each level comes from the dialogue file (US10).
 
 | Component | Rules |
 | --- | --- |
-| **Top bar** (proposed, design 6) | Wordmark · a mono readout `TIER / 02/04` · lives as tall glowing "integrity cells" (dim outline when lost) · the timer. The heat bar runs along its bottom edge and shows time remaining. |
+| **Top bar** (decided 2026-11-18) | Wordmark with the **difficulty badge** beside it: a neon parallelogram in the tier's `--tier-*` color; Impossible's rim cycles every tier color. Center: the timer (a static `00:00` until US8), with lives beside it as glowing diamonds (dim outline when lost). The **stage bar** runs along the bottom edge, one cell per stage: done is dim cyan, current is bright cyan, upcoming is dark. No `02/04` text; the bar's `aria-label` carries it. The heat bar (US8) drains the current stage's cell. |
 | **Feed** | See §6. A floating window with a magenta shadow. |
 | **Editor** | A floating window with a cyan shadow. The tab shows only the file name. The current line gets a 2 px cyan left edge. |
 | **Console** | One row per example: `PASS`/`FAIL`, the example number, the output. Tracebacks in full on failure. Nothing else. |
@@ -124,7 +140,7 @@ What the Overlord *says* at each level comes from the dialogue file (US10).
 
 - Explanatory or helper text, or tooltips on obvious controls.
 - Emoji.
-- Gradient washes behind content. Gradients are only for the heat bar, Submit, and metal shading.
+- Gradient washes behind content. Gradients are only for the heat bar, Submit, metal shading, the floating-window foil and glint, and the header's bottom hairline.
 - Cartoon styling: thick black outlines, bubbly rounded cards, comic speech bubbles.
 - More than two accent colors on screen in the calm state.
 - Hard-coded colors, fonts, or sizes in templates. Use tokens. A reviewer rates a hard-coded value as a MED finding.
