@@ -1,4 +1,4 @@
-**Value** 3 · **Points** 2 · **Priority** 1.50 · **Depends on** US1 · **Type** Required · **Sprint** 1
+**Value** 3 · **Points** 2 · **Priority** 1.50 · **Depends on** US1 · **Type** Required · **Sprint** 1 · **Label** P0
 
 As a registered player, I want to log in and log out so that I can play and score under my own account.
 

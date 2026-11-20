@@ -1,4 +1,4 @@
-**Value** 3 · **Points** 5 · **Priority** 0.60 · **Depends on** US4 · **Type** Required · **Sprint** 1
+**Value** 3 · **Points** 5 · **Priority** 0.60 · **Depends on** US4 · **Type** Required · **Sprint** 1 · **Label** P1
 
 As a player, I want to run my code against the visible samples as often as I like so that I can debug without losing a life.
 
