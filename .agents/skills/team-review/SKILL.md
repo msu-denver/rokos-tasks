@@ -46,8 +46,8 @@ line first, then the findings sorted HIGH → NIT.
 
 - **Self-review:** fix every finding. For a non-HIGH you truly can't fix
   in scope, open a tech-debt issue
-  (`gh issue create --label tech-debt --label P2 --title "Tech debt: …" --body-file
-  <file>` using the fields in `.github/ISSUE_TEMPLATE/tech-debt.md`, or
+  (`gh issue create --label tech-debt --label P2
+  --title "Tech debt: …" --body-file <file>` using the fields in `.github/ISSUE_TEMPLATE/tech-debt.md`, or
   draft it for your human)
   and note its number. Rerun `make check`. If round 1 had a HIGH, run
   this skill again. Remember the counts for the PR checklist line:

@@ -55,8 +55,9 @@ marks, before the ticket leaves **To Do**.
 ## Story
 
 **Title:** `US#: Title` exactly as in the README (for example,
-`US1: Register`). **Labels:** `story` + a priority ([Labels](#labels)). **Board fields:** Sprint, Story
-Points, User Value, Type.
+`US1: Register`). **Labels:** `story` + a priority
+([Labels](#labels)). **Board fields:** Sprint, Story Points, User
+Value, Type.
 
 ```markdown
 **Value** 1–3 · **Points** 1/2/3/5/8/13 · **Priority** value ÷ points · **Depends on** US# or — · **Type** Required/Optional · **Sprint** N
@@ -99,8 +100,8 @@ A guide, not a requirement, unless an AC says otherwise.
 
 **Title:** `US#: <verb phrase>` (for example,
 `US1: Add the data layer`). Process work with no story uses
-`Scrum: …` or `Chore: …`. **Labels:** `task` + a priority. Make it a **sub-issue** of
-its story. **Tasks have no story points.** Points live on stories, so
+`Scrum: …` or `Chore: …`, and a bug uses `Fix: …` (label `bug`).
+**Labels:** `task` + a priority. Make it a **sub-issue** of its story. **Tasks have no story points.** Points live on stories, so
 the burndown doesn't count anything twice.
 
 ```markdown
@@ -121,8 +122,9 @@ Which tests this task adds (unit / integration / e2e).
 
 ## Tech debt
 
-**Title:** `Tech debt: <summary>`. **Labels:** `tech-debt` + a priority (`P2` unless the reviewer says otherwise). Open one
-whenever a MED, LOW, or NIT review finding is deferred instead of fixed.
+**Title:** `Tech debt: <summary>`. **Labels:** `tech-debt` + a
+priority (`P2` unless the reviewer says otherwise). Open one whenever
+a MED, LOW, or NIT review finding is deferred instead of fixed.
 The Product Owner schedules it. Nobody fixes it silently in an unrelated
 PR.
 
