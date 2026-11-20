@@ -1,0 +1,573 @@
+/*
+File: components.css
+Description: Shared design system components including layout, typography,
+    buttons, panels, forms, and accessibility rules.
+Author(s): Tyler Black
+*/
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* Animated inputs for the panel energy loop (one loop drives every layer) */
+@property --energy {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+
+@property --pulse {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0.6;
+}
+
+@keyframes panel-energy {
+  0% {
+    --energy: 0;
+    --pulse: 0.5;
+  }
+
+  50% {
+    --pulse: 1;
+  }
+
+  100% {
+    --energy: 1;
+    --pulse: 0.5;
+  }
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  background-color: var(--bg);
+  background-image:
+    linear-gradient(
+      to right,
+      var(--grid) var(--border-1),
+      transparent var(--border-1)
+    ),
+    linear-gradient(
+      to bottom,
+      var(--grid) var(--border-1),
+      transparent var(--border-1)
+    );
+  background-size: var(--grid-size) var(--grid-size);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: var(--text-14);
+  line-height: 1.5;
+}
+
+/* Old-monitor vignette: darkens the grid toward the screen edges */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 50%,
+    var(--vignette) 100%
+  );
+}
+
+/* Site header and brand wordmark */
+.site-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-6);
+  background:
+    linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--cyan) 45%, transparent),
+        color-mix(in srgb, var(--magenta) 45%, transparent)
+      )
+      bottom / 100% var(--border-1) no-repeat,
+    var(--surface);
+}
+
+.header-wordmark,
+[data-testid="header-wordmark"] {
+  font-family: var(--font-display);
+  font-size: var(--text-22);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-strong);
+  text-decoration: none;
+  text-shadow:
+    calc(-1 * var(--anaglyph-offset-sm)) 0 var(--anaglyph-cyan),
+    var(--anaglyph-offset-sm) 0 var(--anaglyph-red);
+}
+
+.header-wordmark:hover,
+[data-testid="header-wordmark"]:hover {
+  color: var(--cyan);
+}
+
+.header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.header-username {
+  font-family: var(--font-mono);
+  font-size: var(--text-14);
+  color: var(--cyan);
+}
+
+.header-logout-form {
+  display: inline-block;
+  margin: 0;
+}
+
+.header-link {
+  font-family: var(--font-display);
+  font-size: var(--text-14);
+  font-weight: 700;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.header-link:hover {
+  color: var(--cyan);
+  text-decoration: none;
+}
+
+/* Main content region, capped and centered */
+main {
+  max-width: var(--width-page);
+  margin-inline: auto;
+  padding: var(--space-6);
+}
+
+/* Headings get a faint red/cyan anaglyph split */
+h1 {
+  margin: 0 0 var(--space-4);
+  font-family: var(--font-display);
+  font-size: var(--text-34);
+  line-height: 1.2;
+  color: var(--ink-strong);
+  text-shadow:
+    calc(-1 * var(--anaglyph-offset)) 0 var(--anaglyph-cyan),
+    var(--anaglyph-offset) 0 var(--anaglyph-red);
+}
+
+/*
+Floating panel: cut corners, inner bevel, and a hard offset shadow that
+carries energy. One loop (panel-energy) drives the glow pulse, the bright
+band running along the shadow edge, the holographic top edge, and the
+surface glint.
+*/
+.floating-panel {
+  --panel-shadow: var(--magenta);
+  --panel-hot: var(--magenta-hot);
+  --panel-glow: var(--glow-magenta);
+  position: relative;
+  isolation: isolate;
+  padding: var(--space-6);
+  margin-top: var(--space-6);
+  margin-bottom: var(--space-6);
+  filter: drop-shadow(
+      0 0 calc(var(--glow-tight) * (0.5 + var(--pulse))) var(--panel-glow)
+    )
+    drop-shadow(0 0 calc(var(--glow-wide) * var(--pulse)) var(--panel-glow));
+  animation: panel-energy var(--energy-period) linear infinite;
+}
+
+.floating-panel--cyan {
+  --panel-shadow: var(--cyan);
+  --panel-hot: var(--cyan-hot);
+  --panel-glow: var(--glow-cyan);
+}
+
+/* Narrow, centered panel for forms and short pages */
+.floating-panel--form {
+  max-width: var(--width-form);
+  margin-inline: auto;
+  margin-top: var(--grid-size);
+}
+
+.floating-panel::before,
+.floating-panel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  clip-path: polygon(
+    var(--cut-window) 0%,
+    100% 0%,
+    100% calc(100% - var(--cut-window)),
+    calc(100% - var(--cut-window)) 100%,
+    0% 100%,
+    0% var(--cut-window)
+  );
+}
+
+/* Shadow layer with a hot band sweeping along its edge */
+.floating-panel::before {
+  background:
+    linear-gradient(
+        115deg,
+        transparent 44%,
+        var(--panel-hot) 50%,
+        transparent 56%
+      )
+      calc(100% - var(--energy) * 100%) 0 / 300% 100% no-repeat,
+    var(--panel-shadow);
+  transform: translate(
+    var(--shadow-offset-window),
+    var(--shadow-offset-window)
+  );
+}
+
+/* Surface: metal shading, a drifting glint, and a holographic top edge */
+.floating-panel::after {
+  background:
+    linear-gradient(90deg, var(--cyan), var(--magenta), var(--cyan))
+      calc(var(--energy) * 100%) 0 / 200% var(--border-1) repeat-x,
+    linear-gradient(
+        115deg,
+        transparent 40%,
+        var(--sheen) 50%,
+        transparent 60%
+      )
+      calc(var(--energy) * 100%) 0 / 300% 100% no-repeat,
+    linear-gradient(to bottom, var(--surface-raised), var(--surface));
+  background:
+    linear-gradient(
+        90deg in oklch,
+        var(--cyan),
+        var(--magenta),
+        var(--cyan)
+      )
+      calc(var(--energy) * 100%) 0 / 200% var(--border-1) repeat-x,
+    linear-gradient(
+        115deg,
+        transparent 40%,
+        var(--sheen) 50%,
+        transparent 60%
+      )
+      calc(var(--energy) * 100%) 0 / 300% 100% no-repeat,
+    linear-gradient(to bottom, var(--surface-raised), var(--surface));
+  box-shadow:
+    inset var(--border-1) var(--border-1) 0 var(--bevel-light),
+    inset
+      calc(-1 * var(--border-1))
+      calc(-1 * var(--border-1))
+      0
+      var(--bevel-dark);
+}
+
+/* Form fields and labels */
+label,
+.form-label {
+  display: block;
+  font-family: var(--font-body);
+  font-size: var(--text-12);
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: var(--space-1);
+}
+
+/* Fields sit in a recessed well */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+textarea,
+select,
+.form-input {
+  display: block;
+  width: 100%;
+  font-family: var(--font-mono);
+  font-size: var(--text-14);
+  color: var(--ink-strong);
+  background-color: var(--bg);
+  border: var(--border-1) solid var(--line);
+  box-shadow:
+    inset 0 var(--border-2) 0 var(--well),
+    inset 0 calc(-1 * var(--border-1)) 0 var(--bevel-light);
+  padding: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-3);
+  border-radius: 0;
+  transition:
+    border-color var(--press-duration) ease-out,
+    box-shadow var(--press-duration) ease-out;
+}
+
+input[type="text"],
+input[type="email"],
+input[type="password"],
+select,
+.form-input {
+  max-width: var(--width-form);
+}
+
+input[type="text"]:focus,
+input[type="email"]:focus,
+input[type="password"]:focus,
+textarea:focus,
+select:focus,
+.form-input:focus {
+  border-color: var(--cyan);
+  outline: var(--focus-outline) solid var(--cyan);
+  outline-offset: var(--focus-offset);
+  box-shadow:
+    inset 0 var(--border-2) 0 var(--well),
+    0 0 var(--glow-wide) var(--glow-cyan);
+}
+
+/* Field error text */
+.field-error,
+.form-error {
+  display: block;
+  font-family: var(--font-body);
+  font-size: var(--text-12);
+  color: var(--magenta);
+  margin-top: calc(-1 * var(--space-2));
+  margin-bottom: var(--space-3);
+}
+
+/* Buttons */
+.btn,
+button,
+input[type="submit"],
+input[type="button"] {
+  --button-shape: polygon(
+    var(--cut-button) 0%,
+    100% 0%,
+    calc(100% - var(--cut-button)) 100%,
+    0% 100%
+  );
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: var(--text-14);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: var(--space-2) var(--space-4);
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  clip-path: var(--button-shape);
+  border-radius: 0;
+  transition:
+    filter var(--press-duration) ease-out,
+    transform var(--press-duration) ease-out;
+}
+
+/* Primary button: filled cyan parallelogram with magenta hard shadow */
+.btn-primary,
+.btn--primary {
+  position: relative;
+  isolation: isolate;
+  background: transparent;
+  clip-path: none;
+  color: var(--bg);
+}
+
+.btn-primary::before,
+.btn-primary::after,
+.btn--primary::before,
+.btn--primary::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  clip-path: var(--button-shape);
+}
+
+.btn-primary::before,
+.btn--primary::before {
+  background: var(--magenta);
+  transform: translate(
+    var(--shadow-offset-button),
+    var(--shadow-offset-button)
+  );
+}
+
+.btn-primary::after,
+.btn--primary::after,
+.btn-primary:hover::before,
+.btn--primary:hover::before {
+  background: var(--cyan);
+}
+
+/* Hover glows; press pushes the face halfway onto its shadow */
+.btn-primary:hover,
+.btn--primary:hover {
+  filter: drop-shadow(0 0 var(--glow-tight) var(--glow-cyan));
+}
+
+.btn-primary:active,
+.btn--primary:active {
+  transform: translate(
+    calc(var(--shadow-offset-button) / 2),
+    calc(var(--shadow-offset-button) / 2)
+  );
+}
+
+.btn-primary:active::before,
+.btn--primary:active::before {
+  transform: translate(
+    calc(var(--shadow-offset-button) / 2),
+    calc(var(--shadow-offset-button) / 2)
+  );
+}
+
+input.btn-primary,
+input.btn--primary {
+  background: var(--cyan);
+  clip-path: var(--button-shape);
+}
+
+/* Secondary button: cyan outline */
+.btn-secondary,
+.btn--secondary {
+  background: transparent;
+  color: var(--cyan);
+  box-shadow: inset 0 0 0 var(--border-1) var(--cyan);
+}
+
+.btn-secondary:hover,
+.btn--secondary:hover {
+  background-color: var(--surface-raised);
+  color: var(--ink-strong);
+  filter: drop-shadow(0 0 var(--glow-tight) var(--glow-cyan));
+}
+
+/* Flash messages */
+.flash-container {
+  max-width: calc(var(--width-form) + 2 * var(--space-6));
+  margin: var(--space-4) auto 0;
+  padding-inline: var(--space-6);
+}
+
+.flash-message,
+[data-testid="flash-message"] {
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-2);
+  background-color: var(--surface-raised);
+  border-left: var(--space-1) solid var(--cyan);
+  color: var(--ink-strong);
+  font-family: var(--font-body);
+  font-size: var(--text-14);
+  border-radius: 0;
+}
+
+.flash-message--error {
+  border-left-color: var(--magenta);
+}
+
+/* Links */
+a {
+  color: var(--cyan);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* Global focus outline */
+:focus-visible {
+  outline: var(--focus-outline) solid var(--cyan);
+  outline-offset: var(--focus-offset);
+}
+
+.btn:focus-visible {
+  clip-path: none;
+}
+
+/* Difficulty cards and run readouts */
+.start-panel {
+  margin-block: 0;
+  padding-block: var(--space-4);
+}
+
+.start-panel > h1 {
+  margin: 0;
+}
+
+.tier-grid {
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(min(100%, calc(var(--grid-size) * 4)), 1fr)
+  );
+  gap: var(--space-3) var(--space-4);
+  margin-top: var(--space-3);
+}
+
+.tier-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border: var(--border-1) solid var(--line);
+  background: var(--surface);
+}
+
+.tier-card h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-22);
+  line-height: 1.2;
+  color: var(--ink-strong);
+}
+
+.tier-rules {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--space-1) var(--space-2);
+  margin: 0;
+}
+
+.tier-rules dt,
+.tier-coming-soon {
+  color: var(--muted);
+}
+
+.tier-rules dd,
+.run-lives span {
+  margin: 0;
+  font-family: var(--font-mono);
+}
+
+.tier-coming-soon {
+  margin: 0;
+  padding-block: var(--space-2);
+}
+
+.start-error {
+  color: var(--magenta);
+}
+
+/* Motion accessibility preferences */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .floating-panel {
+    animation: none;
+  }
+}

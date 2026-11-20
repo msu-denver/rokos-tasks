@@ -1,0 +1,37 @@
+# File: docker-compose.yml
+# Description: Multi-container setup for local development (web + db).
+# Author(s): Tyler Black
+
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-rokos}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rokos}
+      POSTGRES_DB: ${POSTGRES_DB:-rokos_tasks}
+    ports:
+      - "${DB_HOST_PORT:-5433}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/db/init-test-db.sql:/docker-entrypoint-initdb.d/init-test-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-rokos} -d ${POSTGRES_DB:-rokos_tasks}"]
+      interval: 3s
+      timeout: 3s
+      retries: 5
+      start_period: 3s
+
+  web:
+    build: .
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://rokos:rokos@db:5432/rokos_tasks}
+      SECRET_KEY: ${SECRET_KEY:-change-me-locally}
+      LLM_MODE: ${LLM_MODE:-fake}
+
+volumes:
+  postgres_data:
