@@ -14,9 +14,17 @@ you're working for.
   - **[LOW]** is your call. Pick the simplest reasonable option.
 - If an AC is ambiguous or has no rating, ask your human. Don't guess at
   a HIGH.
-- Branch from the latest `dev`, named for the story:
-  `feature/US6-runner-sandbox`, `fix/US7-checkpoint-restore`,
-  `chore/sprint0-devcontainer`, `docs/...`, `debt/<issue#>-short-name`.
+- **Start the issue** before writing code:
+  1. Assign yourself: `gh issue edit <n> --add-assignee @me`.
+  2. Create the branch **from the issue** so GitHub links it (it shows
+     under the issue's **Development**):
+     `gh issue develop <n> --base dev --name <branch> --checkout`, or
+     **Create a branch** on the issue page.
+  3. Name it `<type>/<issue#>-<short-name>`, where type is `feature`,
+     `fix`, `chore`, `docs`, or `debt`. Examples:
+     `feature/14-US6-runner-sandbox`, `fix/21-checkpoint-restore`,
+     `debt/30-flaky-timer-test`.
+  4. Move the board card to **In Progress**.
 
 ## 2. Build
 
@@ -45,9 +53,10 @@ you're working for.
     a `tech-debt` issue and link it in the PR.
 - Rerun `make check` after your fixes.
 - If round 1 found any HIGH, do a round 2 to confirm the fixes.
-- Recommended: have a *different* tool or model do the review than the
-  one that wrote the code (for example, Claude writes and Codex reviews).
-  Different models miss different things.
+- Recommended: review with a *different model* than the one that wrote
+  the code. Different models miss different things. Any tool works: in
+  Copilot Chat, pick another model in the model picker before running
+  the review; with other agents, use whichever second model you have.
 
 ## 5. Gate 3: manual test + one screenshot
 

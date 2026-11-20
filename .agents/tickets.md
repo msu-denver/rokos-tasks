@@ -9,13 +9,34 @@ Finished examples: the Sprint 1 story drafts in
 [scrum/sprint_1/issues/](../scrum/sprint_1/issues/).
 
 ## Contents
-1. [Acceptance criteria ratings](#acceptance-criteria-ratings)
-2. [Story](#story)
-3. [Task](#task)
-4. [Tech debt](#tech-debt)
-5. [Writing rules](#writing-rules)
-6. [Ready and done](#ready-and-done)
-7. [Posting](#posting)
+1. [Labels](#labels)
+2. [Acceptance criteria ratings](#acceptance-criteria-ratings)
+3. [Story](#story)
+4. [Task](#task)
+5. [Tech debt](#tech-debt)
+6. [Writing rules](#writing-rules)
+7. [Ready and done](#ready-and-done)
+8. [Posting](#posting)
+
+## Labels
+
+Every issue has **exactly one type label and exactly one priority
+label**.
+
+| Type | For |
+| :--- | :--- |
+| `story` | A user story (`US#`) |
+| `task` | Work under a story, or process work (`Chore: …`) |
+| `tech-debt` | A deferred MED/LOW/NIT review finding |
+| `bug` | Something that worked and is now broken (task shape, title `Fix: …`) |
+
+| Priority | Means |
+| :--- | :--- |
+| `P0` | Critical: drop everything and do it now. |
+| `P1` | High: do it next, ahead of the usual backlog. |
+| `P2` | Normal: schedule it through the backlog. Default for tech debt. |
+
+The Product Owner can change a priority at any time.
 
 ## Acceptance criteria ratings
 
@@ -34,7 +55,7 @@ marks, before the ticket leaves **To Do**.
 ## Story
 
 **Title:** `US#: Title` exactly as in the README (for example,
-`US1: Register`). **Label:** `story`. **Board fields:** Sprint, Story
+`US1: Register`). **Labels:** `story` + a priority ([Labels](#labels)). **Board fields:** Sprint, Story
 Points, User Value, Type.
 
 ```markdown
@@ -78,7 +99,7 @@ A guide, not a requirement, unless an AC says otherwise.
 
 **Title:** `US#: <verb phrase>` (for example,
 `US1: Add the data layer`). Process work with no story uses
-`Scrum: …` or `Chore: …`. **Label:** `task`. Make it a **sub-issue** of
+`Scrum: …` or `Chore: …`. **Labels:** `task` + a priority. Make it a **sub-issue** of
 its story. **Tasks have no story points.** Points live on stories, so
 the burndown doesn't count anything twice.
 
@@ -100,7 +121,7 @@ Which tests this task adds (unit / integration / e2e).
 
 ## Tech debt
 
-**Title:** `Tech debt: <summary>`. **Label:** `tech-debt`. Open one
+**Title:** `Tech debt: <summary>`. **Labels:** `tech-debt` + a priority (`P2` unless the reviewer says otherwise). Open one
 whenever a MED, LOW, or NIT review finding is deferred instead of fixed.
 The Product Owner schedules it. Nobody fixes it silently in an unrelated
 PR.
@@ -158,7 +179,7 @@ issue is closed by the merging PR (`Closes #n`).
 ## Posting
 
 ```bash
-gh issue create --title "US1: Register" --label story --body-file scrum/sprint_1/issues/US1.md
+gh issue create --title "US1: Register" --label story --label P1 --body-file scrum/sprint_1/issues/US1.md
 ```
 
 Add tasks as sub-issues of their story (in the issue's
