@@ -1,0 +1,92 @@
+# File: docs-auto-approve.yml
+# Description: Approves a pull request into dev when every changed file is
+#     documentation, so docs changes don't wait on a teammate's review.
+#     If a later commit changes anything else, the approval is dismissed.
+#     main is not covered: it keeps its human approval.
+# Author(s): Tyler Black
+
+name: Docs auto-approve
+
+# pull_request_target runs the copy of this workflow on dev, so a pull
+# request cannot edit the rule to approve itself. No code is checked out;
+# only the list of changed file names is read from the API.
+on:
+  pull_request_target:
+    branches: [dev]
+    types: [opened, reopened, synchronize, ready_for_review]
+
+permissions:
+  pull-requests: write
+
+concurrency:
+  group: docs-auto-approve-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  docs-auto-approve:
+    name: docs-auto-approve
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Approve docs-only changes, or dismiss an old approval
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const base = { owner: context.repo.owner, repo: context.repo.repo };
+            const BOT = 'github-actions[bot]';
+
+            // Docs: Markdown anywhere except .github/ (templates and
+            // agent instructions there shape automation), plus anything
+            // under docs/, scrum/, or uml/.
+            const isDocs = (path) =>
+              !path.startsWith('.github/') &&
+              (path.endsWith('.md') ||
+                /^(docs|scrum|uml)\//.test(path));
+
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              ...base,
+              pull_number: pr.number,
+              per_page: 100,
+            });
+            // A renamed file counts by both its old and new path.
+            const paths = files.flatMap((f) =>
+              f.previous_filename ? [f.filename, f.previous_filename] : [f.filename]
+            );
+            const nonDocs = paths.filter((p) => !isDocs(p));
+
+            const reviews = await github.paginate(github.rest.pulls.listReviews, {
+              ...base,
+              pull_number: pr.number,
+              per_page: 100,
+            });
+            const botApprovals = reviews.filter(
+              (r) => r.user.login === BOT && r.state === 'APPROVED'
+            );
+
+            if (paths.length > 0 && nonDocs.length === 0) {
+              if (botApprovals.some((r) => r.commit_id === pr.head.sha)) {
+                core.info('Already approved at this commit.');
+                return;
+              }
+              await github.rest.pulls.createReview({
+                ...base,
+                pull_number: pr.number,
+                commit_id: pr.head.sha,
+                event: 'APPROVE',
+                body: 'Docs-only change: approved automatically.',
+              });
+              core.info(`Approved: all ${paths.length} changed files are docs.`);
+              return;
+            }
+
+            core.info(`Not docs-only. Non-docs files: ${nonDocs.join(', ')}`);
+            for (const review of botApprovals) {
+              await github.rest.pulls.dismissReview({
+                ...base,
+                pull_number: pr.number,
+                review_id: review.id,
+                message: 'This PR now changes more than docs, so it needs a human review.',
+              });
+              core.info(`Dismissed bot approval ${review.id}.`);
+            }
