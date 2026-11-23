@@ -48,7 +48,7 @@ Every graded item, and where this plan covers it.
 | Docker deployment + frozen `requirements.txt` | 5 | [§5](#5-development-environment) |
 | ≥ 1 white-box + ≥ 1 black-box test (not auth) | 10 | [§7](#7-testing--coverage) |
 | **Bonus:** non-SQLite DB + 3-layer architecture + Compose with ≥ 2 containers | +5 | PostgreSQL; `presentation` / `business` / `data` layers; web + db + runner containers |
-| **Bonus:** each optional story implemented | +1 each (max 5) | US11–US17 |
+| **Bonus:** each optional story implemented | +1 each (max 5) | US12–US16 |
 | **Penalty:** registration or login not working | −10 each | US1, US2 are first in Sprint 1 |
 | **Penalty:** each required story not completed | −5 each (max −25) | Required set kept small and safe ([§11](#11-user-stories)) |
 | **Penalty:** no continuous development on `main` / `dev` | −5 each | Frequent merges + tagged releases ([§9](#9-git--github-workflow)) |
@@ -88,7 +88,7 @@ Every graded item, and where this plan covers it.
 | CI | **GitHub Actions** | Runs lint, header check, tests, and a Docker build on every PR |
 
 ### 3.1 Version Pinning
-* **Python 3.13** everywhere, matching the Python version of the pinned Pyodide release, so **Run Sample (browser) and Submit (server) behave identically**.
+* **Python 3.13** everywhere, matching the Python version of the pinned Pyodide release, so **Run (browser) and Submit (server) run the program the same way**.
 * All Python dependencies **frozen with exact versions** in `requirements.txt` (course requirement).
 * Docker images pinned to explicit tags (e.g. `python:3.13-slim`, `postgres:17`), never `latest`. Both are multi-architecture, so the grader's Apple Silicon or Intel machine works.
 
@@ -245,7 +245,7 @@ LLM_TOTAL_BUDGET_USD=70            # $100 credit minus ~$30 demo reserve
 * Only the **LLM owner** holds the Azure key (Codespaces secret or local `.env`). Everyone else works in `fake`/`replay` mode.
 * **gitleaks** in pre-commit, plus GitHub push protection.
 * **If a key leaks:** switch the app to Azure's second key, then regenerate the first.
-* Seed campaign files (including expected outputs) are publicly visible. Acceptable for a class project.
+* Seed campaign files (including check scripts) are publicly visible. Acceptable for a class project.
 
 ---
 
@@ -447,9 +447,9 @@ GitHub Projects with columns **To Do → In Progress → In Review → Done** (c
 
 **The canonical user stories live in [README.md → User Stories](../README.md#user-stories)**, in the course template format (US1–US17, "As a… I want… so that I can…", Given/When/Then acceptance criteria). They are kept only there so they can't drift out of sync.
 
-* **Required:** US1–US10, the complete playable game on hand-written campaigns. Every one must ship, since each unfinished required story costs −5.
-* **Optional:** US11–US17, worth +1 each (max 5). US11 (AI-generated campaigns) is the signature optional story.
-* **Developer tasks are not user stories.** Infrastructure work (runner container, grading harness, campaign schema and validator, seed campaigns, LLM client and budget cap) is tracked as GitHub Issues under the story it enables, for example `US6: Build sandbox runner container`, `US3: Write Beginner and Easy seed campaigns`, `US11: Add LLM budget ledger and cap`. Environment setup is Sprint 0 work.
+* **Required:** US1–US11. The game needs the Overlord to write campaigns (US11) and to play the player's program to grade it (US6). Every required story must ship, since each unfinished one costs −5.
+* **Optional:** US12–US16, worth +1 each (max 5). US17 (Playable Finale) was merged into US5, since every program is now a playable loop (#13).
+* **Developer tasks are not user stories.** Infrastructure work (runner container, grading harness, campaign schema and validator, seed campaigns, LLM client and budget cap) is tracked as GitHub Issues under the story it enables, for example `US6: Build sandbox runner container`, `US6: Write the Pong seed campaign and its check scripts`, `US11: Add LLM budget ledger and cap`. Environment setup is Sprint 0 work.
 
 ---
 
@@ -458,13 +458,12 @@ GitHub Projects with columns **To Do → In Progress → In Review → Done** (c
 **Canonical table: [README.md → Product Backlog](../README.md#product-backlog).** Summary of how it was built:
 
 * **User value** 1–3, **story points** Fibonacci, **priority score = user value ÷ story points** (course formula).
-* **Totals:** 37 required points, 31 optional points, 68 in the backlog.
+* **Totals:** 58 required points, 15 optional points, 73 in the backlog.
 * **Rank adjustments (allowed by the template):**
-  * **Dependencies:** US6 ranks above higher-scoring stories because US7–US10 depend on it. US7 ranks above US8 and US10 because more stories depend on it.
-  * **(Proposed) Team decision:** US11 leads the optional stories despite a lower score (D10).
+  * **Dependencies:** US6 ranks above higher-scoring stories because US7–US11 depend on it. US7 ranks above US8 and US10 because more stories depend on it.
+  * **Team decision:** US11 ranks right after US7 despite a low score, because the game depends on generated campaigns (#13). US13 leads the optional stories.
+* **Re-sized for #13:** US5 5 → 8 (it now runs the program as a live loop in the browser, absorbing US17), US6 8 → 13 (check scripts that play the program, instead of comparing one output), US11 8 → 13 (it also generates and validates check scripts) and became Required.
 * **Changing a story's value or points:** update the README table, re-check ranks and the sprint plan, and record why in the next sprint planning notes.
-
-* **By score alone**, the optional order would be US12, US15, US13, US14, US11, US16, US17. US13 follows US11 because it fits the remaining Sprint 3 capacity.
 
 ### 12.1 Dependency Diagram
 
@@ -475,8 +474,8 @@ flowchart TD
     US1["US1: Register"] --> US2["US2: Log In and Log Out"]
     US2 --> US3["US3: Start a Run"]
     US3 --> US4["US4: View Stage and Write Code"]
-    US4 --> US5["US5: Run Sample Tests"]
-    US4 --> US6["US6: Submit and Get Graded"]
+    US4 --> US5["US5: Play My Program"]
+    US4 --> US6["US6: The Overlord Plays My Program"]
 
     US5 --> US15["US15: How-to-Play Tutorial"]
     US6 --> US15
@@ -485,8 +484,6 @@ flowchart TD
     US6 --> US7["US7: Lives, Checkpoints, Progression"]
     US6 --> US10["US10: Overlord Reactions and Feedback"]
 
-    US5 --> US17["US17: Playable Finale"]
-    US7 --> US17
     US7 --> US13["US13: Bonus Life"]
     US7 --> US9["US9: Scores and Leaderboard"]
     US9 --> US14["US14: Profile Statistics"]
@@ -494,7 +491,7 @@ flowchart TD
     US10 --> US16["US16: Contest a Verdict"]
 
     classDef optional stroke-dasharray: 5 5
-    class US11,US12,US13,US14,US15,US16,US17 optional
+    class US12,US13,US14,US15,US16 optional
 ```
 
 ---
@@ -505,27 +502,26 @@ flowchart TD
 
 | Sprint | Stories | Points | Remaining after |
 | --- | --- | :---: | :---: |
-| Sprint 1 (11/18–11/22) | US1 → US2 → US3 → US4 → US5 | 15 | 53 |
-| Sprint 2 (11/23–11/29) | US6 → US7 → US8 | 16 | 37 |
-| Sprint 3 (11/30–12/6) | US10 → US9 → US11 | 14 | 23 |
+| Sprint 1 (11/18–11/22) | US1 → US2 → US3 → US4 → US5 | 18 | 55 |
+| Sprint 2 (11/23–11/29) | US6 → US7 | 18 | 37 |
+| Sprint 3 (11/30–12/6) | US11 → US8 → US10 → US9 | 22 | 15 |
 
-* **Capacity of 16 is a placeholder.** Covering all 37 required points in three sprints needs at least ~13 points per sprint. If real capacity is lower, drop optional stories, never required ones.
+* **Capacity is 18 points per week**, what the team finished in Sprint 1. Per-ticket breakdown: [scrum/capacity.md](../scrum/capacity.md).
+* **Sprint 3 is 4 points over capacity.** The LLM owner starts US11 in Sprint 2 in `fake`/`replay` mode (prompts, schema, validator) so Sprint 3 only has wiring and live tuning left. If Sprint 3 still runs short, cut polish from US10 before cutting any story.
 * **Due 12/6.** Sprint 1 is short (11/18–11/22), and Thanksgiving (11/26) falls in Sprint 2.
 * **Sprint 3 feature freeze: Thursday 12/3.** 12/4–12/5 is for game balancing (timers, lives, campaign difficulty), bug fixes, final coverage report, README, and the final progress report. Tag `v3` by 12/5 and submit 12/6.
-* **LLM prompt tuning** for US11 happens along the way. The LLM owner drafts prompts and the generator in `fake`/`replay` mode as soon as the campaign schema exists (Sprint 1), and tunes them with live runs in Sprint 3.
-* **Stretch order** if a sprint finishes early: US13, US12, US15, US14, US16, US17.
-* **If Sprint 3 runs short:** cut US11 and protect US9 and US10.
+* **Stretch order** if a sprint finishes early: US13, US12, US15, US14, US16.
 
 ### 13.1 Sprint Goals
-* **Sprint 1:** a player can register, log in, start a run, see a stage, and run sample tests in the browser.
-* **Sprint 2:** a player can play a full campaign: submit, get graded, lose and keep lives, advance through stages, and race the timer.
-* **Sprint 3:** the Overlord reacts and explains failures, scores reach the leaderboard, and AI-generated campaigns can join the pool.
+* **Sprint 1:** a player can register, log in, start a run, see a stage, and play their own program in the browser.
+* **Sprint 2:** the Overlord plays the player's program to grade each stage; passing advances, failing costs a life.
+* **Sprint 3:** the Overlord writes new campaigns, the timer runs, the Overlord reacts and explains failures, and scores reach the leaderboard.
 
 ### 13.2 Dependency Check
 * **Sprint 1:** each story depends on the one before it, so they're ordered to finish in sequence.
-* **Sprint 2:** US7 and US8 depend on US6, which comes first.
-* **Sprint 3:** US9 depends on US7 (done in Sprint 2). US11 depends on US3 and US6 (Sprints 1–2).
-* **Not planned (23 points):** US13, US12, US15, US14, US16, US17, pulled in that order if a sprint finishes early.
+* **Sprint 2:** US7 depends on US6, which comes first.
+* **Sprint 3:** US11, US8 and US10 depend on US6, and US9 on US7 (both done in Sprint 2).
+* **Not planned (15 points):** US13, US12, US15, US14, US16, pulled in that order if a sprint finishes early.
 
 ---
 
@@ -557,7 +553,7 @@ PlantUML sources live in `uml/` (as in the course template) and are exported to 
 | `User` | A registered player account; verifies its own password |
 | `Campaign` | A multi-stage project (e.g. ASCII Pong) at one difficulty; either a hand-written seed or AI-generated; only `VALIDATED` campaigns are playable |
 | `Stage` | One feature request: the Overlord's prompt, the exact input/output contract, and starter code |
-| `TestCase` | One input with its expected output; samples are visible to players, hidden cases are used for grading |
+| `CheckScript` | The hidden script that plays a stage's program and checks its rules (replaces `TestCase`, #13) |
 | `GameRun` | One player's attempt at a campaign: lives, current stage, timer deadline, score, and status |
 | `Checkpoint` | The player's passing code saved at the end of a stage |
 | `Submission` | One graded submission and its verdict |

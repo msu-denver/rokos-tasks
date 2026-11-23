@@ -26,7 +26,7 @@ The full story issues are one file each, ready to post with `--body-file`. They 
 | US2: Log In and Log Out | [issues/US2.md](issues/US2.md) | 2 | None |
 | US3: Choose a Difficulty and Start a Run | [issues/US3.md](issues/US3.md) | 3 | Seed count for `v1`; resume vs. block an active run |
 | US4: View the Stage and Write Code | [issues/US4.md](issues/US4.md) | 3 | None |
-| US5: Run Sample Tests | [issues/US5.md](issues/US5.md) | 5 | 5 s timeout per click or per sample |
+| US5: Play My Program | [issues/US5.md](issues/US5.md) | 8 | Tick rate |
 
 ---
 

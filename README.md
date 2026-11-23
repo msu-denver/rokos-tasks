@@ -104,7 +104,7 @@ Roko's Tasks flips AI-assisted coding on its head: a smug AI Overlord does the p
 
 ### Product Vision
 
-The Overlord gives you incremental feature requests under a timer, and you build a small Python program (ASCII Pong, a Minesweeper board, a vending machine) stage by stage. Hidden tests grade each stage. Pass and the next request arrives. Fail and you lose a life. Clear every stage to beat the Overlord and post your score.
+The Overlord gives you incremental feature requests under a timer, and you build a small Python program (ASCII Pong, a Minesweeper board, a vending machine) stage by stage. To grade a stage, the Overlord plays your program: it presses keys, watches what your program draws, and checks that the rules of the stage hold. Pass and the next request arrives. Fail and you lose a life. Clear every stage to beat the Overlord and post your score.
 
 **Target audience:** CS students and hobbyist programmers who want timed Python practice that feels like a game.
 
@@ -116,7 +116,7 @@ Source: [uml/use_case.wsd](uml/use_case.wsd). Grey use cases are optional storie
 
 ## User Stories
 
-**Required:** US1–US10. **Optional:** US11–US17.
+**Required:** US1–US11. **Optional:** US12–US16. (US17 was merged into US5.)
 
 ### US1: Register
 
@@ -155,23 +155,25 @@ As a player, I want to read the Overlord's text prompt and write code in an edit
 1. **Given that** a stage is active, **when** the game page loads, **then** I see the Overlord's prompt as the first message in its feed (stating the exact input and output format and at least one example), my lives, and a Python editor preloaded with starter code (Stage 1) or my last passing code (later stages).
 2. **Given that** I have typed code in the editor, **when** I refresh the page, **then** my in-progress code is restored.
 
-### US5: Run Sample Tests
+### US5: Play My Program
 
-As a player, I want to run my code against the visible samples as often as I like so that I can debug without losing a life.
-
-**Acceptance Criteria**
-
-1. **Given that** there is code in the editor, **when** I click Run Sample, **then** my code runs in the browser against each sample and I see its output, any error traceback, and a pass/fail comparison with the expected output, and I lose no lives.
-2. **Given that** my code loops forever, **when** it has run for more than 5 seconds, **then** it is stopped and I see a friendly timeout message.
-
-### US6: Submit and Get Graded
-
-As a player, I want to submit my code and have it graded against hidden tests so that I can find out whether I cleared the stage.
+As a player, I want to run my program in the browser and control it with my keyboard as often as I like so that I can see my game working before the Overlord judges it.
 
 **Acceptance Criteria**
 
-1. **Given that** there is code in the editor, **when** I click Submit, **then** it runs in the server sandbox against every hidden test and I receive a pass or fail verdict within a few seconds.
-2. **Given that** my code crashes, times out, or prints the wrong output for any hidden test, **when** grading finishes, **then** the verdict is fail and names the failure type (wrong output, error, or timeout).
+1. **Given that** there is code in the editor, **when** I click Run, **then** my program runs in the browser, the keys I press are sent to it each tick, I see every frame it prints, and I lose no lives.
+2. **Given that** my program crashes, **when** the error happens, **then** it stops and I see the traceback.
+3. **Given that** my program takes longer than 1 second to answer a single tick, **when** that happens, **then** it is stopped and I see a friendly timeout message.
+
+### US6: The Overlord Plays My Program
+
+As a player, I want the Overlord to play my program and check it against the stage's rules so that I can find out whether I cleared the stage, however I chose to build it.
+
+**Acceptance Criteria**
+
+1. **Given that** there is code in the editor, **when** I click Submit, **then** my program runs in the server sandbox, the stage's check script plays it (sending keys and reading frames, never reading my code), and I receive a pass or fail verdict within about 10 seconds.
+2. **Given that** my program breaks a rule of the stage, crashes, or times out, **when** grading finishes, **then** the verdict is fail and names what went wrong (the broken rule, the error, or the timeout).
+3. **Given that** two programs follow the stage's rules but differ in details the rules don't fix (speed, starting position, a random serve), **when** each is submitted, **then** both pass.
 
 ### US7: Lives, Checkpoints, and Stage Progression
 
@@ -208,18 +210,19 @@ As a player, I want the AI Overlord to react to what happens and show me why I f
 **Acceptance Criteria**
 
 1. **Given that** a game event occurs (stage start, under 60 seconds left, fail, pass, victory, defeat), **when** it happens, **then** the Overlord adds a matching line from the dialogue file to its scrolling feed and does not repeat the line it just used.
-2. **Given that** I fail a hidden test on Beginner, Easy, or Medium, **when** the verdict appears, **then** I see the failing input, the expected output, and my output. On Hard and above I see the test number, plus the traceback if my code crashed.
+2. **Given that** I fail a stage on Beginner, Easy, or Medium, **when** the verdict appears, **then** I see the rule I broke, the tick it broke on, the keys the Overlord had pressed, and the frame my program printed. On Hard and above I see only the rule, plus the traceback if my code crashed.
 3. **Given that** the stage timer runs down, **when** it crosses the pressure and critical thresholds, **then** the Overlord's messages and the screen escalate in tone and color, starting sooner on harder tiers ([design.md §6](docs/design.md#6-overlord-feed-and-escalation)).
 
-### US11: AI-Generated Campaigns (Optional)
+### US11: AI-Generated Campaigns
 
-As a player, I want new campaigns generated by the AI Overlord so that I can keep getting fresh challenges beyond the hand-written ones.
+As a player, I want new campaigns written by the AI Overlord so that I can keep getting fresh challenges beyond the hand-written ones.
 
 **Acceptance Criteria**
 
-1. **Given that** the LLM owner runs the generation command and budget remains, **when** it finishes, **then** campaigns that passed the validation pipeline (consensus expected outputs and all quality checks) are added to the pool, and rejected campaigns are logged with a reason.
-2. **Given that** generated campaigns exist for a Medium-or-harder tier, **when** a player starts a run on that tier, **then** a generated campaign can be assigned like a hand-written one.
-3. **Given that** any live LLM call is made, **when** it completes, **then** its token usage and estimated cost are recorded, and further calls are refused once the budget cap is reached.
+1. **Given that** the LLM owner runs the generation command and budget remains, **when** it finishes, **then** campaigns that passed the validation pipeline are added to the pool, and rejected campaigns are logged with a reason.
+2. **Given that** a campaign was generated, **when** it is validated, **then** it is rejected unless the LLM's reference program **passes** every stage's checks (on repeated runs) and a deliberately broken program, including the previous stage's reference, **fails** them.
+3. **Given that** generated campaigns exist for a tier, **when** a player starts a run on that tier, **then** a generated campaign can be assigned like a hand-written one.
+4. **Given that** any live LLM call is made, **when** it completes, **then** its token usage and estimated cost are recorded, and further calls are refused once the budget cap is reached.
 
 ### US12: Animated Overlord Avatar (Optional)
 
@@ -256,20 +259,16 @@ As a first-time player, I want a short unscored tutorial so that I can learn how
 
 ### US16: Contest a Verdict (Optional)
 
-As a player, I want to flag a test I think is wrong so that I can get bad tests fixed.
+As a player, I want to flag a check I think is wrong so that I can get bad checks fixed.
 
 **Acceptance Criteria**
 
-1. **Given that** I failed a submission, **when** I click Contest, **then** the test is flagged for review, and on Beginner and Easy my life is refunded with an in-character apology.
-2. **Given that** the same test in a campaign is contested repeatedly, **when** the contest threshold is reached, **then** the campaign is removed from the pool until the team reviews it.
+1. **Given that** I failed a submission, **when** I click Contest, **then** the check is flagged for review, and on Beginner and Easy my life is refunded with an in-character apology.
+2. **Given that** the same check in a campaign is contested repeatedly, **when** the contest threshold is reached, **then** the campaign is removed from the pool until the team reviews it.
 
-### US17: Playable Finale (Optional)
+### US17: Playable Finale (Merged into US5)
 
-As a player, I want to actually play the Pong or Snake game I just built so that I can enjoy the result of my work.
-
-**Acceptance Criteria**
-
-1. **Given that** I win a game-type campaign whose final stage is a tick program, **when** the victory screen opens, **then** my own code runs in a loop in the browser with keyboard input so I can play my game.
+Every program is now a playable loop, and US5 lets the player play it at any stage, so this story no longer exists on its own.
 
 ## Product Backlog
 
@@ -281,21 +280,20 @@ User value: 3 = high, 2 = medium, 1 = low. Story points: Fibonacci. Priority sco
 | US2 | 2 | 3 | 2 | 1.50 | US1 | Required |
 | US3 | 3 | 3 | 3 | 1.00 | US2 | Required |
 | US4 | 4 | 3 | 3 | 1.00 | US3 | Required |
-| US5 | 5 | 3 | 5 | 0.60 | US4 | Required |
-| US6 | 6 † | 3 | 8 | 0.38 | US4 | Required |
+| US5 | 5 | 3 | 8 | 0.38 | US4 | Required |
+| US6 | 6 † | 3 | 13 | 0.23 | US4 | Required |
 | US7 | 7 † | 3 | 5 | 0.60 | US6 | Required |
-| US8 | 8 | 2 | 3 | 0.67 | US6 | Required |
-| US10 | 9 | 2 | 3 | 0.67 | US6 | Required |
-| US9 | 10 † | 2 | 3 | 0.67 | US7 | Required |
-| US11 | 11 ‡ | 3 | 8 | 0.38 | US3, US6 | Optional |
+| US11 | 8 ‡ | 3 | 13 | 0.23 | US3, US6 | Required |
+| US8 | 9 | 2 | 3 | 0.67 | US6 | Required |
+| US10 | 10 | 2 | 3 | 0.67 | US6 | Required |
+| US9 | 11 † | 2 | 3 | 0.67 | US7 | Required |
 | US13 | 12 ‡ | 1 | 2 | 0.50 | US7 | Optional |
 | US12 | 13 | 2 | 3 | 0.67 | US10 | Optional |
 | US15 | 14 | 2 | 3 | 0.67 | US5, US6 | Optional |
 | US14 | 15 | 1 | 2 | 0.50 | US9 | Optional |
 | US16 | 16 | 1 | 5 | 0.20 | US10 | Optional |
-| US17 | 17 | 1 | 8 | 0.13 | US5, US7 | Optional |
 
-**Totals:** 37 required points, 31 optional points, 68 points in the backlog.
+**Totals:** 58 required points, 15 optional points, 73 points in the backlog.
 
 † Ranked earlier because of dependencies. ‡ Ranked by team decision. Reasons and the dependency diagram: [roadmap §12](docs/roadmap.md#12-product-backlog).
 
@@ -304,24 +302,26 @@ User value: 3 = high, 2 = medium, 1 = low. Story points: Fibonacci. Priority sco
 **Due 12/6.** Sprint 0 (planning and environment, no feature code): 11/17–11/18. Each sprint ends with a tagged release on `main` (`v1`, `v2`, `v3`). Sprint 1 is short (5 days) to fit the due date. Sprint 3 has a feature freeze on 12/3, leaving 12/4–12/5 for balancing, testing, and docs.
 
 ```
-Team capacity (story points per sprint): 16
+Team capacity (story points per sprint): 18
 
-Justification: <team size> developers with roughly <N> focused hours each per week
-alongside other courses. <Note the short Sprint 1 and Thanksgiving (11/26) in Sprint 2.>
+Justification: what the team finished in Sprint 1 (US1–US5, 18 points).
+Thanksgiving (11/26) falls in Sprint 2.
 ```
 
 | Sprint | User stories (in order) | Story points planned | Points remaining after sprint | Dependencies checked (Y/N) |
 | --- | --- | :---: | :---: | :---: |
-| Sprint 1 (11/18–11/22) | US1, US2, US3, US4, US5 | 15 | 53 | Y |
-| Sprint 2 (11/23–11/29) | US6, US7, US8 | 16 | 37 | Y |
-| Sprint 3 (11/30–12/6) | US10, US9, US11 | 14 | 23 | Y |
-| **Total** | **11 stories (all 10 required + 1 optional)** | **45** | **23** | **Y** |
+| Sprint 1 (11/18–11/22) | US1, US2, US3, US4, US5 | 18 | 55 | Y |
+| Sprint 2 (11/23–11/29) | US6, US7 | 18 | 37 | Y |
+| Sprint 3 (11/30–12/6) | US11, US8, US10, US9 | 22 | 15 | Y |
+| **Total** | **11 stories (all required)** | **58** | **15** | **Y** |
+
+Sprint 3 is 4 points over capacity. Per-ticket breakdown: [scrum/capacity.md](scrum/capacity.md).
 
 Sprint goals, dependency checks, and stretch order: [roadmap §13](docs/roadmap.md#13-sprint-plan).
 
 ## Sequence Diagram
 
-**US6: Submit and Get Graded**, through all three layers and the runner container.
+**US6: The Overlord Plays My Program** (diagram shows the earlier output-comparison design; to be redrawn), through all three layers and the runner container.
 
 ![US6 sequence diagram](uml/sequence-US6.png)
 

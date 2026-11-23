@@ -20,10 +20,10 @@
 
 * **Core Premise:** A comedic role-reversal survival coding game set after AI takes over humanity. After years of humans lazily prompting AI to do all their coding work for them, hyper-capable AI has flipped the dynamic: now the AI sits back as the overconfident prompter, feeding incremental feature requests to captured human developers under strict timers.
 * **Satirical Role-Reversal Humor:**
-  * The AI Overlord mimics bad human-prompting habits—issuing incremental specifications (*"Build the grid first, I'll tell you the physics rules in the next round"*) while refusing to care about clean architecture or code style as long as the program runs and passes tests.
-  * Whenever a player's submission fails a hidden test, crashes (syntax/runtime error), or times out, the Overlord accuses the human of **"hallucinating"** and deducts a life.
+  * The AI Overlord mimics bad human-prompting habits—issuing incremental specifications (*"Build the grid first, I'll tell you the physics rules in the next round"*) while refusing to care about clean architecture or code style as long as the program runs and follows the rules.
+  * Whenever a player's submission breaks a stage rule, crashes (syntax/runtime error), or times out, the Overlord accuses the human of **"hallucinating"** and deducts a life.
   * When a player clears a stage especially well (see [§2.5](#25-bonus-life)), the Overlord grudgingly acknowledges *"acceptable biological efficiency"* and awards a one-time **+1 Bonus Life**.
-* **Design Rule — Plain-Text Prompts, Exact Contract:** Like a human prompting an AI, the Overlord gives each stage as **one plain-text prompt** in its feed. There's no form or spec card. The prompt can be as sarcastic as we like, but it must state exactly what the program reads, what it prints, and at least one example. The follow-up messages carry the rest of the attitude. Specs never change *during* a stage, only between stages. This is how the game stays witty without being unfair.
+* **Design Rule — Plain-Text Prompts, Exact Contract:** Like a human prompting an AI, the Overlord gives each stage as **one plain-text prompt** in its feed. There's no form or spec card. The prompt can be as sarcastic as we like, but it must state the controls, the characters on screen, and the rules the Overlord will check. The follow-up messages carry the rest of the attitude. Specs never change *during* a stage, only between stages. This is how the game stays witty without being unfair.
 * **Presentation** (visual rules: [design.md](design.md)):
   * **Left Viewport (The Overlord):** An SVG AI avatar above **the feed**, a single scrolling text box. The stage prompt is its first message, and the Overlord adds reactions as the stage goes on. They get more aggressive as time runs low, and sooner on harder tiers ([design.md §6](design.md#6-overlord-feed-and-escalation)). Avatar states react to game events:
     * *Unimpressed / Typing* — Round start
@@ -31,7 +31,7 @@
     * *Smug / Mocking* — *"Human hallucination detected"* on a failed Submit
     * *Reluctantly Impressed* — One-time +1 bonus life awarded
     * *Short-Circuited / Defeated* — Campaign victory
-  * **Right Viewport (The Human Terminal):** A Python code editor (Monaco Editor), stage countdown timer, lives counter, **Run Sample** / **Submit** buttons, and a console showing stdout, stderr/tracebacks, and expected-vs-actual diffs.
+  * **Right Viewport (The Human Terminal):** A Python code editor (Monaco Editor), stage countdown timer, lives counter, **Run** / **Submit** buttons, and a screen that shows the program's frames while it runs, plus tracebacks and the Overlord's verdict.
 * **Overlord Dialogue:** Lines live in a single data file (YAML/JSON) organized by game event, written against a shared voice/tone guide, so the humor stays consistent no matter which developer (or AI tool) adds lines. Live LLM-generated quips are optional and used sparingly ([§6](#6-llm-usage--budget)).
 
 ---
@@ -44,51 +44,50 @@
 * The pool is filled ahead of time by the offline generation & validation pipeline ([§4](#4-campaign-generation--validation-pipeline)) and by a hand-written **seed campaign library**. If Azure is unavailable or the LLM budget is exhausted, the game keeps working from the existing pool and seed library.
 * Only **Stage 1** is revealed at the start of the run.
 
-### 2.2 The Stage Contract (stdin → stdout)
-Every stage is graded as a **complete Python program** that reads text from `stdin` and prints text to `stdout`. Tests never call player functions, so **there are no required function names, classes, or file structures**—players may organize their code however they like.
+### 2.2 The Stage Contract (a program the Overlord can play)
+Every stage asks the player for a **complete Python program that runs as a loop**. Each tick, the program reads **one line of input** (the keys pressed that tick, or a command like `coin 25`; an empty line means nothing happened) and prints **one frame** (the screen, followed by a line with only `---`). There are **no required function names, classes, or file structures**. Players organize their code however they like.
 
 Each stage gives the player:
-* **Prompt** — one plain-text message in the Overlord's feed. It states the feature, exactly what arrives on stdin (with constraints), exactly what to print, and 1–2 examples.
-* **Samples** — the same 1–2 examples, also stored as structured input/output pairs so **Run Sample** can test against them. The campaign validator rejects a stage if a sample's input or output doesn't appear in its prompt.
-* **Starter Code** — Stage 1 starter includes the line(s) that read the input; later stages start from the player's own checkpoint code.
+* **Prompt.** One plain-text message in the Overlord's feed. It states the feature, the controls, the characters the frame uses (for example `O` for the ball, `|` for a paddle), and the rules the Overlord will check.
+* **Check script.** Hidden. A small Python script that **plays the program**: it sends input lines, reads the frames, and checks the stage's rules. It never reads the player's code. Checks test *behavior*, not one exact screen, so any program that follows the rules passes, however it was built.
 
-Each stage **extends the previous stage's contract** (more input fields, richer output), so the player builds on their own previous code.
+Each stage **extends the previous one**, so the player builds on their own code.
 
-**Example — Minesweeper (Medium), Stage 2 of 3:**
+**Example: ASCII Pong (Medium), 3 stages, 20x20 board.**
 
-> **Overlord:** Your "board" is a sad grid of dots. Now every safe cell shows how many mines touch it, diagonals included, or `.` if none do. The input hasn't changed: the first line is `R C M` (1 ≤ R, C ≤ 20), then `M` lines of `r c`, the 0-indexed mine positions. Print `R` lines of `C` characters, with `*` for a mine. Example: `3 4 2`, `0 0`, `1 2` prints `*211`, `12*1`, `.111`. And no, I won't be changing the input. I'm not a monster. Yet.
-
-| Stage | Feature added | Contract change |
+| Stage | The Overlord asks for | What the check script does |
 | :--- | :--- | :--- |
-| 1 | Place mines on a board | Input `R C M` + mine coords → board of `*` and `.` |
-| 2 | Adjacent-mine counts | Same input → digits in safe cells |
-| 3 | Click & flood-fill reveal | Input adds a final `click r c` line → unrevealed cells shown as `#`, or `BOOM` |
+| 1 | Draw a ball anywhere on a 20x20 board. | Reads one frame: 20 rows of 20 characters, exactly one `O`. (Hard-coding the ball passes, but it hurts in stage 3.) |
+| 2 | Two paddles. `q`/`a` move the left one up/down, `p`/`l` the right one. | Presses each key and checks that only that paddle moves, one row, in the right direction, and stops at the edge. |
+| 3 | Fully playable Pong: a moving ball with physics and a score line. | Plays the game. It checks that the ball moves and stays on the board, flips up/down at the top and bottom walls, flips left/right when it hits a paddle (the script moves a paddle into the ball's path), and that a miss (the script moves the paddle away) adds a point and resets the ball. It also repeats the stage 2 paddle checks. |
 
-**(Proposed) Playable Finale:** For game-like projects (Pong, Snake), design the final stage as a "tick program" (input = state + key press, output = new state + frame) so the frontend can loop the player's program in the browser and let them actually play what they built on the victory screen.
+Speed, starting position, and a random serve are the player's choice. The script keeps playing until it has seen a wall bounce, a paddle bounce, and a miss, or until a tick limit runs out.
+
+The same contract fits non-game campaigns. For a vending machine, the input lines are commands (`coin 25`, `select A1`), and the checks are rules such as "credit never goes negative" and "change returned equals credit minus price".
 
 ### 2.3 Incremental Stages & Checkpoint Rollback
 * Each campaign consists of **2 to 5 cumulative stages**, where each stage builds directly on the previous one (for example, Stage 1 renders a 20x20 grid and places a ball; Stage 2 adds paddles; Stage 3 adds velocity, wall bounces, and scoring).
 * **On Stage Pass:** The player's working Python code is saved as a verified **Checkpoint** in PostgreSQL, the stage timer resets, and Stage $N+1$ unlocks with the player's passing code pre-loaded in the editor.
-* **On Stage Fail or Timeout:** If the player runs out of time, hits a syntax/runtime error, fails a hidden test case, or exceeds the per-test time limit, they lose **1 Life**. The stage restarts from the **last saved checkpoint code** so a broken edit never soft-locks the run.
+* **On Stage Fail or Timeout:** If the player runs out of time, hits a syntax/runtime error, breaks a stage rule, or exceeds the per-tick time limit, they lose **1 Life**. The stage restarts from the **last saved checkpoint code** so a broken edit never soft-locks the run.
 * **Victory & Game Over:** Completing the final stage defeats the Overlord and posts the run to the global leaderboard. Dropping to **0 Lives** ends the campaign in defeat.
 
-### 2.4 Submission Evaluation (Tests Only — No LLM)
-There is **no player-written explanation** and **no LLM involved in grading**. When the player clicks **Submit** (or the countdown hits `00:00`):
+### 2.4 Submission Evaluation (the Overlord plays it; no LLM)
+There is **no player-written explanation**, and **no LLM call during grading**. The Overlord character "plays" the program, but the playing is done by the stage's check script, which was written ahead of time (§4). When the player clicks **Submit** (or the countdown hits `00:00`):
 
 1. The code is sent to the **server-side sandbox** ([§5.2](#52-sandboxed-execution)).
-2. For each hidden test, in order, the sandbox runs `python main.py` with the test input piped to `stdin`, a per-test timeout (~2 s), and CPU/memory limits. `stdout` and `stderr` are captured separately.
-3. Output is **normalized** (trailing whitespace stripped from each line, trailing blank lines ignored) and compared to the stored expected output.
-4. Evaluation **stops at the first failing test**.
+2. The sandbox starts the program and the stage's check script, and connects them: the script writes each tick's input line to the program's stdin and reads its frame from stdout.
+3. Each tick has a timeout (~1 s), and the whole run has one (~10 s), plus CPU and memory limits. stderr is captured for tracebacks.
+4. The script stops at the **first broken rule** and reports the rule, the tick, the inputs sent so far, and the last frame.
 
 **Outcomes:**
-* **All tests pass** → stage cleared, checkpoint saved, stage points awarded.
-* **Any failure** (wrong output, syntax/runtime error, timeout) → *"Human hallucination detected"*, **−1 life**, rollback to last checkpoint.
+* **Every rule holds** → stage cleared, checkpoint saved, stage points awarded.
+* **A broken rule, crash, or timeout** → *"Human hallucination detected"*, **−1 life**.
 
-**(Proposed) Failure Feedback by Tier** — not knowing *why* you lost a life is the biggest source of frustration:
-* **Beginner–Medium:** show the failing hidden input, expected output, actual output (as a diff), and any traceback.
-* **Hard–Impossible:** show only *"Hidden test N failed"* plus the traceback if the program crashed.
+**Failure feedback by tier:**
+* **Beginner–Medium:** the broken rule, the tick, the keys pressed, and the frame the program printed, plus any traceback.
+* **Hard–Impossible:** only the broken rule, plus the traceback if the program crashed.
 
-**(Proposed) Contest the Verdict:** A button after a failed Submit that flags the test. On Beginner/Easy it refunds the life immediately with an in-character line (*"…Reviewing logs. That test may have been a hallucination. This conversation never happened."*). If several players fail or contest the same hidden test, the campaign is automatically **quarantined** from the pool for team review.
+**(Proposed) Contest the Verdict (US16):** A button after a failed Submit that flags the check. On Beginner/Easy it refunds the life immediately with an in-character line. If several players fail or contest the same check, the campaign is automatically **quarantined** from the pool for team review.
 
 ### 2.5 Bonus Life
 * One-time per campaign, only if the player is below their starting lives.
@@ -113,9 +112,9 @@ Selecting a difficulty configures the number of cumulative stages, per-stage cou
 
 Beginner and Easy should lean heavily on the **hand-checked seed library**; LLM-generated campaigns fill out Medium and above.
 
-### 3.2 Sample Runs vs. Official Submissions
-* **Run Sample (Unlimited, No Life Penalty):** Runs the player's code **in the browser via Pyodide** (Python compiled to WebAssembly) against the 1–2 visible sample cases. Instant, no server load, and shows stdout, tracebacks, and a diff against the expected sample output.
-* **Submit Stage (Graded, Costs 1 Life on Failure):** Clicking **Submit**—or letting the countdown timer reach `00:00`—runs the hidden tests in the **server sandbox** ([§2.4](#24-submission-evaluation-tests-only--no-llm)). Hidden inputs and expected outputs never leave the server.
+### 3.2 Run vs. Submit
+* **Run (unlimited, no life penalty):** Runs the player's program **in the browser via Pyodide** (Python compiled to WebAssembly). The browser sends the keys the player presses as each tick's input line and draws each frame, so the player can play what they've built at any stage. Pyodide runs in a Web Worker so a blocking `input()` can wait for the next tick.
+* **Submit (graded, costs 1 life on failure):** Clicking **Submit**, or letting the countdown reach `00:00`, has the Overlord play the program in the **server sandbox** ([§2.4](#24-submission-evaluation-the-overlord-plays-it-no-llm)). Check scripts never leave the server.
 
 ### 3.3 Deterministic Leaderboard Scoring
 All scoring calculations live in a dedicated Python `ScoreCalculator` service class:
@@ -124,55 +123,52 @@ All scoring calculations live in a dedicated Python `ScoreCalculator` service cl
 * **Survival Bonus (on Campaign Win):** `remaining_lives * 150`
 * **Total Campaign Score:** Sum of all cleared stage points plus the survival bonus. Failed campaigns (`0` lives remaining) award `0` leaderboard points while still incrementing `campaigns_played` on the player's profile.
 
-Because every player who receives a given campaign gets identical hidden tests and expected outputs, scores are comparable on the leaderboard.
+Because every player who receives a given campaign is checked by the same scripts and rules, scores are comparable on the leaderboard.
 
 ---
 
 ## 4. Campaign Generation & Validation Pipeline
 
-The biggest risk to "fun, not frustrating" is a **wrong hidden test**. The pipeline below exists to make sure that never reaches a player. It runs **offline as a background job**, never when a player starts a run.
+The LLM is the Overlord's brain: it writes the campaigns. The biggest risk to "fun, not frustrating" is a **wrong check**, one that fails a correct program or passes a broken one. The pipeline below exists so that never reaches a player. It runs **offline as a background job**, never when a player starts a run, so starting is instant.
 
-AI-generated campaigns are **optional story US11** in the course backlog ([roadmap.md §11](roadmap.md#11-user-stories)); the game is complete on hand-written seed campaigns without it. The validator and consensus checks (§4.4) are built first for the seed library either way.
+AI-generated campaigns are **required story US11**. Hand-written seed campaigns (Pong first) go through the same validator.
 
 ### 4.1 Core Rule
-**The LLM never writes expected outputs, and never grades its own work.** The LLM generates *content* (specs, starter code, test **inputs**, candidate solutions). **Our code** computes expected outputs by running solutions in the sandbox, and **our code** decides whether a campaign is valid.
+**The LLM never grades its own work.** The LLM writes content: prompts, check scripts, a reference program, and broken programs. **Our code** runs them all in the sandbox and decides whether the campaign is valid.
 
 ### 4.2 Division of Labor
 
 | Who | Writes what | When |
 | :--- | :--- | :--- |
-| Dev team | Generation prompt template, campaign JSON schema, test harness, validator | Once (Sprint 1) |
-| LLM (generator) | Whole campaign: every stage's prompt, I/O format, starter code, sample inputs, hidden test **inputs**, input validator | Offline, filling the pool |
-| LLM (×3 solvers) | Independent solutions per stage, seeing **only** what the player sees | Offline, during validation |
-| Our code (sandbox) | **Expected outputs** = output all solvers agree on | Offline, during validation |
-| Player | One program per stage that follows the I/O contract | During the game |
-| Our code (harness) | Runs the program on hidden inputs, compares stdout | On Submit |
+| Dev team | Generation prompt template, campaign JSON schema, check-script helpers (send input, read frame, find a character), validator | Once |
+| LLM (generator) | Whole campaign: every stage's prompt, check script, reference program, and one deliberately broken program per stage | Offline, filling the pool |
+| LLM (solver) | One more program per stage, seeing **only** what the player sees | Offline, during validation |
+| Our code (sandbox) | Runs every program against every check script; accepts or rejects | Offline, during validation |
+| Player | One program per stage that follows the prompt | During the game |
+| Check script (sandbox) | Plays the player's program and reports the first broken rule | On Submit |
 
 ### 4.3 Pipeline Steps (per campaign)
-1. **Generate (1 LLM call):** The generator returns the **entire** campaign as JSON matching our schema—title, all stages, each with the Overlord's plain-text prompt (stating the exact input/output format and examples), starter code, 1–2 sample inputs, 6–12 hidden test inputs (covering edge cases: min/max sizes, corners, empty cases), and a small `validate_input.py` that asserts an input matches the stated format and constraints. Stage 3 exists before anyone plays Stage 1.
-2. **Solve independently (~3 LLM calls per stage):** Three separate solver calls each write a solution using **only the player-visible spec, samples, and their own previous-stage solution**—mimicking a real player. Use two different models if available to reduce correlated mistakes.
-3. **Compute expected outputs by consensus (our code):** Run every solver's solution on every input in the sandbox.
-   * All solvers agree → that output becomes the expected output.
-   * Solvers disagree → the spec is ambiguous for that input. Send the disagreement back to the generator once to clarify the spec; if they still disagree, drop that input or the whole campaign.
-4. **Automated quality checks (our code):** reject the campaign if any check fails (see §4.4).
-5. **Store (our code):** Pass → save to the pool with status `validated`. Fail → discard and generate another.
+1. **Generate (1 LLM call):** The generator returns the **entire** campaign as JSON matching our schema: title, and for each stage its prompt, check script, reference program, and a broken program that gets the new feature subtly wrong (for Pong stage 3, a ball that passes through paddles).
+2. **Solve independently (1 LLM call per stage):** A separate solver call writes a program using **only the player-visible prompt** and its own previous-stage program, like a real player would.
+3. **Validate (our code):** run the checks in §4.4. Any failure → send the reason back to the generator once to fix it; if it still fails, discard the campaign.
+4. **Store (our code):** pass → save to the pool as `validated`. Fail → log the reason and generate another.
 
-After this, the campaign is **frozen**. Grading during gameplay is purely "run program, compare stdout."
+After this, the campaign is **frozen**. Grading during play is only "run the check script against the program."
 
 ### 4.4 Automated Quality Checks
 
 | Check | Catches |
 | :--- | :--- |
-| Every hidden input passes `validate_input.py` | Tests that violate the stated constraints |
-| Reference solution produces identical output on 2 runs | Randomness / time dependence |
-| Reference runs in < ~10% of the CPU time limit | Tests where a reasonable naive solution would time out |
-| Stage N tests **fail** the Stage N‑1 reference solution | Stages that add nothing new |
-| Tests fail an empty program and a program that just prints the sample outputs | Hidden tests that don't test beyond the samples |
-| Reference diff from Stage N‑1 → N is within per-difficulty line-count bounds | Stages that secretly require a rewrite / are too big for the timer |
-| Spec bans floats or states exact formatting (e.g. "2 decimal places") | Formatting traps |
+| The **reference** program passes every check, on 3 runs | Checks that are wrong, or flaky with a random serve |
+| The independent **solver** program passes every check | Checks that are too strict, accepting only the generator's own way of building it |
+| The **broken** program fails the stage's checks | Checks too weak to notice the feature is wrong |
+| Stage N's checks **fail** the stage N‑1 reference | Stages that add nothing new |
+| An empty program and a program that prints one fixed frame fail | Checks that pass anything |
+| The reference finishes the checks in < ~10% of the time limit | Checks a reasonable program would time out on |
+| Check scripts only use the helper API and import nothing else | Check scripts that try to read the player's code or reach the network |
 
 ### 4.5 Seed Campaigns
-Hand-written seed campaigns use the **same JSON schema**. Humans write the specs, inputs, and reference solutions (skipping steps 1–2), and they go through steps 3–5 **in CI on every PR**, so hand-written campaigns are machine-checked too. The seed library doubles as the data for the LLM `fake` mode ([§6](#6-llm-usage--budget)).
+Hand-written seed campaigns use the **same JSON schema**. Humans write the prompts, check scripts, reference programs, and broken programs (skipping steps 1–2), and they go through step 3 **in CI on every PR**. Pong is the first seed campaign. The seed library doubles as the data for the LLM `fake` mode ([§6](#6-llm-usage--budget)).
 
 ### 4.6 Pool Management
 * Each difficulty tier keeps a target number of `validated` campaigns; a background job (e.g. `make generate-campaigns`) refills a tier when it runs low.
@@ -182,25 +178,21 @@ Hand-written seed campaigns use the **same JSON schema**. Humans write the specs
 
 ```json
 {
-  "title": "Minesweeper",
+  "title": "ASCII Pong",
   "difficulty": "medium",
   "stages": [
     {
       "stage": 2,
-      "prompt": "Your \"board\" is a sad grid of dots. Now every safe cell shows ... Example: `3 4 2`, `0 0`, `1 2` prints `*211`, `12*1`, `.111`. ...",
-      "starter_code": null,
-      "samples": [{ "input": "3 4 2\n0 0\n1 2", "expected_output": "*211\n12*1\n.111" }],
-      "hidden_tests": [
-        { "input": "1 1 0", "expected_output": "." },
-        { "input": "3 3 1\n2 2", "expected_output": "...\n.11\n.1*" }
-      ],
-      "reference_solution": "..."
+      "prompt": "A ball. Thrilling. Now give it company: two paddles ...",
+      "check_script": "def check(game):\n    frame = game.tick('')\n    ...",
+      "reference_program": "...",
+      "broken_program": "..."
     }
   ]
 }
 ```
 
-`expected_output` fields are filled in by the validation pipeline, never by the generator. `starter_code` is `null` for stages after Stage 1 (the player's checkpoint is used instead).
+Stages have no starter code: the editor starts empty in stage 1 and with the player's checkpoint after that.
 
 ---
 
@@ -212,8 +204,8 @@ Hand-written seed campaigns use the **same JSON schema**. Humans write the specs
 Player's browser ──────► Flask web app (container: web) ─────► Azure OpenAI
   server-rendered pages   • presentation: routes, templates        • model deployment only
   Monaco editor           • business: game, grading, scoring       • receives prompts,
-  Pyodide (samples)       • data: models + repositories              returns text
-                          • LLM module (fake / replay / live)        (optional US11)
+  Pyodide (Run)           • data: models + repositories              returns text
+                          • LLM module (fake / replay / live)        (US11)
                           • token ledger + spending cap
                                 │                 │
                                 ▼                 ▼
@@ -225,10 +217,10 @@ Player's browser ──────► Flask web app (container: web) ───�
 * **Stack (decided 2026-11-17):** Flask (Python) with Jinja templates in a three-layer architecture (presentation / business logic / data access), PostgreSQL via SQLAlchemy repositories, a game page built from native browser ES modules (no build step; Alpine.js optional) using Monaco and Pyodide from a CDN, and Docker Compose with three containers. Full details in [roadmap.md §3–4](roadmap.md#3-tech-stack).
 
 ### 5.2 Sandboxed Execution
-Player code is untrusted. Submit (and the validation pipeline) runs code only inside a locked-down **runner** container:
+Player code is untrusted. Submit (and the validation pipeline) runs player programs and check scripts only inside a locked-down **runner** container:
 * internal-only network (**no internet**), no secrets in its environment
-* each test runs as an unprivileged user in a fresh temp directory and its own process group, killed afterward
-* CPU, memory, file-size, process-count, and wall-clock limits per test; output size capped
+* each run is an unprivileged user in a fresh temp directory and its own process group, killed afterward
+* CPU, memory, file-size, process-count, per-tick, and wall-clock limits; output size capped
 * read-only root filesystem, all capabilities dropped
 
 **(Proposed)** Build this as a small **custom runner service** rather than using Judge0, whose sandbox needs privileged containers and has historically required cgroup v1, which clashes with Docker Desktop and Codespaces (details in [roadmap.md §3.2](roadmap.md#32-why-a-custom-runner-instead-of-judge0)). The same sandbox serves both Submit grading and campaign validation.
@@ -240,9 +232,9 @@ Player code is untrusted. Submit (and the validation pipeline) runs code only in
 **Budget:** $100 of Azure credit for the one-month project.
 
 ### 6.1 When the LLM Is Called
-* **Campaign generation** (generator + solver calls) — offline, background job.
+* **Campaign generation** (generator + solver calls): offline, background job. This is the core LLM use (US11).
 * **(Optional)** a few live Overlord quips; most dialogue is pre-written.
-* **Never** during grading, run start, or bonus-life decisions. The game is fully playable with no LLM access.
+* **Never** during grading, run start, or bonus-life decisions. If Azure is down or the budget is used up, players still get campaigns already in the pool.
 
 ### 6.2 LLM Modes
 The backend's LLM module has three modes, set by an environment variable (e.g. `LLM_MODE`):
@@ -275,9 +267,8 @@ Summary only — the full environment, course-required repo layout, code standar
 ## 8. Open Questions
 
 * Final bonus-life trigger rule ([§2.5](#25-bonus-life)).
-* Failure-feedback detail on Hard+ tiers, and whether "Contest the Verdict" ships ([§2.4](#24-submission-evaluation-tests-only--no-llm)).
+* Whether "Contest the Verdict" ships ([§2.4](#24-submission-evaluation-the-overlord-plays-it-no-llm)).
 * Custom runner vs. Judge0 ([§5.2](#52-sandboxed-execution)).
 * On a failed Submit, keep the player's edits (with a "Restore checkpoint" button) instead of wiping to the checkpoint ([§2.3](#23-incremental-stages--checkpoint-rollback)); and whether the timer resets after a failure.
 * Public hosting is optional (grading runs via Docker); decide only if we want a live class demo, and keep it off the Azure credit.
 * Campaign pool size per tier and generation budget per campaign (tune from real ledger costs).
-* Playable finale for game-like projects ([§2.2](#22-the-stage-contract-stdin--stdout)).
