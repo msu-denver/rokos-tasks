@@ -349,3 +349,105 @@ class TestCampaignValidator:
         data["stages"][0]["samples"].append("not-a-dict")
         errors = CampaignValidator.validate(data)
         assert any("Schema error" in err for err in errors)
+
+
+TICK_FIXTURE_PATH = FIXTURE_PATH.with_name("valid_tick_beginner.json")
+
+
+@pytest.fixture
+def tick_campaign() -> dict:
+    """Load a valid campaign whose stages have check scripts (US6)."""
+    return json.loads(TICK_FIXTURE_PATH.read_text(encoding="utf-8"))
+
+
+class TestCheckScripts:
+    """Check-script rules and playback against the reference solutions."""
+
+    def test_tick_campaign_is_valid(self, tick_campaign: dict) -> None:
+        """A stage whose reference passes its check script is valid."""
+        assert CampaignValidator.validate(tick_campaign) == []
+
+    @pytest.mark.parametrize(
+        ("script", "message"),
+        [
+            ("import os\ndef check(game):\n    pass\n", "must not import"),
+            (
+                "def check(game):\n    from os import path\n",
+                "must not import",
+            ),
+            ("def play(game):\n    pass\n", "must define check(game)"),
+            ("def check(game, extra):\n    pass\n", "must define check"),
+            ("def check(*game):\n    pass\n", "must define check"),
+            ("check = lambda game: None\n", "must define check"),
+            ("def check(game)\n    pass\n", "syntax error on line 1"),
+        ],
+    )
+    def test_check_script_shape_rules(
+        self, tick_campaign: dict, script: str, message: str
+    ) -> None:
+        """A check script imports nothing and defines check(game)."""
+        tick_campaign["stages"][0]["check_script"] = script
+        errors = CampaignValidator.validate(tick_campaign, "tick.json")
+        assert any(
+            err.startswith("[tick.json] Stage 1:") and message in err
+            for err in errors
+        )
+
+    def test_reference_must_pass_its_check_script(
+        self, tick_campaign: dict
+    ) -> None:
+        """A check the reference can't pass names the broken rule."""
+        tick_campaign["stages"][0]["check_script"] = (
+            "def check(game):\n"
+            "    game.check(len(game.tick().rows) == 4, 'Four rows.')\n"
+        )
+        errors = CampaignValidator.validate(tick_campaign)
+        assert any(
+            "failed its check script on run 1 of 2 (rule: Four rows.)" in err
+            for err in errors
+        )
+
+    def test_reference_crash_is_described(self, tick_campaign: dict) -> None:
+        """A reference that crashes under the check says how and when."""
+        tick_campaign["stages"][0]["reference_solution"] = "input()\n1 / 0\n"
+        errors = CampaignValidator.validate(tick_campaign)
+        assert any("the program crashed at tick 1" in err for err in errors)
+
+    def test_flaky_check_is_caught_on_the_second_run(
+        self, tick_campaign: dict
+    ) -> None:
+        """A check that passes only sometimes fails validation."""
+        passed = {"verdict": "pass"}
+        failed = {"verdict": "fail", "reason": "rule", "rule": "r", "tick": 1}
+        with patch(
+            "src.business.campaigns.validator.run_check",
+            side_effect=[passed, failed],
+        ):
+            errors = CampaignValidator._play_check("s", "ref", None)
+        assert errors == [
+            "reference solution failed its check script on run 2 of 2 "
+            "(rule: r)."
+        ]
+
+    def test_stage_must_add_something(self, tick_campaign: dict) -> None:
+        """Stage 2's check must fail stage 1's reference."""
+        stages = tick_campaign["stages"]
+        stages[1]["check_script"] = stages[0]["check_script"]
+        errors = CampaignValidator.validate(tick_campaign)
+        assert any(
+            err.startswith("[<campaign>] Stage 2:") and "adds nothing" in err
+            for err in errors
+        )
+
+    def test_broken_check_script_is_reported(
+        self, tick_campaign: dict
+    ) -> None:
+        """A check script that crashes is a campaign error, with detail."""
+        tick_campaign["stages"][0]["check_script"] = (
+            "def check(game):\n    game.tick()\n    1 / 0\n"
+        )
+        errors = CampaignValidator.validate(tick_campaign)
+        assert any(
+            "check script failed" in err and "ZeroDivisionError" in err
+            for err in errors
+        )
