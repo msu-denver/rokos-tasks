@@ -8,11 +8,13 @@ is security-sensitive and needs review from the Runner/Security Owner.
 
 | File | Job |
 | :--- | :--- |
-| `server.py` | Standard-library HTTP front end: `POST /run`, `GET /health` on port 9000 |
-| `service.py` | Checks a request, borrows a slot, plays every input line, builds the reply |
+| `server.py` | Standard-library HTTP front end: `POST /run`, `POST /grade`, `GET /health` on port 9000 |
+| `service.py` | Checks a request, borrows slots, runs or grades, and maps failures to replies |
+| `grading.py` | `Grader`: runs the player's program and the check script in two slots and relays ticks between them |
+| `harness.py` | Runs inside the check slot: the `game` object (`tick`, `check`, `fail`) and the line protocol. Standard library only |
 | `session.py` | One run: starts the launcher, sends a line per tick, reads one frame per tick under the deadlines, reaps |
 | `launcher.py` | Runs in the child: drops to the slot user, sets rlimits, receives the code, execs `python -I -u main.py`. Also the `reap` mode |
-| `slots.py` | Four slots, each a uid (10001 to 10004) with its own tmpfs at `/sandbox/N` |
+| `slots.py` | Eight slots, each a uid (10001 to 10008) with its own tmpfs at `/sandbox/N`. A grade takes two at once |
 | `limits.py` | `SandboxLimits` and the production values |
 
 ## API (T15's `RunnerClient` is the only caller)
@@ -23,6 +25,29 @@ is security-sensitive and needs review from the Runner/Security Owner.
 `output_limit`. `400` means a bad request, `503` means every slot is busy,
 and `500 {"status": "runner_error"}` means the sandbox failed. A
 `runner_error` is never the player's fault, so it must never cost a life.
+
+`POST /grade` with `{"code": str, "check_script": str}` returns the verdict:
+`{"verdict": "pass"|"fail", "reason", "rule", "tick", "inputs",
+"last_frame", "traceback"}`. `reason` is `null` on a pass, `rule` when the
+check script failed the program (`rule` holds its text), or one of the
+`/run` failure statuses. `500 {"status": "check_error"}` means the check
+script itself crashed, hung, or broke the protocol. That is a campaign
+bug, so it must never cost a life either.
+
+## How grading works
+
+The player's program and the check script each run as a sandboxed
+program in their own slot. The check script's `main.py` is `harness.py`
+plus `run(<script>)`. Each `game.tick(line)` prints `{"tick": line}` as
+one JSON line followed by `---`; the server plays that line on the
+player's program and answers with `{"frame": ...}` on one line. When the
+script returns or calls `game.fail(rule)`, the harness sends
+`{"done": true, "rule": ...}`. The two sides never share a process, a
+folder, or a user, so neither can read the other's code. Check scripts
+run sandboxed because US11 has an LLM write them.
+
+The check script's run clock gets a 2 s margin over the player's, so when
+time runs out the player's program is the one that times out.
 
 ## Rules
 

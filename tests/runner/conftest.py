@@ -12,11 +12,11 @@ from collections.abc import Callable
 
 import pytest
 
-# Runs inside the runner container: POST stdin to /run, print the reply.
+# Runs inside the runner container: POST stdin to argv[1], print the reply.
 CLIENT = """
 import sys, urllib.error, urllib.request
 request = urllib.request.Request(
-    "http://127.0.0.1:9000/run",
+    "http://127.0.0.1:9000" + sys.argv[1],
     data=sys.stdin.buffer.read(),
     headers={"Content-Type": "application/json"},
 )
@@ -29,6 +29,31 @@ sys.stdout.write(response.read().decode())
 EXEC_TIMEOUT_SECONDS = 90
 
 RunInSandbox = Callable[..., dict]
+GradeInSandbox = Callable[[str, str], dict]
+
+
+def post_in_container(path: str, payload: dict) -> dict:
+    """POST ``payload`` to the runner from inside its container."""
+    completed = subprocess.run(
+        [
+            "docker",
+            "compose",
+            "exec",
+            "-T",
+            "runner",
+            "python",
+            "-I",
+            "-c",
+            CLIENT,
+            path,
+        ],
+        input=json.dumps(payload),
+        capture_output=True,
+        text=True,
+        timeout=EXEC_TIMEOUT_SECONDS,
+        check=True,
+    )
+    return json.loads(completed.stdout)
 
 
 @pytest.fixture(scope="session")
@@ -40,25 +65,20 @@ def run_in_sandbox() -> RunInSandbox:
     """
 
     def run(code: str, inputs: list[str] | None = None) -> dict:
-        payload = {"code": code, "inputs": inputs or [""]}
-        completed = subprocess.run(
-            [
-                "docker",
-                "compose",
-                "exec",
-                "-T",
-                "runner",
-                "python",
-                "-I",
-                "-c",
-                CLIENT,
-            ],
-            input=json.dumps(payload),
-            capture_output=True,
-            text=True,
-            timeout=EXEC_TIMEOUT_SECONDS,
-            check=True,
+        return post_in_container(
+            "/run", {"code": code, "inputs": inputs or [""]}
         )
-        return json.loads(completed.stdout)
 
     return run
+
+
+@pytest.fixture(scope="session")
+def grade_in_sandbox() -> GradeInSandbox:
+    """Return a function that grades ``code`` with a check script."""
+
+    def grade(code: str, check_script: str) -> dict:
+        return post_in_container(
+            "/grade", {"code": code, "check_script": check_script}
+        )
+
+    return grade

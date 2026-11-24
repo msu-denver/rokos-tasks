@@ -17,12 +17,14 @@ from unittest import mock
 import pytest
 
 from src.runner import server as runner_server
+from src.runner.grading import CHECK_SCRIPT_BYTES, CheckScriptError
 from src.runner.limits import SandboxLimits
 from src.runner.service import (
     MAX_INPUT_CHARS,
     MAX_INPUTS,
     RunnerService,
     RunRequestError,
+    parse_grade_request,
     parse_run_request,
 )
 from src.runner.session import LaunchError
@@ -34,7 +36,11 @@ ECHO = "while True:\n    line = input()\n    print(line)\n    print('---')\n"
 
 @pytest.fixture
 def service(tmp_path: Path) -> RunnerService:
-    return RunnerService(SlotPool([Slot(None, tmp_path)]), HOST_LIMITS)
+    slots = []
+    for name in ("a", "b"):
+        (tmp_path / name).mkdir()
+        slots.append(Slot(None, tmp_path / name))
+    return RunnerService(SlotPool(slots), HOST_LIMITS)
 
 
 @pytest.mark.parametrize(
@@ -113,6 +119,63 @@ def test_compromised_slot_is_500(service: RunnerService):
     assert body == {"status": "runner_error"}
 
 
+ONE_TICK_CHECK = (
+    "def check(game):\n    game.check(game.tick('q') == 'q', 'echo')\n"
+)
+
+
+@pytest.mark.parametrize(
+    ("payload", "message"),
+    [
+        ({"code": ""}, "'check_script'"),
+        ({"code": "", "check_script": "  "}, "'check_script'"),
+        (
+            {"code": "", "check_script": "x" * (CHECK_SCRIPT_BYTES + 1)},
+            "larger",
+        ),
+        ({"check_script": "x"}, "'code'"),
+    ],
+)
+def test_bad_grade_requests_are_rejected(payload: dict, message: str):
+    with pytest.raises(RunRequestError, match=message):
+        parse_grade_request(payload, SandboxLimits())
+
+
+def test_grade_returns_the_verdict(service: RunnerService):
+    status, body = service.grade(
+        {"code": ECHO, "check_script": ONE_TICK_CHECK}
+    )
+    assert status == HTTPStatus.OK
+    assert body["verdict"] == "pass"
+    assert body["inputs"] == ["q"]
+
+
+def test_bad_grade_request_is_400(service: RunnerService):
+    status, _ = service.grade({"code": ECHO})
+    assert status == HTTPStatus.BAD_REQUEST
+
+
+def test_grade_needs_two_free_slots(tmp_path: Path):
+    lonely = RunnerService(
+        SlotPool([Slot(None, tmp_path)]), HOST_LIMITS, slot_wait_seconds=0
+    )
+    status, _ = lonely.grade({"code": ECHO, "check_script": ONE_TICK_CHECK})
+    assert status == HTTPStatus.SERVICE_UNAVAILABLE
+
+
+def test_broken_check_script_is_500_check_error(service: RunnerService):
+    error = CheckScriptError("crashed")
+    error.stderr = "ZeroDivisionError"
+    with (
+        mock.patch("src.runner.service.Grader.grade", side_effect=error),
+        mock.patch("src.runner.service.logger") as logger,
+    ):
+        status, body = service.grade({"code": ECHO, "check_script": "x"})
+    assert status == HTTPStatus.INTERNAL_SERVER_ERROR
+    assert body == {"status": "check_error"}
+    assert "ZeroDivisionError" in logger.error.call_args.args
+
+
 @pytest.fixture
 def http_server(service: RunnerService) -> Iterator[int]:
     httpd = runner_server.RunnerHTTPServer(("127.0.0.1", 0), service)
@@ -153,6 +216,12 @@ def test_run_over_http(http_server: int):
     status, reply = request(http_server, "POST", "/run", body)
     assert status == 200
     assert reply["frames"] == ["a"]
+
+
+def test_grade_over_http(http_server: int):
+    body = json.dumps({"code": ECHO, "check_script": ONE_TICK_CHECK}).encode()
+    status, reply = request(http_server, "POST", "/grade", body)
+    assert (status, reply["verdict"]) == (200, "pass")
 
 
 def test_bad_json_is_400(http_server: int):
@@ -203,11 +272,18 @@ def test_main_serves_with_production_settings():
     server_class.return_value.serve_forever.assert_called_once()
 
 
-def test_largest_valid_request_fits_the_body_cap():
+def test_largest_valid_requests_fit_the_body_cap():
     worst_code = "\x01" * (64 * 1024)  # JSON-escapes to six bytes each
-    largest = {
+    largest_run = {
         "code": worst_code,
         "inputs": ["x" * MAX_INPUT_CHARS] * MAX_INPUTS,
     }
-    parse_run_request(largest, SandboxLimits())
-    assert len(json.dumps(largest).encode()) <= runner_server.MAX_BODY_BYTES
+    largest_grade = {
+        "code": worst_code,
+        "check_script": "\x01" * CHECK_SCRIPT_BYTES,
+    }
+    parse_run_request(largest_run, SandboxLimits())
+    parse_grade_request(largest_grade, SandboxLimits())
+    for largest in (largest_run, largest_grade):
+        size = len(json.dumps(largest).encode())
+        assert size <= runner_server.MAX_BODY_BYTES

@@ -11,6 +11,9 @@ from dataclasses import asdict, dataclass
 
 KILOBYTE = 1024
 MEGABYTE = 1024 * KILOBYTE
+# One tick's input line, and how many ticks one run or grade may play.
+MAX_INPUT_CHARS = 64
+MAX_TICKS = 2000
 
 
 @dataclass(frozen=True)

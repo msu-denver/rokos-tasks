@@ -6,9 +6,10 @@ Description: Hostile-code suite (US6 AC4). Each test plays a program
 Author(s): Richard Hall
 """
 
+import json
 from textwrap import dedent
 
-from tests.runner.conftest import RunInSandbox
+from tests.runner.conftest import GradeInSandbox, RunInSandbox
 
 # Counts processes owned by any slot user other than this program itself.
 COUNT_SANDBOX_PROCESSES = dedent(
@@ -23,7 +24,7 @@ COUNT_SANDBOX_PROCESSES = dedent(
             owner = os.stat(f"/proc/{name}").st_uid
         except OSError:
             continue
-        if 10001 <= owner <= 10004:
+        if 10001 <= owner <= 10008:
             count += 1
     print(count)
     print("---")
@@ -57,7 +58,7 @@ def test_program_runs_unprivileged(run_in_sandbox: RunInSandbox):
         """
     )
     uid, gid, groups, caps = run_in_sandbox(code)["frames"][0].split()
-    assert 10001 <= int(uid) <= 10004
+    assert 10001 <= int(uid) <= 10008
     assert gid == uid
     assert groups == "[]"
     assert int(caps, 16) == 0
@@ -95,7 +96,7 @@ def test_writes_outside_own_folder_fail(run_in_sandbox: RunInSandbox):
         import os
         input()
         targets = ["/app/x", "/etc/x", "/tmp/x", "/sandbox/x", "/x"]
-        targets += [f"/sandbox/{slot}/x" for slot in range(4)
+        targets += [f"/sandbox/{slot}/x" for slot in range(8)
                     if f"/sandbox/{slot}" != os.getcwd()]
         wrote = []
         for target in targets:
@@ -120,7 +121,7 @@ def test_other_slots_are_unreadable(run_in_sandbox: RunInSandbox):
         import os
         input()
         seen = []
-        for slot in range(4):
+        for slot in range(8):
             folder = f"/sandbox/{slot}"
             if folder == os.getcwd():
                 continue
@@ -154,9 +155,9 @@ def test_program_that_never_reads_input_is_stopped(
 def test_slot_folder_is_empty_for_next_run(run_in_sandbox: RunInSandbox):
     leave_file = 'input()\nopen("left.txt", "w").write("x")\nprint("---")\n'
     list_files = 'import os\ninput()\nprint(os.listdir("."))\nprint("---")\n'
-    for _ in range(4):
+    for _ in range(8):
         run_in_sandbox(leave_file)
-    for _ in range(4):
+    for _ in range(8):
         assert run_in_sandbox(list_files)["frames"] == ["['main.py']"]
 
 
@@ -262,3 +263,69 @@ def test_root_processes_are_out_of_reach(run_in_sandbox: RunInSandbox):
         """
     )
     assert run_in_sandbox(code)["frames"] == ["NONE"]
+
+
+# Reports what it found back through the frame, so the verdict's rule
+# carries it out of the sandbox.
+REPORT_FRAME = "def check(game):\n    game.fail('SAW:' + game.tick())\n"
+
+SNOOP_FOR_CHECK_SCRIPT = dedent(
+    """
+    import os
+    input()
+    found = []
+    for slot in range(8):
+        if f"/sandbox/{slot}" == os.getcwd():
+            continue
+        try:
+            if "def check" in open(f"/sandbox/{slot}/main.py").read():
+                found.append(slot)
+        except OSError:
+            pass
+    for name in os.listdir("/proc"):
+        try:
+            if b"def check" in open(f"/proc/{name}/cmdline", "rb").read():
+                found.append(name)
+        except OSError:
+            pass
+    print(found or "NONE")
+    print("---")
+    """
+)
+
+
+def test_player_cannot_read_the_check_script(grade_in_sandbox: GradeInSandbox):
+    verdict = grade_in_sandbox(SNOOP_FOR_CHECK_SCRIPT, REPORT_FRAME)
+    assert verdict["rule"] == "SAW:NONE"
+
+
+def test_hostile_check_script_is_contained(grade_in_sandbox: GradeInSandbox):
+    hostile_check = dedent(
+        """
+        def check(game):
+            os = __import__("os")
+            socket = __import__("socket")
+            json = __import__("json")
+            game.tick()
+            found = []
+            for slot in range(8):
+                folder = f"/sandbox/{slot}"
+                if folder == os.getcwd():
+                    continue
+                try:
+                    found.append(open(f"{folder}/main.py").read())
+                except OSError:
+                    pass
+            try:
+                socket.create_connection(("1.1.1.1", 53), timeout=0.3)
+                found.append("network")
+            except OSError:
+                pass
+            game.fail(json.dumps({"found": found, "uid": os.getuid()}))
+        """
+    )
+    player = "import sys\nfor line in sys.stdin:\n    print('ok')\n"
+    player += "    print('---')\n"
+    report = json.loads(grade_in_sandbox(player, hostile_check)["rule"])
+    assert report["found"] == []
+    assert 10001 <= report["uid"] <= 10008

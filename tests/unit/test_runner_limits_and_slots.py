@@ -39,47 +39,82 @@ def test_limits_serialize_for_the_launcher():
 
 def test_production_slots_match_compose_mounts():
     slots = production_slots()
-    assert [slot.uid for slot in slots] == [10001, 10002, 10003, 10004]
+    assert [slot.uid for slot in slots] == list(range(10001, 10009))
     assert [str(slot.directory) for slot in slots] == [
-        "/sandbox/0",
-        "/sandbox/1",
-        "/sandbox/2",
-        "/sandbox/3",
+        f"/sandbox/{index}" for index in range(8)
     ]
 
 
+def make_pool(tmp_path: Path, size: int) -> SlotPool:
+    return SlotPool(
+        [Slot(None, tmp_path / str(index)) for index in range(size)]
+    )
+
+
 def test_pool_lends_each_slot_to_one_run_at_a_time(tmp_path: Path):
-    pool = SlotPool([Slot(None, tmp_path)])
-    with pool.acquire(timeout=0) as slot:
-        assert slot.directory == tmp_path
+    pool = make_pool(tmp_path, 1)
+    with pool.acquire(timeout=0) as (slot,):
         with pytest.raises(RunnerBusyError):
             with pool.acquire(timeout=0):
                 pass
-    with pool.acquire(timeout=0) as slot_again:
+    with pool.acquire(timeout=0) as (slot_again,):
         assert slot_again == slot
 
 
-def test_pool_waits_for_a_slot_to_free_up(tmp_path: Path):
-    pool = SlotPool([Slot(None, tmp_path)])
-    released = threading.Event()
+def test_pool_lends_several_slots_at_once(tmp_path: Path):
+    pool = make_pool(tmp_path, 3)
+    with pool.acquire(timeout=0, count=2) as pair:
+        assert len(set(pair)) == 2
+        with pytest.raises(RunnerBusyError):
+            with pool.acquire(timeout=0, count=2):
+                pass
+        with pool.acquire(timeout=0) as (third,):
+            assert third not in pair
+    with pool.acquire(timeout=0, count=3) as everything:
+        assert len(everything) == 3
 
-    def hold_then_release() -> None:
+
+def test_pool_waits_for_slots_to_free_up(tmp_path: Path):
+    pool = make_pool(tmp_path, 2)
+    held = threading.Event()
+    release = threading.Event()
+
+    def hold_one() -> None:
         with pool.acquire(timeout=0):
-            released.wait(1)
+            held.set()
+            release.wait(2)
 
-    holder = threading.Thread(target=hold_then_release)
+    holder = threading.Thread(target=hold_one)
     holder.start()
-    threading.Timer(0.1, released.set).start()
-    with pool.acquire(timeout=2) as slot:
-        assert slot.directory == tmp_path
+    held.wait(2)
+    threading.Timer(0.1, release.set).start()
+    with pool.acquire(timeout=2, count=2) as pair:
+        assert len(pair) == 2
     holder.join()
 
 
-def test_compromised_slot_is_never_lent_again(tmp_path: Path):
-    pool = SlotPool([Slot(None, tmp_path)])
+def test_two_grades_never_deadlock(tmp_path: Path):
+    """Each grade takes its two slots together, so neither can starve."""
+    pool = make_pool(tmp_path, 2)
+    finished: list[int] = []
+
+    def grade(number: int) -> None:
+        with pool.acquire(timeout=5, count=2):
+            finished.append(number)
+
+    workers = [threading.Thread(target=grade, args=(n,)) for n in (1, 2)]
+    for worker in workers:
+        worker.start()
+    for worker in workers:
+        worker.join()
+    assert sorted(finished) == [1, 2]
+
+
+def test_compromised_slots_are_never_lent_again(tmp_path: Path):
+    pool = make_pool(tmp_path, 2)
     with mock.patch("src.runner.slots.logger") as logger:
         with pytest.raises(SlotCompromisedError):
-            with pool.acquire(timeout=0):
+            with pool.acquire(timeout=0, count=2):
                 raise SlotCompromisedError("left over")
     assert "retiring" in logger.error.call_args.args[0]
     with pytest.raises(RunnerBusyError):
