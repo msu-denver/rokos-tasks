@@ -72,6 +72,8 @@ class Stage(Base):
     prompt: Mapped[str] = mapped_column(Text, nullable=False)
     starter_code: Mapped[str | None] = mapped_column(Text, nullable=True)
     reference_solution: Mapped[str] = mapped_column(Text, nullable=False)
+    # Plays the player's program to grade it (US6). Null for old stages.
+    check_script: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     campaign: Mapped["Campaign"] = relationship(
         "Campaign", back_populates="stages"

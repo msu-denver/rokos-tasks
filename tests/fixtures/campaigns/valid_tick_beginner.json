@@ -1,0 +1,44 @@
+{
+  "title": "Tick Ball",
+  "difficulty": "beginner",
+  "stages": [
+    {
+      "stage": 1,
+      "prompt": "Each tick, read one line and print the board, then a line with only ---. The board is three rows: ..., .O., .... Example: for input go print ..., .O., ..., ---.",
+      "starter_code": null,
+      "samples": [
+        {
+          "input": "go",
+          "expected_output": "...\n.O.\n...\n---"
+        }
+      ],
+      "hidden_tests": [
+        {
+          "input": "go\ngo",
+          "expected_output": "...\n.O.\n...\n---\n...\n.O.\n...\n---"
+        }
+      ],
+      "reference_solution": "import sys\nfor line in sys.stdin:\n    print('...')\n    print('.O.')\n    print('...')\n    print('---')\n",
+      "check_script": "def check(game):\n    frame = game.tick('go')\n    game.check(len(frame.rows) == 3, 'The board must have 3 rows.')\n    game.check(\n        len(frame.find('O')) == 1,\n        'The board must show exactly one O.',\n    )\n"
+    },
+    {
+      "stage": 2,
+      "prompt": "Now l moves the O one column left; any other line keeps it still. Example: for input l print ..., O.., ..., ---.",
+      "starter_code": null,
+      "samples": [
+        {
+          "input": "l",
+          "expected_output": "...\nO..\n...\n---"
+        }
+      ],
+      "hidden_tests": [
+        {
+          "input": "go\nl",
+          "expected_output": "...\n.O.\n...\n---\n...\nO..\n...\n---"
+        }
+      ],
+      "reference_solution": "import sys\ncolumn = 1\nfor line in sys.stdin:\n    if line.strip() == 'l':\n        column = max(0, column - 1)\n    row = ['.'] * 3\n    row[column] = 'O'\n    print('...')\n    print(''.join(row))\n    print('...')\n    print('---')\n",
+      "check_script": "def check(game):\n    before = game.tick('go').find('O')\n    after = game.tick('l').find('O')\n    game.check(\n        len(before) == 1 and len(after) == 1,\n        'The board must show exactly one O.',\n    )\n    game.check(\n        after[0][1] == before[0][1] - 1,\n        'Pressing l must move the O one column left.',\n    )\n"
+    }
+  ]
+}

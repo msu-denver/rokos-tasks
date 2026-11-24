@@ -86,6 +86,7 @@ class CampaignRepository(BaseRepository[Campaign]):
                 current_stage.reference_solution = (
                     incoming_stage.reference_solution
                 )
+                current_stage.check_script = incoming_stage.check_script
                 current_stage.test_cases.clear()
                 for tc in incoming_stage.test_cases:
                     current_stage.test_cases.append(
@@ -102,6 +103,7 @@ class CampaignRepository(BaseRepository[Campaign]):
                     prompt=incoming_stage.prompt,
                     starter_code=incoming_stage.starter_code,
                     reference_solution=incoming_stage.reference_solution,
+                    check_script=incoming_stage.check_script,
                 )
                 for tc in incoming_stage.test_cases:
                     new_stage.test_cases.append(

@@ -78,6 +78,11 @@
           "reference_solution": {
             "type": "string",
             "minLength": 1
+          },
+          "check_script": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Python that defines check(game) and plays the program (US6). Optional until the old stdin/stdout stages are retired (#15)."
           }
         },
         "required": [

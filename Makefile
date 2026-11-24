@@ -7,7 +7,7 @@
 PYTHON ?= python3
 LINT_PATHS = src tests scripts
 
-.PHONY: setup lint fmt test coverage check dev up down db migrate seed validate-campaigns fill-expected
+.PHONY: setup lint fmt test coverage check dev up down db runner migrate seed validate-campaigns fill-expected
 
 ## Install pinned dependencies.
 setup:
@@ -32,18 +32,23 @@ db:
 		docker compose up -d --wait db; \
 	fi
 
+## Build and start the sandbox runner container (also in CI: the
+## hostile-code suite in tests/runner/ runs against it).
+runner:
+	docker compose up -d --build --wait runner
+
 ## Run database migrations up to head revision.
 migrate:
 	$(PYTHON) -m alembic upgrade head
 
 ## All tests, Selenium included. LLM_MODE is forced to fake.
-test: db
+test: db runner
 	LLM_MODE=fake $(PYTHON) -m pytest
 
 ## Tests under coverage; fails under 90%. HTML report in htmlcov/.
 ## (The leading "-" keeps going if html trips fail_under, so the report
 ## below still prints the missing lines before failing.)
-coverage: db
+coverage: db runner
 	LLM_MODE=fake $(PYTHON) -m coverage run -m pytest
 	-$(PYTHON) -m coverage html
 	$(PYTHON) -m coverage report
@@ -71,7 +76,7 @@ check: lint validate-campaigns coverage
 dev:
 	$(PYTHON) -m flask --app src.app:create_dev_app run --debug --port 8001
 
-## Start web and db containers with Docker Compose.
+## Start web, db, and runner containers with Docker Compose.
 up:
 	docker compose up --build
 

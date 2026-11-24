@@ -2,9 +2,10 @@
 File: conftest.py
 Description: Shared pytest fixtures: the Flask app and test client, a
     live server for Selenium, a headless Chrome browser that saves a
-    screenshot to .pr/e2e-failures/ when an e2e test fails, and
-    Postgres-backed engine and rolled-back session fixtures.
-Author(s): Tyler Black
+    screenshot to .pr/e2e-failures/ when an e2e test fails, Postgres-backed
+    engine and rolled-back session fixtures, seeded campaigns, and a local
+    runner (the real runner HTTP server in host mode) for grading.
+Author(s): Tyler Black, Richard Hall
 """
 
 import os
@@ -26,6 +27,10 @@ from src.app import create_app
 from src.business.campaigns.seed_loader import SeedLoader
 from src.data.database import db
 from src.data.repositories.campaign_repository import CampaignRepository
+from src.runner.limits import SandboxLimits
+from src.runner.server import RunnerHTTPServer
+from src.runner.service import RunnerService
+from src.runner.slots import Slot, SlotPool
 
 FAILURE_SCREENSHOT_DIR = Path(".pr/e2e-failures")
 TEST_DATABASE_URL = os.getenv(
@@ -86,13 +91,41 @@ def db_session(engine: Engine) -> Iterator[Session]:
     db.session_factory.configure(bind=engine)
 
 
+@pytest.fixture(scope="session")
+def local_runner(tmp_path_factory: pytest.TempPathFactory) -> Iterator[str]:
+    """Serve the real runner HTTP API on a free local port, in host mode.
+
+    The web app reaches the real runner only inside Docker Compose, so
+    route and e2e tests grade through this one instead. Everything but
+    the container isolation is the same code (T12's hostile suite covers
+    the isolation). Only trusted test programs run here.
+
+    Yields:
+        The runner's base URL, for ``RUNNER_URL``.
+    """
+    slots = [
+        Slot(None, tmp_path_factory.mktemp(f"slot{index}"))
+        for index in range(4)
+    ]
+    # macOS rejects the address-space limit, so host mode leaves it unset.
+    service = RunnerService(SlotPool(slots), SandboxLimits(memory_bytes=None))
+    server = RunnerHTTPServer(("127.0.0.1", 0), service)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    yield f"http://127.0.0.1:{server.server_address[1]}"
+    server.shutdown()
+    server.server_close()
+    thread.join()
+
+
 @pytest.fixture
-def app(db_session: Session) -> Flask:
+def app(db_session: Session, local_runner: str) -> Flask:
     """Return a Flask app configured for testing with the test database."""
     return create_app(
         {
             "TESTING": True,
             "DATABASE_URL": TEST_DATABASE_URL,
+            "RUNNER_URL": local_runner,
         }
     )
 
@@ -109,6 +142,20 @@ def seeded_beginner(db_session: Session) -> int:
     seed_file = (
         Path(__file__).resolve().parents[1]
         / "content/campaigns/seed/beginner/cafe_tab_splitter.json"
+    )
+    repository = CampaignRepository(db_session)
+    campaign = SeedLoader(repository).load_file(seed_file)
+    campaign_id = campaign.id
+    repository.commit()
+    return campaign_id
+
+
+@pytest.fixture
+def seeded_pong(db_session: Session) -> int:
+    """Make the shipped Pong campaign (graded by check scripts) available."""
+    seed_file = (
+        Path(__file__).resolve().parents[1]
+        / "content/campaigns/seed/medium/pong.json"
     )
     repository = CampaignRepository(db_session)
     campaign = SeedLoader(repository).load_file(seed_file)

@@ -1,7 +1,7 @@
 """
 File: test_seed_loader.py
 Description: Integration tests for SeedLoader service.
-Author(s): Tyler Black
+Author(s): Tyler Black, Richard Hall
 """
 
 import json
@@ -237,3 +237,41 @@ class TestSeedLoader:
 
         with pytest.raises(CampaignValidationError, match="Schema error"):
             loader.load_file(seed_file)
+
+
+TICK_FIXTURE_PATH = FIXTURE_PATH.with_name("valid_tick_beginner.json")
+
+
+class TestCheckScriptStorage:
+    """The seed loader stores each stage's check script (US6)."""
+
+    def test_check_scripts_are_stored(self, db_session: Session) -> None:
+        """Loading a tick campaign saves every stage's check script."""
+        loader = SeedLoader(CampaignRepository(db_session))
+        campaign = loader.load_file(TICK_FIXTURE_PATH)
+        data = json.loads(TICK_FIXTURE_PATH.read_text(encoding="utf-8"))
+        assert [stage.check_script for stage in campaign.stages] == [
+            stage["check_script"] for stage in data["stages"]
+        ]
+
+    def test_old_stages_have_no_check_script(
+        self, db_session: Session
+    ) -> None:
+        """Stages graded the old way store a null check script."""
+        loader = SeedLoader(CampaignRepository(db_session))
+        campaign = loader.load_file(FIXTURE_PATH)
+        assert all(stage.check_script is None for stage in campaign.stages)
+
+    def test_edited_check_script_updates_in_place(
+        self, db_session: Session
+    ) -> None:
+        """Reloading an edited check script updates the same stage row."""
+        repo = CampaignRepository(db_session)
+        loader = SeedLoader(repo)
+        data = json.loads(TICK_FIXTURE_PATH.read_text(encoding="utf-8"))
+        first = loader.load_campaign_data(data, slug="beginner/tick")
+        stage_id = first.stages[0].id
+        data["stages"][0]["check_script"] += "    game.tick('go')\n"
+        second = loader.load_campaign_data(data, slug="beginner/tick")
+        assert second.stages[0].id == stage_id
+        assert second.stages[0].check_script.endswith("game.tick('go')\n")

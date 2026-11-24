@@ -8,7 +8,6 @@ Author(s): Steph Rivera
 class OutputNormalizer:
     """Normalizes program output before comparison."""
 
-
     @staticmethod
     def normalize(output: str) -> str:
         """Normalize line endings and remove trailing whitespace."""

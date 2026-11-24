@@ -1,15 +1,17 @@
 """
 File: validator.py
 Description: Validates campaign definitions against schema and quality rules.
-Author(s): Tyler Black, Steph Rivera
+Author(s): Tyler Black, Richard Hall, Steph Rivera
 """
 
+import ast
 import json
 from pathlib import Path
 from typing import Any
 
 from jsonschema import Draft202012Validator
 
+from src.business.campaigns.check_runner import CheckRunError, run_check
 from src.business.campaigns.reference_runner import (
     ReferenceTimeoutError,
     run_reference,
@@ -23,6 +25,70 @@ SCHEMA_PATH = (
     / "campaigns"
     / "schema.json"
 )
+
+# Two passes catch a check script that depends on luck (a random serve).
+CHECK_PASS_RUNS = 2
+# Tick programs that follow no stage's rules. A check script must fail
+# each one cleanly: if odd frames crash it, a player could print them on
+# purpose to get a check_error instead of losing a life.
+_JUNK_LOOP = "import sys\nfor line in sys.stdin:\n    print({frame})\n"
+_JUNK_LOOP += "    print('---')\n"
+JUNK_PROGRAMS = {
+    "empty frames": _JUNK_LOOP.format(frame="end=''"),
+    "a single ?": _JUNK_LOOP.format(frame="'?'"),
+    "echoed input": _JUNK_LOOP.format(frame="line.rstrip()"),
+}
+
+
+def check_script_problems(source: str) -> list[str]:
+    """Return what breaks the check-script rules, or an empty list.
+
+    A check script imports nothing and defines ``check(game)``; it gets
+    everything it needs from ``game`` (game-design §4.4).
+
+    Args:
+        source: The check script's Python source.
+
+    Returns:
+        One message per problem.
+    """
+    try:
+        tree = ast.parse(source)
+    except SyntaxError as error:
+        return [f"check_script has a syntax error on line {error.lineno}."]
+    problems = []
+    if any(_is_import(node) for node in ast.walk(tree)):
+        problems.append("check_script must not import anything.")
+    if not any(_is_check_function(node) for node in tree.body):
+        problems.append("check_script must define check(game).")
+    return problems
+
+
+def _is_import(node: ast.AST) -> bool:
+    """Return True for an import statement or a use of ``__import__``."""
+    if isinstance(node, ast.Import | ast.ImportFrom):
+        return True
+    return isinstance(node, ast.Name) and node.id == "__import__"
+
+
+def _is_check_function(node: ast.stmt) -> bool:
+    """Return True if ``node`` is ``def check(<one parameter>):``."""
+    if not isinstance(node, ast.FunctionDef) or node.name != "check":
+        return False
+    arguments = node.args
+    return len(arguments.args) == 1 and not (
+        arguments.posonlyargs
+        or arguments.kwonlyargs
+        or arguments.vararg
+        or arguments.kwarg
+    )
+
+
+def _describe(verdict: dict) -> str:
+    """Return the broken rule, or how the program failed."""
+    if verdict["reason"] == "rule":
+        return f"rule: {verdict['rule']}"
+    return f"the program {verdict['reason']} at tick {verdict['tick']}"
 
 
 def normalize_output(text: str) -> str:
@@ -200,8 +266,71 @@ class CampaignValidator:
             filename=filename,
             errors=errors,
         )
+        cls._validate_check_scripts(stages, filename, errors)
 
         return errors
+
+    @classmethod
+    def _validate_check_scripts(
+        cls, stages: list[Any], filename: str, errors: list[str]
+    ) -> None:
+        """Check each stage's check script and play the references on it."""
+        previous_reference = None
+        for stage in stages:
+            if not isinstance(stage, dict):
+                continue
+            script = stage.get("check_script")
+            reference = stage.get("reference_solution")
+            if script:
+                prefix = f"[{filename}] Stage {stage.get('stage', '?')}"
+                problems = check_script_problems(script) or cls._play_check(
+                    script, reference, previous_reference
+                )
+                errors.extend(f"{prefix}: {problem}" for problem in problems)
+            previous_reference = reference
+
+    @classmethod
+    def _play_check(
+        cls, script: str, reference: str, previous_reference: str | None
+    ) -> list[str]:
+        """Return problems found by playing the references on ``script``.
+
+        The stage's reference must pass on every run, and the previous
+        stage's reference must fail, or the stage adds nothing new.
+        """
+        try:
+            for attempt in range(1, CHECK_PASS_RUNS + 1):
+                verdict = run_check(reference, script)
+                if verdict["verdict"] != "pass":
+                    return [
+                        "reference solution failed its check script on "
+                        f"run {attempt} of {CHECK_PASS_RUNS} "
+                        f"({_describe(verdict)})."
+                    ]
+            if previous_reference and (
+                run_check(previous_reference, script)["verdict"] == "pass"
+            ):
+                return [
+                    "the previous stage's reference solution passes this "
+                    "check script, so the stage adds nothing new."
+                ]
+        except CheckRunError as error:
+            return [str(error)]
+        return cls._junk_problems(script)
+
+    @classmethod
+    def _junk_problems(cls, script: str) -> list[str]:
+        """Return problems from playing ``script`` on each junk program."""
+        problems = []
+        for name, program in JUNK_PROGRAMS.items():
+            try:
+                verdict = run_check(program, script)
+            except CheckRunError as error:
+                problems.append(f"check script broke on {name}: {error}")
+                continue
+            if verdict["verdict"] == "pass":
+                problems.append(f"a program printing {name} passes.")
+        return problems
 
     @classmethod
     def _validate_stage_tests(
