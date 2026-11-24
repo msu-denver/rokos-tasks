@@ -23,4 +23,57 @@ async function init_python() {
   }
 }
 
+function run_sample(code, input_text) {
+  const namespace = pyodide.toPy({
+    player_code: code,
+    sample_input: input_text,
+  });
+
+  try {
+    const result = pyodide.runPython(`
+import sys
+import io
+import traceback
+
+original_stdin = sys.stdin
+original_stdout = sys.stdout
+original_stderr = sys.stderr
+
+sys.stdin = io.StringIO(sample_input)
+sys.stdout = io.StringIO()
+sys.stderr = io.StringIO()
+
+error = ""
+
+try:
+    exec(compile(player_code, "main.py", "exec"), {
+        "__name__": "__main__"
+    })
+except BaseException as exc:
+    error = "".join(traceback.format_exception(
+        type(exc), exc, exc.__traceback__.tb_next
+    ))
+finally:
+    output = sys.stdout.getvalue()
+    stderr = sys.stderr.getvalue()
+
+    sys.stdin = original_stdin
+    sys.stdout = original_stdout
+    sys.stderr = original_stderr
+
+{"output": output, "stderr": stderr, "error": error}
+`, {globals: namespace});
+
+    try {
+      return result.toJs({
+        dict_converter: Object.fromEntries,
+      });
+    } finally {
+      result.destroy();
+    }
+  } finally {
+    namespace.destroy();
+  }
+}
+
 init_python();
