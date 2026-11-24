@@ -1,6 +1,6 @@
 # Sprint Capacity
 
-**Team capacity: 18 points per week.** This is what we finished in Sprint 1.
+**Team capacity: 18 points per week.**
 
 | Sprint | Dates | Ticket | Points |
 | --- | --- | --- | :---: |
@@ -18,5 +18,3 @@
 | | | US10: Overlord Reactions and Failure Feedback | 3 |
 | | | US9: Scores and Leaderboard | 3 |
 | | | **Planned / capacity** | **22 / 18** |
-
-Sprint 3 is 4 points over. Feature freeze is 12/3.
