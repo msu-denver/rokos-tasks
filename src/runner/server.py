@@ -1,7 +1,8 @@
 """
 File: server.py
 Description: Standard-library HTTP front end for the runner: POST /run
-    plays a program, GET /health reports readiness. Listens on port 9000
+    plays a program from fixed inputs, POST /grade has a check script
+    play it, GET /health reports readiness. Listens on port 9000
     inside the runner container, which only the web container can reach.
 Author(s): Richard Hall
 """
@@ -38,8 +39,13 @@ class RunnerRequestHandler(BaseHTTPRequestHandler):
             self._send_json(HTTPStatus.NOT_FOUND, {"error": "not found"})
 
     def do_POST(self) -> None:  # noqa: N802 - name required by http.server
-        """Play the program in the request body."""
-        if self.path != "/run":
+        """Run or grade the program in the request body."""
+        routes = {
+            "/run": self.server.service.run,
+            "/grade": self.server.service.grade,
+        }
+        handle = routes.get(self.path)
+        if handle is None:
             self._send_json(HTTPStatus.NOT_FOUND, {"error": "not found"})
             return
         try:
@@ -60,7 +66,7 @@ class RunnerRequestHandler(BaseHTTPRequestHandler):
             self._send_json(HTTPStatus.BAD_REQUEST, {"error": "bad JSON"})
             return
         try:
-            status, body = self.server.service.run(payload)
+            status, body = handle(payload)
         except Exception:
             # The HTTP boundary: anything unexpected still gets the one
             # error shape RunnerClient handles, never a dropped connection.

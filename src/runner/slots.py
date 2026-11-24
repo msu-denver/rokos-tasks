@@ -2,18 +2,19 @@
 File: slots.py
 Description: Sandbox slots. Each slot is one unprivileged user with its
     own tmpfs folder, so concurrent runs can't see or touch each other.
-    A run borrows a free slot from the pool and returns it when done.
+    A run borrows free slots from the pool (a grade takes two at once:
+    one for the player, one for the check script) and returns them.
 Author(s): Richard Hall
 """
 
 import logging
-import queue
+import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
-SLOT_COUNT = 4
+SLOT_COUNT = 8
 FIRST_SLOT_UID = 10001
 SANDBOX_ROOT = Path("/sandbox")
 
@@ -52,39 +53,46 @@ class SlotPool:
 
     def __init__(self, slots: list[Slot]) -> None:
         """Create a pool holding ``slots``, all free."""
-        self._free: queue.Queue[Slot] = queue.Queue()
-        for slot in slots:
-            self._free.put(slot)
+        self._free = list(slots)
+        self._changed = threading.Condition()
 
     @contextmanager
-    def acquire(self, timeout: float) -> Iterator[Slot]:
-        """Borrow a free slot for the duration of the ``with`` block.
+    def acquire(self, timeout: float, count: int = 1) -> Iterator[list[Slot]]:
+        """Borrow ``count`` free slots for the ``with`` block.
+
+        All of them are taken at once, so two grades that each need two
+        slots can never deadlock holding one each.
 
         Args:
-            timeout: Seconds to wait for a slot to free up.
+            timeout: Seconds to wait for enough slots to free up.
+            count: How many slots to borrow.
 
         Yields:
-            The borrowed slot.
+            The borrowed slots.
 
         Raises:
-            RunnerBusyError: If no slot frees up in time.
-            SlotCompromisedError: Passed through from the block. The slot
-                is retired instead of returned.
+            RunnerBusyError: If not enough slots free up in time.
+            SlotCompromisedError: Passed through from the block. The slots
+                are retired instead of returned.
         """
-        try:
-            slot = self._free.get(timeout=timeout)
-        except queue.Empty as error:
-            raise RunnerBusyError("every sandbox slot is busy") from error
+        with self._changed:
+            if not self._changed.wait_for(
+                lambda: len(self._free) >= count, timeout
+            ):
+                raise RunnerBusyError("every sandbox slot is busy")
+            taken = [self._free.pop(0) for _ in range(count)]
         retired = False
         try:
-            yield slot
+            yield taken
         except SlotCompromisedError:
             retired = True
-            logger.error("retiring %s: it could not be cleaned", slot)
+            logger.error("retiring %s: they could not be cleaned", taken)
             raise
         finally:
             if not retired:
-                self._free.put(slot)
+                with self._changed:
+                    self._free.extend(taken)
+                    self._changed.notify_all()
 
 
 def production_slots() -> list[Slot]:

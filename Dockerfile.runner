@@ -17,6 +17,7 @@ COPY src/runner/ src/runner/
 
 # Mount points for the per-slot tmpfs folders. The root stays read-only.
 RUN mkdir -p /sandbox/0 /sandbox/1 /sandbox/2 /sandbox/3 \
+    /sandbox/4 /sandbox/5 /sandbox/6 /sandbox/7 \
     && chmod 0755 /sandbox
 
 EXPOSE 9000

@@ -71,6 +71,7 @@ class SeedLoader:
                 prompt=stage_data["prompt"],
                 starter_code=stage_data.get("starter_code"),
                 reference_solution=stage_data["reference_solution"],
+                check_script=stage_data.get("check_script"),
             )
             position = 1
             for sample in stage_data.get("samples", []):
