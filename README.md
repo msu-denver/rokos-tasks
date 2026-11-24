@@ -329,18 +329,19 @@ flowchart TD
 ```
 Team capacity (story points per sprint): 18
 
-Justification: what the team finished in Sprint 1 (US1–US5, 18 points).
+Justification: Sprint 1 planned 18 points and finished 10 (US1–US4).
+US5 carried over into Sprint 2. 18 stays the target for now.
 Thanksgiving (11/26) falls in Sprint 2.
 ```
 
 | Sprint | User stories (in order) | Story points planned | Points remaining after sprint | Dependencies checked (Y/N) |
 | --- | --- | :---: | :---: | :---: |
-| Sprint 1 (11/18–11/22) | US1, US2, US3, US4, US5 | 18 | 55 | Y |
-| Sprint 2 (11/23–11/29) | US6, US7 | 18 | 37 | Y |
-| Sprint 3 (11/30–12/6) | US11, US8, US10, US9 | 22 | 15 | Y |
-| **Total** | **11 stories (all required)** | **58** | **15** | **Y** |
+| Sprint 1 (11/18–11/22) | US1, US2, US3, US4 (US5 carried over) | 10 | 58 | Y |
+| Sprint 2 (11/23–11/29) | US5, US6, US7 | 26 | 32 | Y |
+| Sprint 3 (11/30–12/6) | US11, US8, US10, US9 | 22 | 10 | Y |
+| **Total** | **11 stories (all required)** | **58** | **10** | **Y** |
 
-Sprint 3 is 4 points over capacity. Per-ticket breakdown: [scrum/capacity.md](scrum/capacity.md).
+Sprint 2 is 8 points over capacity and Sprint 3 is 4 over. Per-ticket breakdown: [scrum/capacity.md](scrum/capacity.md).
 
 Sprint goals, dependency checks, and stretch order: [roadmap §13](docs/roadmap.md#13-sprint-plan).
 

@@ -477,25 +477,25 @@ The diagram lives in the README: [Dependency Diagram](../README.md#dependency-di
 
 | Sprint | Stories | Points | Remaining after |
 | --- | --- | :---: | :---: |
-| Sprint 1 (11/18–11/22) | US1 → US2 → US3 → US4 → US5 | 18 | 55 |
-| Sprint 2 (11/23–11/29) | US6 → US7 | 18 | 37 |
-| Sprint 3 (11/30–12/6) | US11 → US8 → US10 → US9 | 22 | 15 |
+| Sprint 1 (11/18–11/22) | US1 → US2 → US3 → US4 (US5 carried over) | 10 | 58 |
+| Sprint 2 (11/23–11/29) | US5 → US6 → US7 | 26 | 32 |
+| Sprint 3 (11/30–12/6) | US11 → US8 → US10 → US9 | 22 | 10 |
 
-* **Capacity is 18 points per week**, what the team finished in Sprint 1. Per-ticket breakdown: [scrum/capacity.md](../scrum/capacity.md).
-* **Sprint 3 is 4 points over capacity.** The LLM owner starts US11 in Sprint 2 in `fake`/`replay` mode (prompts, schema, validator) so Sprint 3 only has wiring and live tuning left. If Sprint 3 still runs short, cut polish from US10 before cutting any story.
+* **Capacity target is 18 points per week.** Sprint 1 planned 18 and finished 10 (US1–US4); US5 carried over into Sprint 2. Per-ticket breakdown: [scrum/capacity.md](../scrum/capacity.md).
+* **Sprint 2 is 8 points over capacity and Sprint 3 is 4 over.** The LLM owner starts US11 in Sprint 2 in `fake`/`replay` mode (prompts, schema, validator) so Sprint 3 only has wiring and live tuning left. If Sprint 3 still runs short, cut polish from US10 before cutting any story.
 * **Due 12/6.** Sprint 1 is short (11/18–11/22), and Thanksgiving (11/26) falls in Sprint 2.
 * **Sprint 3 feature freeze: Thursday 12/3.** 12/4–12/5 is for game balancing (timers, lives, campaign difficulty), bug fixes, final coverage report, README, and the final progress report. Tag `v3` by 12/5 and submit 12/6.
 * **Stretch order** if a sprint finishes early: US13, US12, US15, US14.
 
 ### 13.1 Sprint Goals
 * **Sprint 1:** a player can register, log in, start a run, see a stage, and play their own program in the browser.
-* **Sprint 2:** the Overlord plays the player's program to grade each stage; passing advances, failing costs a life.
+* **Sprint 2:** the player can play their own program in the browser (US5, carried over), and the Overlord plays it to grade each stage; passing advances, failing costs a life.
 * **Sprint 3:** the Overlord writes new campaigns, the timer runs, the Overlord reacts and explains failures, and scores reach the leaderboard.
 
 ### 13.2 Dependency Check
 * **Sprint 1:** each story depends on the one before it, so they're ordered to finish in sequence.
-* **Sprint 2:** US7 depends on US6, which comes first.
-* **Sprint 3:** US11, US8 and US10 depend on US6, and US9 on US7 (both done in Sprint 2).
+* **Sprint 2:** US5 and US6 depend on US4 (done in Sprint 1); US7 depends on US6, which comes first.
+* **Sprint 3:** US11 depends on US6 and US3; US8 and US9 depend on US7 (all done earlier); US10 depends on US8, which comes first in the sprint.
 * **Not planned (10 points):** US13, US12, US15, US14, pulled in that order if a sprint finishes early.
 
 ---

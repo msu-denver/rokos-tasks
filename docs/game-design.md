@@ -262,7 +262,7 @@ Summary only — the full environment, course-required repo layout, code standar
 * Python 3.13, all dependencies frozen in `requirements.txt`, and a single task runner (`make up`, `make test`, `make coverage`, `make check`) used identically by humans, AI agents, and CI.
 * **GitHub Actions CI** runs Ruff, pycodestyle, the header-comment check, tests with coverage, and seed-campaign validation on every PR to `dev` and `main`.
 * **Agent instructions:** `AGENTS.md` is the single source of truth (read by Codex and Copilot); `CLAUDE.md` and `GEMINI.md` import it; `.github/copilot-instructions.md` points to it. Deep docs and shared skills live in `.agents/`.
-* **Task tracking:** GitHub Issues titled by story (`US6: …`), with tasks as sub-issues. Task status lives in the issues, not in agent instruction files.
+* **Task tracking:** GitHub Issues titled by story (`US6: …`), one issue per story with its work as a checklist inside it. Task status lives in the issues, not in agent instruction files.
 
 ---
 
