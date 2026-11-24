@@ -4,7 +4,7 @@ Description: One sandboxed run of a player program. Starts the program
     through the launcher in a borrowed slot, sends one input line per
     tick, reads back one frame (ending with a line of only `---`) under
     the tick and run deadlines, and kills everything when the run ends.
-Author(s): Tyler Black
+Author(s): Richard Hall
 """
 
 import logging

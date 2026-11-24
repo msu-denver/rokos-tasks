@@ -3,7 +3,7 @@ File: server.py
 Description: Standard-library HTTP front end for the runner: POST /run
     plays a program, GET /health reports readiness. Listens on port 9000
     inside the runner container, which only the web container can reach.
-Author(s): Tyler Black
+Author(s): Richard Hall
 """
 
 import json

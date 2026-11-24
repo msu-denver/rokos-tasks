@@ -2,7 +2,7 @@
 # Description: Multi-container setup (web + db + runner). The runner sits
 #     alone on an internal-only network that the web app joins; it has no
 #     internet, no secrets, and no published ports.
-# Author(s): Tyler Black
+# Author(s): Tyler Black, Richard Hall
 
 services:
   db:

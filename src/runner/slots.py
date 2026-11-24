@@ -3,7 +3,7 @@ File: slots.py
 Description: Sandbox slots. Each slot is one unprivileged user with its
     own tmpfs folder, so concurrent runs can't see or touch each other.
     A run borrows a free slot from the pool and returns it when done.
-Author(s): Tyler Black
+Author(s): Richard Hall
 """
 
 import logging

@@ -6,7 +6,7 @@ Description: Runs inside each sandbox child. In "run" mode it switches to
     environment. In "reap" mode it kills every process the slot user owns
     and empties the slot folder. Started as `python -I launcher.py`, so it
     imports only the standard library, never `src`.
-Author(s): Tyler Black
+Author(s): Richard Hall
 """
 
 import json

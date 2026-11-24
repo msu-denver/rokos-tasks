@@ -3,7 +3,7 @@ File: service.py
 Description: The runner's one operation: check a run request, borrow a
     sandbox slot, play the program through every input line, and report
     how it went. Used by the HTTP server; has no HTTP code of its own.
-Author(s): Tyler Black
+Author(s): Richard Hall
 """
 
 import logging

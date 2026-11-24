@@ -3,7 +3,7 @@ File: test_runner_service.py
 Description: Unit tests for RunnerService and the runner HTTP server:
     request checks, status mapping, busy and launch-failure replies, and
     the /run and /health routes over a real local socket (host mode).
-Author(s): Tyler Black
+Author(s): Richard Hall
 """
 
 import http.client

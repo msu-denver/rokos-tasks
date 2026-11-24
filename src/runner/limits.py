@@ -3,7 +3,7 @@ File: limits.py
 Description: Resource and time limits for one sandboxed player program,
     and the production values required by US6 (about 1 s per tick, about
     10 s per run, 64 KB of output).
-Author(s): Tyler Black
+Author(s): Richard Hall
 """
 
 import json

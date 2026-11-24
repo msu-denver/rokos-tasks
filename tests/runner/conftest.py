@@ -3,7 +3,7 @@ File: conftest.py
 Description: Fixtures for the hostile-code suite. Each test posts a run
     to the real runner container (started by `make runner`) from inside
     the container, so the runner stays on its internal-only network.
-Author(s): Tyler Black
+Author(s): Richard Hall
 """
 
 import json

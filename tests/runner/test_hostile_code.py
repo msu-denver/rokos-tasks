@@ -3,7 +3,7 @@ File: test_hostile_code.py
 Description: Hostile-code suite (US6 AC4). Each test plays a program
     that attacks the sandbox in the real runner container and checks that
     the attack is blocked or the program is killed. Never weaken these.
-Author(s): Tyler Black
+Author(s): Richard Hall
 """
 
 from textwrap import dedent

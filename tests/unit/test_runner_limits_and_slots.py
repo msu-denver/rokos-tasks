@@ -2,7 +2,7 @@
 File: test_runner_limits_and_slots.py
 Description: Unit tests for the runner's production limits (pinned to
     the US6 values so nobody loosens them by accident) and the slot pool.
-Author(s): Tyler Black
+Author(s): Richard Hall
 """
 
 import json

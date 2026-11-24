@@ -3,7 +3,7 @@
 #     library runner code. docker-compose.yml supplies the isolation
 #     (read-only root, internal network, dropped capabilities, tmpfs
 #     slots); see src/runner/AGENTS.md.
-# Author(s): Tyler Black
+# Author(s): Richard Hall
 
 FROM python:3.13-slim
 

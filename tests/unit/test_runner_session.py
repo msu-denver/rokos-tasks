@@ -3,7 +3,7 @@ File: test_runner_session.py
 Description: Unit tests for ProgramSession in host mode: real player
     subprocesses (benign ones only) driven tick by tick, with the frame
     parser, deadlines, output limit, and launch-failure path.
-Author(s): Tyler Black
+Author(s): Richard Hall
 """
 
 import os

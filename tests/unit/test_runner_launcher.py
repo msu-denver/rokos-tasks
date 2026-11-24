@@ -3,7 +3,7 @@ File: test_runner_launcher.py
 Description: Unit tests for the sandbox launcher: privilege dropping,
     resource limits, the code handoff on stdin, the exec call, and the
     reap guard. OS calls are patched, so nothing switches users here.
-Author(s): Tyler Black
+Author(s): Richard Hall
 """
 
 import os
