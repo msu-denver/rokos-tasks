@@ -2,7 +2,7 @@
 File: app.py
 Description: Flask application factory. Builds the app and registers the
     presentation-layer blueprints.
-Author(s): Tyler Black
+Author(s): Tyler Black, Richard Hall
 """
 
 import os
@@ -21,6 +21,8 @@ from src.presentation.main_routes import main_blueprint
 DEFAULT_DATABASE_URL = (
     "postgresql+psycopg://rokos:rokos@localhost:5433/rokos_tasks"
 )
+# The runner is only reachable from inside the Compose network.
+DEFAULT_RUNNER_URL = "http://runner:9000"
 
 csrf = CSRFProtect()
 login_manager = LoginManager()
@@ -72,6 +74,10 @@ def create_app(config_overrides: dict[str, Any] | None = None) -> Flask:
 
     if "WTF_CSRF_ENABLED" not in app.config:
         app.config["WTF_CSRF_ENABLED"] = not app.config.get("TESTING", False)
+
+    app.config.setdefault(
+        "RUNNER_URL", os.getenv("RUNNER_URL", DEFAULT_RUNNER_URL)
+    )
 
     database_url = app.config.get(
         "DATABASE_URL",

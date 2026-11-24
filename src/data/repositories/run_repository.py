@@ -1,7 +1,7 @@
 """
 File: run_repository.py
 Description: Persists runs and queries each player's progress and history.
-Author(s): Tyler Black
+Author(s): Tyler Black, Richard Hall
 """
 
 from collections.abc import Sequence
@@ -42,6 +42,14 @@ class RunRepository(BaseRepository[GameRun]):
                 Stage.number == run.current_stage,
             )
             .options(load_only(Stage.id, Stage.prompt))
+        )
+        return self._session.scalars(query).one()
+
+    def check_script_for(self, run: GameRun) -> str | None:
+        """Return the current stage's check script, or None if it has none."""
+        query = select(Stage.check_script).where(
+            Stage.campaign_id == run.campaign_id,
+            Stage.number == run.current_stage,
         )
         return self._session.scalars(query).one()
 
