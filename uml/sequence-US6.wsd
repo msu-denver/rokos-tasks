@@ -38,7 +38,7 @@ loop each tick, stopping at the first broken rule, crash, or timeout
     Runner -> Runner : check script checks the stage's rules
 end
 note right of Runner : The check script never reads\nthe player's code. No LLM call.
-Runner --> RunnerClient : passed, rule, tick, inputs, last frame, traceback
+Runner --> RunnerClient : passed, failure_kind, rule, tick, inputs, last frame, traceback
 RunnerClient --> Grading : RunnerResult
 Grading --> Game : Verdict
 
@@ -51,7 +51,7 @@ else verdict failed
 end
 
 Game -> Repo : save(run, submission)
-Repo -> DB : INSERT submission, UPDATE run
+Repo -> DB : INSERT submission, INSERT checkpoint on a pass, UPDATE run
 DB --> Repo : ok
 
 Game -> Dialogue : line_for(event)

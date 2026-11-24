@@ -10,10 +10,10 @@ This is the screen players spend the whole game on. Like a human prompting an AI
 **Out:** follow-up Overlord messages and escalation (US10), Play My Program (US5), Submit and grading (US6), removing sample data from the campaign schema and stage data (US6), checkpoints and preloading the last passing code (US7), the timer and heat bar (US8), avatar states (US10, US12).
 
 ## Acceptance Criteria
-1. **[HIGH]** Given that a stage is active, when the game page loads, then I see the Overlord's prompt as the first message in its feed (stating the feature, the controls, and the rules the Overlord will check), my lives, and an empty Python editor.
+1. **[HIGH]** Given that a stage is active, when the game page loads, then I see the Overlord's prompt as the first message in its feed (stating the feature, the controls, and the rules the Overlord will check), my lives, and a Python editor that is empty on Stage 1.
 2. **[MED]** Given that I am on Stage 2 or later, when the page loads, then the editor is preloaded with my last passing code. *This can't be fully tested until US7 (checkpoints) lands in Sprint 2.*
 3. **[HIGH]** Given that I have typed code in the editor, when I refresh the page, then my in-progress code is restored.
-4. **[HIGH] (proposed)** Given that I view the game page, when I inspect the page source or network traffic, then no check script is present. Only the prompt reaches the browser.
+4. **[HIGH] (proposed)** Given that I view the game page, when I inspect the page source or network traffic, then the stage's check script is not present. It stays on the server.
 5. **[MED] (proposed)** Given that the run isn't mine or doesn't exist, when I open `/play/<run_id>`, then I get a 404.
 6. **[LOW] (proposed)** How code is saved (browser storage or server autosave), and the fallback if Monaco can't load.
 

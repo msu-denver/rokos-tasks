@@ -85,7 +85,7 @@ is ready, send any requests still pending.
 | ✅ Good | ❌ Bad |
 | :--- | :--- |
 | Registered `tester1` with an 8-char password in Chrome and landed on the home screen logged in. | Tested it, works. |
-| Submitted a solution with a trailing newline on Stage 2 and got "All tests passed" with lives unchanged. | Ran the tests. All pass. Also checked the UI and it looks good. Fixed a typo too. |
+| Submitted a Pong Stage 2 program whose right paddle ignores `l`, and got a fail verdict naming that rule, with one life lost. | Ran the tests. All pass. Also checked the UI and it looks good. Fixed a typo too. |
 | Ran `make validate-campaigns` on the new Easy campaign and it reported 0 errors. | See screenshot. |
 
 Passing automated tests don't count as manual testing. The point is that

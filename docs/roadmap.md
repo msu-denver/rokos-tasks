@@ -96,8 +96,8 @@ Every graded item, and where this plan covers it.
 Judge0's sandbox needs privileged containers and has historically required cgroup v1, which clashes with Docker Desktop and Codespaces — and with whatever machine the grader uses. Our runner is a small standard-library Python service:
 
 * Separate container on an **internal-only Docker network** (no internet), reachable only by the web app; **no secrets in its environment**.
-* Each test runs as `python -I main.py` as an **unprivileged user** in a fresh temp directory, in its own process group (killed afterward).
-* `setrlimit` caps on CPU seconds, memory, file size, and process count; a wall-clock timeout per test; output capped at 64 KB.
+* Each submission runs the player's program once as `python -I main.py` as an **unprivileged user** in a fresh temp directory, in its own process group (killed afterward), driven by the stage's check script.
+* `setrlimit` caps on CPU seconds, memory, file size, and process count; a wall-clock timeout per tick (~1 s) and per run (~10 s); output capped at 64 KB.
 * Read-only root filesystem, `tmpfs` scratch, all capabilities dropped, `no-new-privileges`, PID limit.
 * Verified by a **hostile-code test suite** (infinite loop, fork bomb, memory bomb, network access, file writes, env-var reads, huge output).
 
@@ -290,7 +290,7 @@ Author(s): Jane Doe, John Smith
 
 | Kind | Target | Why it fits |
 | :--- | :--- | :--- |
-| **White-box** | `GradingService` output normalization and verdict logic | Tests are designed from the code's branches: CRLF line endings, trailing spaces, trailing blank lines, timeout path, runtime-error path, syntax-error path, first-failure stop — aiming for 100% branch coverage of that module |
+| **White-box** | `GradingService` verdict logic | Tests are designed from the code's branches: pass, broken rule, crash with traceback, per-tick timeout, whole-run timeout, broken check script, runner unavailable, first-failure stop — aiming for 100% branch coverage of that module |
 | **Black-box** | `ScoreCalculator` | Tests are derived only from the scoring rules in game-design.md §3.3 using equivalence classes and boundary values (0 seconds left, 0 lives, failed campaign, each multiplier) without looking at the implementation |
 
 * Mark them with pytest markers (`@pytest.mark.whitebox`, `@pytest.mark.blackbox`) and a docstring stating **purpose, functionality tested, and expected outcome**.
@@ -374,7 +374,7 @@ Planned when the code exists: `campaign-authoring.md`, `overlord-voice.md`, `sec
 ### 9.2 Branches
 * **`main`** — stable releases only. **Protected:** PR required, **≥ 1 approval**, CI must pass, no direct pushes.
 * **`dev`** — ongoing development. Protected: PR required, ≥ 1 approval, CI must pass.
-* **Feature branches** from `dev`, named with the story: `feature/US6-runner-sandbox`, `fix/US7-checkpoint-restore`, `chore/sprint0-devcontainer`.
+* **Work branches** from `dev`, named `<type>/<issue#>-<short-name>` ([workflow](../.agents/workflow.md)): `feature/14-US6-runner-sandbox`, `fix/21-checkpoint-restore`, `docs/25-consolidate-docs`.
 
 ### 9.3 Merging & Releases
 * Feature → `dev` by PR (small PRs, ideally < 400 lines).
@@ -571,7 +571,7 @@ PlantUML sources live in `uml/` (as in the course template) and are exported to 
 | D3 | Web framework and frontend | **Decided (2026-11-17, game page updated 2026-11-18):** Flask + Jinja templates, with the game page as native ES modules (no build step) and Alpine.js optional. React/TypeScript/Tailwind was considered and rejected to keep one toolchain and keep the graded code in Python |
 | D4 | Public hosting | **Optional** — grading runs via Docker. Only needed for a live class demo; keep it off the Azure credit |
 | D5 | Bonus-life rule (US13) | First-submit clear with ≥ 50% of the timer left |
-| D6 | Failure detail on Hard+ (US10) | Test number + traceback only |
+| D6 | Failure detail on Hard+ (US10) | The broken rule only, plus the traceback on a crash |
 | D7 | Player's code after a failed submit (US7) | Keep their edits + "Restore checkpoint" button (instead of auto-wiping). Also decide if the timer resets after a failure |
 | D8 | Player devices | Desktop browsers only |
 | D9 | Team capacity (§13) | Agree on a number and justify it in the README |

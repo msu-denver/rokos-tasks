@@ -222,7 +222,7 @@ As a player, I want new campaigns written by the AI Overlord so that I can keep 
 **Acceptance Criteria**
 
 1. **Given that** the LLM owner runs the generation command and budget remains, **when** it finishes, **then** campaigns that passed the validation pipeline are added to the pool, and rejected campaigns are logged with a reason.
-2. **Given that** a campaign was generated, **when** it is validated, **then** it is rejected unless the LLM's reference program **passes** every stage's checks (on repeated runs) and a deliberately broken program, including the previous stage's reference, **fails** them.
+2. **Given that** a campaign was generated, **when** it is validated, **then** it is rejected unless, for every stage, the LLM's reference program **passes** the checks on repeated runs, an independently written solver program **passes** them, and both a deliberately broken program and the previous stage's reference **fail** them.
 3. **Given that** generated campaigns exist for a tier, **when** a player starts a run on that tier, **then** a generated campaign can be assigned like a hand-written one.
 4. **Given that** any live LLM call is made, **when** it completes, **then** its token usage and estimated cost are recorded, and further calls are refused once the budget cap is reached.
 
@@ -323,7 +323,7 @@ Sprint goals, dependency checks, and stretch order: [roadmap §13](docs/roadmap.
 
 ## Sequence Diagram
 
-**US6: The Overlord Plays My Program** (diagram shows the earlier output-comparison design; to be redrawn), through all three layers and the runner container.
+**US6: The Overlord Plays My Program**, through all three layers and the runner container.
 
 ![US6 sequence diagram](uml/sequence-US6.png)
 
@@ -352,9 +352,9 @@ _Added after the first Sprint 1 daily scrum._
 
 ## Testing
 
-### White-Box Test: Grading Output Normalization
+### White-Box Test: Grading Verdict Logic
 
-- **Tests:** `GradingService` normalization and verdict logic, designed from its branches (CRLF, trailing spaces and blank lines, timeout, runtime error, syntax error, stop at first failure).
+- **Tests:** `GradingService` verdict logic, designed from its branches (pass, broken rule, crash with traceback, per-tick timeout, whole-run timeout, broken check script, runner unavailable, stop at first failure).
 - **Location:** `tests/unit/test_grading_service.py` (`@pytest.mark.whitebox`)
 - **Outcome:** _TBD_
 

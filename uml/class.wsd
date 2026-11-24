@@ -119,7 +119,7 @@ class LlmUsageRecord <<US11>> {
 
 User "1" -- "0..*" GameRun : plays >
 GameRun "0..*" --> "1" Campaign : follows >
-Campaign "1" *-- "1..*" Stage
+Campaign "1" *-- "2..5" Stage
 Stage "1" *-- "1" CheckScript
 GameRun "1" *-- "0..*" Checkpoint
 GameRun "1" *-- "0..*" Submission

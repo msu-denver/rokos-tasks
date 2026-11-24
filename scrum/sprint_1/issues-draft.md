@@ -1,6 +1,6 @@
 # Sprint 1 Issues: Draft for Critique
 
-**Sprint 1:** 11/18–11/22 · **Goal:** a player can register, log in, start a run, see a stage, and run sample tests in the browser. · **Release:** `v1` on 11/22.
+**Sprint 1:** 11/18–11/22 · **Goal:** a player can register, log in, start a run, see a stage, and play their program in the browser. · **Release:** `v1` on 11/22.
 
 **How to read this:**
 - There are 5 **story** issues (US1–US5), one file each in [issues/](issues/). Each one has the story points.

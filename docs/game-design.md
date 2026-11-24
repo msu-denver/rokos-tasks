@@ -144,7 +144,7 @@ AI-generated campaigns are **required story US11**. Hand-written seed campaigns 
 | Dev team | Generation prompt template, campaign JSON schema, check-script helpers (send input, read frame, find a character), validator | Once |
 | LLM (generator) | Whole campaign: every stage's prompt, check script, reference program, and one deliberately broken program per stage | Offline, filling the pool |
 | LLM (solver) | One more program per stage, seeing **only** what the player sees | Offline, during validation |
-| Our code (sandbox) | Runs every program against every check script; accepts or rejects | Offline, during validation |
+| Our code (sandbox) | Runs each stage's programs against that stage's check script and accepts or rejects the campaign (§4.4) | Offline, during validation |
 | Player | One program per stage that follows the prompt | During the game |
 | Check script (sandbox) | Plays the player's program and reports the first broken rule | On Submit |
 

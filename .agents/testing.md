@@ -35,8 +35,8 @@
 
 ## Required labeled tests (course requirement; neither may test auth)
 
-- **White-box:** `GradingService` normalization and verdict logic,
-  `@pytest.mark.whitebox`.
+- **White-box:** `GradingService` verdict logic (pass, broken rule,
+  crash, timeouts, first-failure stop), `@pytest.mark.whitebox`.
 - **Black-box:** `ScoreCalculator` against the scoring rules in
   `docs/game-design.md` §3.3,
   `@pytest.mark.blackbox`.
