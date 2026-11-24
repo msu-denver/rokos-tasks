@@ -56,8 +56,8 @@ marks, before the ticket leaves **To Do**.
 
 **Title:** `US#: Title` exactly as in the README (for example,
 `US1: Register`). **Labels:** `story` + a priority
-([Labels](#labels)). **Board fields:** Sprint, Story Points, User
-Value, Type.
+([Labels](#labels)). Sprint, story points, user value, and type go
+in the body's first line.
 
 ```markdown
 **Value** 1–3 · **Points** 1/2/3/5/8/13 · **Priority** value ÷ points · **Depends on** US# or — · **Type** Required/Optional · **Sprint** N
@@ -185,5 +185,5 @@ gh issue create --title "US1: Register" --label story --label P1 --body-file scr
 ```
 
 Add tasks as sub-issues of their story (in the issue's
-**Sub-issues → Add existing issue** panel), then put every issue on the
-Project board with its Sprint field set.
+**Sub-issues → Add existing issue** panel). Task status lives in the
+issues themselves. There is no Project board.

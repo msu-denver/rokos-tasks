@@ -99,12 +99,12 @@ Every task also inherits the team gates: `make check` green, self-review, Manual
 - **[HIGH]** In-progress code survives a refresh (US4 AC3), and a Selenium test proves it.
 - **[MED]** Layout follows `docs/design.md` (design 6) and uses only design tokens (T3).
 
-### T10: US5: Run Sample in the browser with Pyodide
+### T10: US5: Run the program in the browser with Pyodide
 `task` · Sub-issue of US5 · Needs T9
-- **[HIGH]** `pyodide_worker.js` runs the code in a Web Worker against each sample, feeding stdin and capturing stdout/stderr. Results show pass/fail with the expected vs. actual output.
-- **[HIGH]** After 5 s, the worker is terminated and restarted, and a friendly timeout message appears (US5 AC2).
-- **[HIGH]** Selenium tests cover a passing sample, a failing sample, an error traceback, and the infinite-loop timeout.
-- **[MED]** The Pyodide version is pinned and its Python version is recorded in the README (US5 AC3).
+- **[HIGH]** Follows [issues/US5.md](issues/US5.md): `pyodide_worker.js` runs the program as a live loop in a Web Worker, sends the keys pressed each tick, and draws every frame it prints.
+- **[HIGH]** A tick that takes longer than 1 s stops the program and shows a friendly timeout message (US5 AC3).
+- **[HIGH]** Selenium tests cover a frame drawn from key input, an error traceback, and the infinite-loop timeout.
+- **[MED]** The Pyodide version is pinned and runs Python 3.13.
 
 ### T11: Scrum: Sprint 0 and 1 notes, board, and burndown
 `task` · No story (process)

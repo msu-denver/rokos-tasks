@@ -24,7 +24,6 @@ you're working for.
      `fix`, `chore`, `docs`, or `debt`. Examples:
      `feature/14-US6-runner-sandbox`, `fix/21-checkpoint-restore`,
      `debt/30-flaky-timer-test`.
-  4. Move the board card to **In Progress**.
 
 ## 2. Build
 
@@ -84,7 +83,6 @@ you're working for.
   determine who to exclude. Include pending requests in the handoff
   if GitHub blocks them while the PR is a draft.
   See [reviewer selection](pull-requests.md#reviewers).
-- Move the board card to **In Review** once the PR is ready.
 
 ## 7. After review
 

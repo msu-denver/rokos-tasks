@@ -11,8 +11,8 @@ Read this whole file at the start of every session. Then read the
 ## What we're building
 
 A comedic coding game: an AI Overlord gives timed, incremental feature
-requests and the human player writes Python to satisfy hidden
-stdin/stdout tests. Flask + Jinja (three layers), PostgreSQL, a sandboxed
+requests, the human player writes a Python program for each one, and
+the Overlord grades it by playing the program. Flask + Jinja (three layers), PostgreSQL, a sandboxed
 `runner` container, Docker Compose. Game design: [docs/game-design.md](docs/game-design.md).
 Build plan, stack, and layout: [docs/roadmap.md](docs/roadmap.md). User
 stories: [README.md](README.md#user-stories).
@@ -70,8 +70,8 @@ Breaking any of these is a **HIGH** review finding and blocks merge.
    hints on public functions. See [.agents/coding-standards.md](.agents/coding-standards.md).
 7. **Secrets:** never read, print, or commit `.env` or any key. Only
    `.env.example` (names only) is committed.
-8. **Hands off:** never hand-edit `htmlcov/` or `expected_output` in
-   campaign files. Never weaken runner limits or isolation. Don't edit
+8. **Hands off:** never hand-edit `htmlcov/`, and never loosen a
+   campaign's `check_script` to make a program pass. Never weaken runner limits or isolation. Don't edit
    `AGENTS.md`, `.agents/`, the roadmap, or Scrum notes unless the issue
    says to.
 
@@ -115,7 +115,7 @@ styling. Reviewers rate a hard-coded value as MED
 | Path | Owns |
 | :--- | :--- |
 | `src/presentation/` | Flask blueprints, forms, Jinja templates, static JS/CSS |
-| `src/business/` | Services, grading, scoring, campaign validation, `llm/` (optional US11) |
+| `src/business/` | Services, grading, scoring, campaign validation, `llm/` (US11) |
 | `src/data/` | SQLAlchemy models, repositories, Alembic migrations |
 | `src/runner/` | Sandbox service in its own container. **Security-sensitive.** |
 | `content/` | Seed campaigns (JSON) and Overlord dialogue (YAML) |
@@ -138,5 +138,5 @@ Skills (step-by-step procedures any agent can follow):
 [.agents/skills/open-pr](.agents/skills/open-pr/SKILL.md). Some tools find
 these automatically. If yours doesn't, open the file and follow it.
 
-Task status lives on the GitHub Project board and in issues
-(`gh issue view <n>`), never in these files.
+Task status lives in GitHub Issues (`gh issue view <n>`), never in
+these files.

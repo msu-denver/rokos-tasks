@@ -61,11 +61,11 @@ Every graded item, and where this plan covers it.
 
 1. **Required stories are sacred.** Each unfinished required story costs −5; each finished optional story earns only +1. Keep the required set small, and finish it before touching optional work.
 2. **Registration and login ship first.** They carry −10 penalties each.
-3. **Playable without the LLM.** Hand-written seed campaigns carry the game. AI-generated campaigns (US11) are an optional layer on top — and the grader will run the app without our Azure key, so `docker compose up` must give a fully working game in `fake` LLM mode.
+3. **Playable without an Azure key.** The LLM is core: US11 fills the campaign pool. But the grader will run the app without our Azure key, so `docker compose up` must give a fully working game in `fake` LLM mode, which plays the hand-written seed campaigns.
 4. **Python everywhere it counts.** Code quality is graded on Python, so the app is server-rendered Python with as little JavaScript as possible.
 5. **One environment, one set of commands.** Humans, AI agents, CI, and the grader all use the same Docker setup.
 6. **Fair before fancy.** Wrong tests, lost work, and unexplained failures are the bugs that matter most.
-7. **Plain-text prompts, exact contract.** The Overlord's stage prompt is plain text and can be as sarcastic as we like, but it always states the exact input/output format and an example.
+7. **Plain-text prompts, checkable rules.** The Overlord's stage prompt is plain text and can be as sarcastic as we like, but it always states the feature, the controls, the characters on screen, and the rules the Overlord will check.
 
 ---
 
@@ -80,7 +80,7 @@ Every graded item, and where this plan covers it.
 | Game page | Native browser **ES modules** (no bundler, no Node), with **Monaco** editor and **Pyodide** loaded from a CDN. **Alpine.js** (one script tag) is optional for reactive state like lives, timer, and verdict | The game page is the one heavy interactive screen: a single `game.js` would pass 1,000 lines and cause merge conflicts, so it's split into small modules. React/TypeScript was rejected: it adds Node, a bundler, and a second test/lint stack, none of it graded (coverage.py is Python-only), and Selenium already covers JS behavior |
 | Overlord art | Inline **SVG** + CSS classes per state | Easy to animate; no framework needed |
 | Code sandbox | **Custom `runner` service** (Python standard library only, own container) | See [§3.2](#32-why-a-custom-runner-instead-of-judge0) |
-| LLM (optional US11) | **Azure OpenAI** via the official `openai` SDK, structured outputs | Our credit is on Azure; structured outputs force our JSON schema |
+| LLM (US11) | **Azure OpenAI** via the official `openai` SDK, structured outputs | Our credit is on Azure; structured outputs force our JSON schema |
 | Production server | **Gunicorn** | Standard WSGI server inside Docker |
 | Lint / format | **Ruff** (lint + format, line length 79) + **pycodestyle** in CI | PEP 8 is graded; pycodestyle is the reference checker |
 | Tests | **pytest** + **coverage.py** (HTML report → `htmlcov/`) + **Selenium** (headless Chromium) for end-to-end tests | Course requires Python's `coverage` tool; Selenium covers the real browser flows |
@@ -334,7 +334,7 @@ Author(s): Jane Doe, John Smith
    * PEP 8 via Ruff at 79 columns; docstrings and type hints on public functions.
    * Respect the three layers: routes → services → repositories; services never import Flask; only repositories query the DB.
    * Never set `LLM_MODE=live` or run live `make` targets; never read, print, or commit `.env` or secrets.
-   * Never hand-edit `expected_output` in campaign files or anything in `htmlcov/`.
+   * Never hand-edit anything in `htmlcov/`, and never loosen a campaign's `check_script` to make a program pass.
    * Never weaken runner limits or isolation without a reviewed decision.
    * Never commit directly to `main` or `dev`; branch names and commits reference the story/issue (§9).
    * Every behavior change ships with tests; campaign files must pass `make validate-campaigns`.
@@ -359,7 +359,7 @@ Author(s): Jane Doe, John Smith
 Planned when the code exists: `campaign-authoring.md`, `overlord-voice.md`, `security.md` (runner threat model).
 
 ### 8.4 Keeping Agents Consistent
-* Task status lives on the **GitHub Project board**, not in agent files. Agents read issues with `gh issue view <n>`.
+* Task status lives in **GitHub Issues**, not in agent files. Agents read issues with `gh issue view <n>`.
 * Changes to `AGENTS.md` or `.agents/` go through a normal PR reviewed by the Scrum Master.
 * `.claude/settings.json` (shared) denies reading `.env`, running the live `make` targets, merging or approving PRs, and pushing to `main`/`dev`. Other tools rely on [.agents/llm-policy.md](../.agents/llm-policy.md).
 
@@ -542,7 +542,7 @@ PlantUML sources live in `uml/` (as in the course template) and are exported to 
 | --- | --- | --- |
 | Use case | [uml/use_case.wsd](../uml/use_case.wsd) | Actors: Visitor, Player, LLM Owner, Azure OpenAI. Every use case is labeled with its story; optional ones are grey |
 | Sequence | [uml/sequence-US6.wsd](../uml/sequence-US6.wsd) | US6 Submit, through all three layers and the runner container |
-| Class | [uml/class.wsd](../uml/class.wsd) | Model classes only: `User`, `Campaign`, `Stage`, `TestCase`, `GameRun`, `Checkpoint`, `Submission`, `LlmUsageRecord`, plus enums |
+| Class | [uml/class.wsd](../uml/class.wsd) | Model classes only: `User`, `Campaign`, `Stage`, `CheckScript`, `GameRun`, `Checkpoint`, `Submission`, `LlmUsageRecord`, plus enums |
 
 **Rendering:** install PlantUML (`brew install plantuml`, or the VS Code PlantUML extension), then export each `.wsd` to PNG in `uml/`. Re-export whenever a source changes, and keep the class diagram in sync with `src/data/models.py`.
 
@@ -552,7 +552,7 @@ PlantUML sources live in `uml/` (as in the course template) and are exported to 
 | --- | --- |
 | `User` | A registered player account; verifies its own password |
 | `Campaign` | A multi-stage project (e.g. ASCII Pong) at one difficulty; either a hand-written seed or AI-generated; only `VALIDATED` campaigns are playable |
-| `Stage` | One feature request: the Overlord's prompt, the exact input/output contract, and starter code |
+| `Stage` | One feature request: the Overlord's prompt and its check script. No starter code |
 | `CheckScript` | The hidden script that plays a stage's program and checks its rules (replaces `TestCase`, #13) |
 | `GameRun` | One player's attempt at a campaign: lives, current stage, timer deadline, score, and status |
 | `Checkpoint` | The player's passing code saved at the end of a stage |
@@ -575,7 +575,7 @@ PlantUML sources live in `uml/` (as in the course template) and are exported to 
 | D7 | Player's code after a failed submit (US7) | Keep their edits + "Restore checkpoint" button (instead of auto-wiping). Also decide if the timer resets after a failure |
 | D8 | Player devices | Desktop browsers only |
 | D9 | Team capacity (§13) | Agree on a number and justify it in the README |
-| D10 | Rank US11 first among optional stories (‡ in §12) | Yes — it's the signature feature |
+| D10 | Rank US11 first among optional stories (‡ in §12) | Superseded by #13: US11 is required |
 | D11 | Repo move | Transfer `Riconashty/Roko_tasks` into msu-denver (keeps history) or create a fresh repo there |
 
 ---
@@ -620,7 +620,7 @@ PlantUML sources live in `uml/` (as in the course template) and are exported to 
 | Scrum notes fall behind | Med | Med | Notes committed the same day; Scrum Master owns them |
 | Missing headers / PEP 8 issues | Med | Med | Ruff + pycodestyle + header check in pre-commit and CI |
 | Sparse commit history on `main` or `dev` | Med | Med | Merge commits, mid-sprint `dev` → `main` merges, everyone commits from their own account |
-| Azure model access blocked or delayed | Med | Low | US11 is optional; the game is complete on seed campaigns |
+| Azure model access blocked or delayed | Med | High | US11 is required, so tell the instructor early. The game still runs on seed campaigns in `fake` mode |
 | Budget blowout | Low | High | `fake` default, app-level caps, TPM limits, only the LLM owner holds keys |
 | Wrong tests frustrate players | Med | High | Campaign validator in CI, failure feedback (US10), contest (US16) |
 | Sandbox abuse | Low | High | Runner hardening + hostile-code suite; no secrets or internet in the runner |

@@ -104,11 +104,11 @@ Selecting a difficulty configures the number of cumulative stages, per-stage cou
 
 | Difficulty | Stages | Time / Stage | Starting Lives | Score Multiplier | Example Projects |
 | :--- | :---: | :---: | :---: | :---: | :--- |
-| **Beginner** | 2 | 4 min | 4 | 1.0x | Password Strength Checker, Café Tab Splitter |
-| **Easy** | 3 | 5 min | 3 | 1.25x | Vending Machine State Tracker, Hangman, RPN Calculator |
-| **Medium** | 3 | 6 min | 3 | 1.5x | **ASCII Pong**, Minesweeper Grid Generator |
+| **Beginner** | 2 | 4 min | 4 | 1.0x | Traffic Light, Etch-a-Sketch |
+| **Easy** | 3 | 5 min | 3 | 1.25x | Vending Machine, Hangman |
+| **Medium** | 3 | 6 min | 3 | 1.5x | **ASCII Pong**, Minesweeper |
 | **Hard** | 4 | 7 min | 3 | 2.0x | ASCII Snake, Wave Defense Simulator |
-| **Expert** | 5 | 8 min | 2 | 2.5x | Dungeon Maze Pathfinder, Turn-Based Combat Engine |
+| **Expert** | 5 | 8 min | 2 | 2.5x | Dungeon Crawler, Turn-Based Combat |
 | **Impossible** | 5 | 8 min | 1 | 3.0x | Mini Stack VM, CPU Process Scheduler |
 
 Beginner and Easy should lean heavily on the **hand-checked seed library**; LLM-generated campaigns fill out Medium and above.
@@ -261,7 +261,7 @@ Summary only — the full environment, course-required repo layout, code standar
 * Python 3.13, all dependencies frozen in `requirements.txt`, and a single task runner (`make up`, `make test`, `make coverage`, `make check`) used identically by humans, AI agents, and CI.
 * **GitHub Actions CI** runs Ruff, pycodestyle, the header-comment check, tests with coverage, and seed-campaign validation on every PR to `dev` and `main`.
 * **Agent instructions:** `AGENTS.md` is the single source of truth (read by Codex and Copilot); `CLAUDE.md` and `GEMINI.md` import it; `.github/copilot-instructions.md` points to it. Deep docs and shared skills live in `.agents/`.
-* **Scrum board:** GitHub Projects with To Do / In Progress / In Review / Done; issues titled by story (`US6: …`). Task status lives on the board, not in agent instruction files.
+* **Task tracking:** GitHub Issues titled by story (`US6: …`), with tasks as sub-issues. Task status lives in the issues, not in agent instruction files.
 
 ---
 

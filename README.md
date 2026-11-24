@@ -153,7 +153,7 @@ As a player, I want to read the Overlord's text prompt and write code in an edit
 
 **Acceptance Criteria**
 
-1. **Given that** a stage is active, **when** the game page loads, **then** I see the Overlord's prompt as the first message in its feed (stating the exact input and output format), my lives, and a Python editor that is empty (Stage 1) or holds my own last passing code (later stages).
+1. **Given that** a stage is active, **when** the game page loads, **then** I see the Overlord's prompt as the first message in its feed (stating the feature, the controls, and the rules the Overlord will check), my lives, and a Python editor that is empty (Stage 1) or holds my own last passing code (later stages).
 2. **Given that** I have typed code in the editor, **when** I refresh the page, **then** my in-progress code is restored.
 3. **[MED] Given that** I have a run in progress, **when** I try to start another, **then** I am asked to confirm that starting over will abandon the current run with a score of zero. Cancel keeps the current run. Confirm abandons it and starts the selected run.
 
