@@ -1,7 +1,8 @@
 # File: docker-compose.yml
-# Description: Multi-container setup (web + db + runner). The runner sits
-#     alone on an internal-only network that the web app joins; it has no
-#     internet, no secrets, and no published ports.
+# Description: Multi-container setup (web + db + runner, plus web-dev
+#     for `make dev`). The runner sits alone on an internal-only network
+#     that the web apps join; it has no internet, no secrets, and no
+#     published ports.
 # Author(s): Tyler Black, Richard Hall
 
 services:
@@ -27,6 +28,36 @@ services:
     build: .
     ports:
       - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      runner:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://rokos:rokos@db:5432/rokos_tasks}
+      SECRET_KEY: ${SECRET_KEY:-change-me-locally}
+      LLM_MODE: ${LLM_MODE:-fake}
+      RUNNER_URL: ${RUNNER_URL:-http://runner:9000}
+    networks:
+      - default
+      - sandbox
+
+  # `make dev`: Flask with auto-reload. It joins the sandbox network like
+  # `web` so Submit can grade. Only started with `--profile dev`.
+  web-dev:
+    profiles: ["dev"]
+    build: .
+    # The debugger stays off: player programs can reach this service over
+    # the sandbox network, and the debugger runs any Python it is sent.
+    command: ["flask", "--app", "src.app:create_dev_app", "run",
+              "--debug", "--no-debugger", "--host", "0.0.0.0",
+              "--port", "8001"]
+    ports:
+      - "127.0.0.1:8001:8001"
+    # Source is mounted so code changes reload without a rebuild.
+    volumes:
+      - ./src:/app/src
+      - ./content:/app/content:ro
     depends_on:
       db:
         condition: service_healthy
