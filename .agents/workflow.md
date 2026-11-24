@@ -51,8 +51,10 @@ you're working for.
   [code-review.md](code-review.md).
 - **Address every finding** before the PR:
   - **HIGH:** fix it. No exceptions.
-  - **MED / LOW / NIT:** fix it. If the fix is truly out of scope, open
-    a `tech-debt` issue and link it in the PR.
+  - **MED / LOW / NIT:** fix it. If the fix is truly out of scope or
+    touches files you may not edit, ask your human what to do. Never
+    open a `tech-debt` issue for your own code. Tech-debt issues come
+    only from reviewing someone else's PR.
 - Rerun `make check` after your fixes.
 - If round 1 found any HIGH, do a round 2 to confirm the fixes.
 - Recommended: review with a *different model* than the one that wrote

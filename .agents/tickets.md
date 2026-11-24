@@ -27,7 +27,7 @@ label**.
 | :--- | :--- |
 | `story` | A user story (`US#`) |
 | `task` | Process work with no story (`Chore: …`, `Scrum: …`) |
-| `tech-debt` | A deferred MED/LOW/NIT review finding |
+| `tech-debt` | A MED/LOW/NIT finding deferred while reviewing someone else's PR |
 | `bug` | Something that worked and is now broken (task shape, title `Fix: …`) |
 
 | Priority | Means |
@@ -135,7 +135,9 @@ Which tests this task adds (unit / integration / e2e).
 
 **Title:** `Tech debt: <summary>`. **Labels:** `tech-debt` + a
 priority (`P2` unless the reviewer says otherwise). Open one whenever
-a MED, LOW, or NIT review finding is deferred instead of fixed.
+a MED, LOW, or NIT finding on someone else's PR is deferred instead of
+fixed. Never open one from a self-review of your own code: fix it, or
+ask your human.
 The Product Owner schedules it. Nobody fixes it silently in an unrelated
 PR.
 

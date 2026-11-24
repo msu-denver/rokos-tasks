@@ -47,8 +47,9 @@ Breaking any of these is a **HIGH** review finding and blocks merge.
    1. `make check` is green: lint, tests (Selenium included), and
       **≥ 90% coverage**.
    2. **At least one self-review round** using the team rubric, with
-      **every finding addressed** (fixed, or for non-HIGH, moved to a
-      linked tech-debt issue). HIGHs are always fixed.
+      **every finding fixed**. If a fix is out of scope or touches
+      files you may not edit, ask your human. Never open a tech-debt
+      issue for your own code; only a reviewer of someone else's PR does.
    3. **Manual test done**, with one sentence describing it and
       **one screenshot** saved.
    4. The PR uses the standard format, including `## Manual Testing`.

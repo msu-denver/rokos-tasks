@@ -40,7 +40,7 @@ Closes #<issue>
 
 ## Checklist
 - [ ] `make check` passes (lint, tests incl. Selenium, coverage ≥ 90%)
-- [ ] Self-review done: <n> findings fixed · deferred: #<issue> or none
+- [ ] Self-review done: <n> findings fixed
 - [ ] All [HIGH] acceptance criteria met · [MED] deviations: <none or explanation>
 - [ ] No live LLM calls, no secrets
 - Author: <human> with <agent/model, or "no agent">

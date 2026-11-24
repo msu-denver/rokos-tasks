@@ -26,8 +26,9 @@ at least 90%. Paste nothing from it into the PR. Just tick the box.
 
 Run [team-review](../team-review/SKILL.md) on your own diff, unless you
 already did and haven't changed anything since. Every finding must be
-fixed or deferred to a linked tech-debt issue. HIGHs must be fixed.
-Rerun `make check` after fixing.
+fixed. If a fix is out of scope or touches files you may not edit, ask
+your human. Never open a tech-debt issue for your own code. Rerun
+`make check` after fixing.
 
 ## 4. Gate 3: manual test
 
