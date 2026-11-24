@@ -1,4 +1,6 @@
-**Value** 3 · **Points** 8 · **Priority** 0.38 · **Depends on** US4 · **Type** Required · **Sprint** 1 · **Label** P1
+**Sprint 2** · **8 points** · **Depends on** #5 (US4)
+
+**Value** 3 · **Priority** 0.38 · **Type** Required · **Label** P1
 
 As a player, I want to run my program in the browser and control it with my keyboard as often as I like so that I can see my game working before the Overlord judges it.
 
@@ -18,8 +20,8 @@ Players need a safe, instant way to try their program before risking a life on S
 6. **[LOW] (proposed)** Tick rate, how the frame is drawn, and the cap on displayed output.
 
 ## Rules & Details
-- **The tick contract** ([game-design §2.2](../../../docs/game-design.md#22-the-stage-contract-a-program-the-overlord-can-play)): each tick the program reads one line from stdin and prints one frame ending with a line containing only `---`. `input()` must work.
-- **Input line:** the keys pressed since the last tick, in order (for example `qp`), or an empty line if none. Suggested tick rate: 10 per second.
+- **The tick contract** ([game-design §2.2](https://github.com/msu-denver/rokos-tasks/blob/dev/docs/game-design.md#22-the-stage-contract-a-program-the-overlord-can-play)): each tick the program reads one line from stdin and prints one frame ending with a line containing only `---`. `input()` must work.
+- **Input line:** the keys pressed since the last tick, in order (for example `qp`), or an empty line if none. Send only printable keys, and cap the line at 64 characters (the runner's limit on Submit), so Run and Submit see the same input. Suggested tick rate: 10 per second.
 - **Pyodide:** pin one release from a CDN whose Python version is **3.13** (the server's version; roadmap §3.1). It runs in a Web Worker; stdin blocks on a `SharedArrayBuffer` until the next tick, so the page needs the cross-origin isolation headers (`Cross-Origin-Opener-Policy: same-origin`, `Cross-Origin-Embedder-Policy: require-corp`).
 - **Stop:** the Stop button, or the program exiting, ends the run. The program can be run again right away.
 - **Timeout:** if one tick takes more than 1 second, the worker is terminated and a new one starts, and the screen shows: "Your program took more than 1 second to answer and was stopped. Check for an infinite loop."
@@ -33,6 +35,8 @@ Players need a safe, instant way to try their program before risking a life on S
 ## Technical Notes
 - **JS:** `static/js/pyodide_worker.js` (load Pyodide, run the program, block on stdin, post each frame), `static/js/play.js` (tick timer, key buffer, drawing), wiring in `game.js`.
 - **Server:** only the cross-origin isolation headers on the game page. `GameService.get_stage_view` (US4) already supplies the prompt.
+- **Don't build on:** the `samples` in `#stage-data` (being removed in #36) or the runner's `/run` endpoint. Run stays in the browser.
+- **Test first:** `Cross-Origin-Embedder-Policy: require-corp` can stop Monaco loading from its CDN. Check it on day one; if it breaks, use `credentialless`.
 
 ## Test Plan
 | AC | Test | Type |
@@ -44,7 +48,7 @@ Players need a safe, instant way to try their program before risking a life on S
 | 5 | Button disabled with "Loading Python…" until the worker reports ready | e2e |
 
 ## Tasks
-- [ ] T10: US5: Run the program as a live loop in the browser with Pyodide
+- [ ] **Run the program as a live loop in the browser with Pyodide** · Depends on: none (US4 is done)
 
 ## Open Questions
 - Tick rate: fixed 10 per second, or set per campaign? (Product Owner)
