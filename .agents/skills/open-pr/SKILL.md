@@ -6,7 +6,7 @@ description: Run every pre-PR gate for Roko's Tasks (make check, self-review, ma
 # Open a PR
 
 Don't skip steps. If a step fails, fix the problem and start that step
-again. If a step can't run yet (Sprint 0 has no `make check`), write
+again. If a step's `make` target doesn't exist yet, write
 "not available yet" in the checklist. Never claim it passed.
 
 ## 1. Preflight

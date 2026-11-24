@@ -56,11 +56,14 @@ marks, before the ticket leaves **To Do**.
 
 **Title:** `US#: Title` exactly as in the README (for example,
 `US1: Register`). **Labels:** `story` + a priority
-([Labels](#labels)). Sprint, story points, user value, and type go
-in the body's first line.
+([Labels](#labels)). The body opens with the sprint, the story points, and what it depends
+on, so readers see them first. Value, priority, and type go on the
+second line. Points are Fibonacci: 1, 2, 3, 5, 8, 13.
 
 ```markdown
-**Value** 1–3 · **Points** 1/2/3/5/8/13 · **Priority** value ÷ points · **Depends on** US# or — · **Type** Required/Optional · **Sprint** N
+**Sprint N** · **<points> points** · **Depends on** #<n> (US#) or —
+
+**Value** 1–3 · **Priority** value ÷ points · **Type** Required/Optional · **Label** P0/P1/P2
 
 As a <role>, I want <goal> so that I can <benefit>.
 
@@ -101,11 +104,12 @@ A guide, not a requirement, unless an AC says otherwise.
 **Title:** `US#: <verb phrase>` (for example,
 `US1: Add the data layer`). Process work with no story uses
 `Scrum: …` or `Chore: …`, and a bug uses `Fix: …` (label `bug`).
-**Labels:** `task` + a priority. Make it a **sub-issue** of its story. **Tasks have no story points.** Points live on stories, so
-the burndown doesn't count anything twice.
+**Labels:** `task` + a priority. Make it a **sub-issue** of its story. **Tasks have no story points of their own.** Points live on stories, so
+the burndown doesn't count anything twice. The task's first line shows
+its sprint, its story's points, and what it depends on.
 
 ```markdown
-**Story** US# · **Needs** #<n> or —
+**Sprint N** · **Story** #<n> (US#, <points> points for the whole story) · **Depends on** #<n> or —
 
 ## What
 1–3 sentences.

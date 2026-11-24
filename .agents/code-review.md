@@ -55,6 +55,10 @@ Otherwise, **approve**, and the reviewer opens a `tech-debt` issue for it
 ([tickets.md](tickets.md)) and links it in the review. Development keeps
 moving, and nothing gets lost.
 
+**Open tech-debt issues only when you approve.** In a "Request changes"
+review, every finding stays on the PR for the author to fix. Don't
+defer anything to tech debt until you're ready to approve.
+
 ## Ending the ping-pong
 
 - **The first review raises everything at once.** Don't save findings

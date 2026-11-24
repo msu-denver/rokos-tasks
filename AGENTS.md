@@ -17,12 +17,10 @@ the Overlord grades it by playing the program. Flask + Jinja (three layers), Pos
 Build plan, stack, and layout: [docs/roadmap.md](docs/roadmap.md). User
 stories: [README.md](README.md#user-stories).
 
-**Current phase: Sprint 0.** Planning and environment setup only, with no
-feature code. `make setup`, `lint`, `fmt`, `test`, `coverage`, `check`,
-and `dev` work now (Python 3.13: `make check PYTHON=.venv/bin/python` if
-your `python3` is a different version). The Docker and campaign targets
-come later. Until a target exists, say "not available yet" for that gate.
-Don't pretend it passed.
+**Current phase:** see the open sprint's issues (`gh issue list`).
+Use Python 3.13 (`make check PYTHON=.venv/bin/python` if your `python3`
+is a different version). If a gate's `make` target doesn't exist yet,
+say "not available yet" for that gate. Don't pretend it passed.
 
 ## Commands
 

@@ -29,6 +29,9 @@ you're working for.
 
 - Keep PRs small: aim for under ~400 changed lines, excluding generated
   files. Split bigger work into several issues and PRs.
+- **Stacked PRs:** if your PR builds on another PR that hasn't merged,
+  open it against that PR's branch, not `dev`, so the diff shows only
+  your changes. Retarget it to `dev` after the first one merges.
 - Write tests in the same change as the code ([testing.md](testing.md)).
 - Commit early and often:
   `feat(US6): add CPU and memory limits to runner (#14)`.
@@ -60,7 +63,8 @@ you're working for.
 ## 5. Gate 3: manual test + one screenshot
 
 - Run the app (`make up` or `make dev`) and use the change the way a
-  player or developer would.
+  player or developer would. Anything that grades code (Submit) needs
+  `make up`, because `make dev` can't reach the runner yet (#23).
 - Save **one** screenshot of the result to `.pr/screenshot.png`
   (gitignored). Take it with Selenium (`driver.save_screenshot`), your
   tool's browser, or a screen capture. For backend-only changes,

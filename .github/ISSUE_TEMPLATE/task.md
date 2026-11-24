@@ -7,7 +7,7 @@ labels: task
 
 <!-- Add exactly one priority label: P0, P1, or P2 (.agents/tickets.md#labels). -->
 
-**Story** US# · **Needs** #<n> or —
+**Sprint N** · **Story** #<n> (US#, <points> points for the whole story) · **Depends on** #<n> or —
 
 ## What
 <!-- 1–3 sentences. -->
