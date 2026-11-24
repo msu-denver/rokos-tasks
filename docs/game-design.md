@@ -50,7 +50,7 @@ Every stage is graded as a **complete Python program** that reads text from `std
 Each stage gives the player:
 * **Prompt** — one plain-text message in the Overlord's feed. It states the feature, exactly what arrives on stdin (with constraints), exactly what to print, and 1–2 examples.
 * **Samples** — the same 1–2 examples, also stored as structured input/output pairs so **Run Sample** can test against them. The campaign validator rejects a stage if a sample's input or output doesn't appear in its prompt.
-* **Starter Code** — Stage 1 starter includes the line(s) that read the input; later stages start from the player's own checkpoint code.
+* **No Starter Code** — the editor never contains code the player didn't write. Stage 1 starts empty; later stages start from the player's own checkpoint code. The validator rejects any non-null `starter_code`.
 
 Each stage **extends the previous stage's contract** (more input fields, richer output), so the player builds on their own previous code.
 
@@ -135,21 +135,21 @@ The biggest risk to "fun, not frustrating" is a **wrong hidden test**. The pipel
 AI-generated campaigns are **optional story US11** in the course backlog ([roadmap.md §11](roadmap.md#11-user-stories)); the game is complete on hand-written seed campaigns without it. The validator and consensus checks (§4.4) are built first for the seed library either way.
 
 ### 4.1 Core Rule
-**The LLM never writes expected outputs, and never grades its own work.** The LLM generates *content* (specs, starter code, test **inputs**, candidate solutions). **Our code** computes expected outputs by running solutions in the sandbox, and **our code** decides whether a campaign is valid.
+**The LLM never writes expected outputs, and never grades its own work.** The LLM generates *content* (specs, test **inputs**, candidate solutions). **Our code** computes expected outputs by running solutions in the sandbox, and **our code** decides whether a campaign is valid.
 
 ### 4.2 Division of Labor
 
 | Who | Writes what | When |
 | :--- | :--- | :--- |
 | Dev team | Generation prompt template, campaign JSON schema, test harness, validator | Once (Sprint 1) |
-| LLM (generator) | Whole campaign: every stage's prompt, I/O format, starter code, sample inputs, hidden test **inputs**, input validator | Offline, filling the pool |
+| LLM (generator) | Whole campaign: every stage's prompt, I/O format, sample inputs, hidden test **inputs**, input validator | Offline, filling the pool |
 | LLM (×3 solvers) | Independent solutions per stage, seeing **only** what the player sees | Offline, during validation |
 | Our code (sandbox) | **Expected outputs** = output all solvers agree on | Offline, during validation |
 | Player | One program per stage that follows the I/O contract | During the game |
 | Our code (harness) | Runs the program on hidden inputs, compares stdout | On Submit |
 
 ### 4.3 Pipeline Steps (per campaign)
-1. **Generate (1 LLM call):** The generator returns the **entire** campaign as JSON matching our schema—title, all stages, each with the Overlord's plain-text prompt (stating the exact input/output format and examples), starter code, 1–2 sample inputs, 6–12 hidden test inputs (covering edge cases: min/max sizes, corners, empty cases), and a small `validate_input.py` that asserts an input matches the stated format and constraints. Stage 3 exists before anyone plays Stage 1.
+1. **Generate (1 LLM call):** The generator returns the **entire** campaign as JSON matching our schema—title, all stages, each with the Overlord's plain-text prompt (stating the exact input/output format and examples), `starter_code: null`, 1–2 sample inputs, 6–12 hidden test inputs (covering edge cases: min/max sizes, corners, empty cases), and a small `validate_input.py` that asserts an input matches the stated format and constraints. Stage 3 exists before anyone plays Stage 1.
 2. **Solve independently (~3 LLM calls per stage):** Three separate solver calls each write a solution using **only the player-visible spec, samples, and their own previous-stage solution**—mimicking a real player. Use two different models if available to reduce correlated mistakes.
 3. **Compute expected outputs by consensus (our code):** Run every solver's solution on every input in the sandbox.
    * All solvers agree → that output becomes the expected output.
@@ -200,7 +200,7 @@ Hand-written seed campaigns use the **same JSON schema**. Humans write the specs
 }
 ```
 
-`expected_output` fields are filled in by the validation pipeline, never by the generator. `starter_code` is `null` for stages after Stage 1 (the player's checkpoint is used instead).
+`expected_output` fields are filled in by the validation pipeline, never by the generator. `starter_code` is always `null`: the editor starts empty, and later stages use the player's own checkpoint.
 
 ---
 

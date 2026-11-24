@@ -1,6 +1,6 @@
 {#
 File: start.html
-Description: Campaign start screen with difficulty choices and availability.
+Description: Campaign start screen with tier choices and run confirmation.
 Author(s): Tyler Black
 #}
 {% extends "base.html" %}
@@ -8,10 +8,27 @@ Author(s): Tyler Black
 {% block title %}Start a run - Roko's Tasks{% endblock %}
 
 {% block content %}
+{% if active_run_id is defined %}
+<section class="floating-panel floating-panel--form" aria-labelledby="start-confirm-title" aria-describedby="start-confirm-warning" data-testid="start-confirm-abandon" tabindex="-1" autofocus>
+  <h1 id="start-confirm-title">Start a new run?</h1>
+  <p id="start-confirm-warning">Starting a new run will abandon your current run with a score of 0.</p>
+  <form class="confirm-actions" method="post" action="{{ url_for('game.create_run') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="difficulty" value="{{ replacement_difficulty.value }}">
+    <input type="hidden" name="replace_active" value="yes">
+    <input type="hidden" name="active_run_id" value="{{ active_run_id }}">
+    <a class="btn btn-secondary" href="{{ url_for('game.start') }}" data-testid="start-confirm-abandon-cancel">Cancel</a>
+    <button type="submit" class="btn btn-primary" data-testid="start-confirm-abandon-submit">Confirm</button>
+  </form>
+</section>
+{% else %}
 <div class="floating-panel start-panel">
-  <h1 data-testid="start-title">Start a run</h1>
-  {# TODO: When the play screen can restore progress, show Resume run only
-     for the player's in-progress game supplied by the start route. #}
+  <div class="start-heading">
+    <h1 data-testid="start-title">Start a run</h1>
+    {% if resume_run_id %}
+      <a class="btn btn-secondary" href="{{ url_for('game.play', run_id=resume_run_id) }}" data-testid="start-resume-run">Resume run</a>
+    {% endif %}
+  </div>
   {% if error %}
     <p class="start-error" role="alert" data-testid="start-error">{{ error }}</p>
   {% endif %}
@@ -44,4 +61,5 @@ Author(s): Tyler Black
     {% endfor %}
   </div>
 </div>
+{% endif %}
 {% endblock %}

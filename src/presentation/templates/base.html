@@ -16,9 +16,13 @@ Author(s): Tyler Black
   <link rel="stylesheet" href="{{ url_for('static', filename='css/tokens.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/components.css') }}">
 </head>
-<body>
+<body class="{% block body_class %}{% endblock %}">
   <header class="site-header">
-    <a href="/" data-testid="header-wordmark" class="header-wordmark">Roko's Tasks</a>
+    <div class="header-brand">
+      <a href="/" data-testid="header-wordmark" class="header-wordmark">Roko's Tasks</a>
+      {% block header_badge %}{% endblock %}
+    </div>
+    {% block header_status %}{% endblock %}
     {% block header_actions %}
       <div class="header-actions">
         {% if current_user.is_authenticated %}
@@ -33,6 +37,7 @@ Author(s): Tyler Black
         {% endif %}
       </div>
     {% endblock %}
+    {% block header_progress %}{% endblock %}
   </header>
   <div class="flash-container">
     {% for message in get_flashed_messages() %}

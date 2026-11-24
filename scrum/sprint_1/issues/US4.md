@@ -50,6 +50,14 @@ This is the screen players spend the whole game on. Like a human prompting an AI
 | 4 | `GET /play/<id>` HTML contains no hidden test input or expected output | integration |
 | 5 | Another user's run → 404; nonexistent → 404; logged out → redirect to login | integration |
 
+## Follow-up requirement
+
+- **[MED]** When a player tries to start a new run while one is in progress,
+  ask for confirmation and explain that starting over will abandon the
+  current run with a score of zero. Cancel keeps the current run. Confirm
+  abandons it and starts the selected run.
+- [Cameron’s review on PR #7](https://github.com/msu-denver/rokos-tasks/pull/7#pullrequestreview-5967671409)
+
 ## Tasks
 - [ ] T9: US4: Game page: Overlord feed, lives, and editor
 

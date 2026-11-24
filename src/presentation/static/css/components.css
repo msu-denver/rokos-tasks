@@ -492,13 +492,22 @@ a:hover {
   clip-path: none;
 }
 
-/* Difficulty cards and run readouts */
+/* Difficulty cards */
 .start-panel {
   margin-block: 0;
   padding-block: var(--space-4);
 }
 
-.start-panel > h1 {
+/* Heading row: the title on the left, Resume run on the right */
+.start-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+}
+
+.start-heading > h1 {
   margin: 0;
 }
 
@@ -541,8 +550,7 @@ a:hover {
   color: var(--muted);
 }
 
-.tier-rules dd,
-.run-lives span {
+.tier-rules dd {
   margin: 0;
   font-family: var(--font-mono);
 }
@@ -552,8 +560,514 @@ a:hover {
   padding-block: var(--space-2);
 }
 
+.confirm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-top: var(--space-6);
+}
+
 .start-error {
   color: var(--magenta);
+}
+
+/* Stage workspace: header pieces */
+.header-brand {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+}
+
+.page-game .header-wordmark {
+  white-space: nowrap;
+}
+
+@media (max-width: 480px) {
+  .page-game .header-wordmark {
+    font-size: var(--text-17);
+  }
+}
+
+@property --spin {
+  syntax: "<angle>";
+  inherits: true;
+  initial-value: 0deg;
+}
+
+/* Difficulty badge: a neon parallelogram in the tier's color */
+.tier-badge {
+  --tier: var(--tier-beginner);
+  --tier-ring: var(--tier);
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-1) var(--space-4);
+  color: var(--tier);
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  font-weight: 700;
+  line-height: 1.5;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-shadow: 0 0 var(--glow-tight) var(--tier);
+  filter: drop-shadow(
+      0 0 var(--glow-tight)
+        color-mix(in srgb, var(--tier) 70%, transparent)
+    )
+    drop-shadow(
+      0 0 var(--glow-wide) color-mix(in srgb, var(--tier) 35%, transparent)
+    );
+}
+
+.tier-badge::before,
+.tier-badge::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  clip-path: polygon(
+    var(--space-2) 0%,
+    100% 0%,
+    calc(100% - var(--space-2)) 100%,
+    0% 100%
+  );
+}
+
+.tier-badge::before {
+  inset: 0;
+  background: var(--tier-ring);
+}
+
+.tier-badge::after {
+  inset: var(--border-2);
+  background: color-mix(in srgb, var(--tier) 12%, var(--surface));
+}
+
+.tier-badge--easy {
+  --tier: var(--tier-easy);
+}
+
+.tier-badge--medium {
+  --tier: var(--tier-medium);
+}
+
+.tier-badge--hard {
+  --tier: var(--tier-hard);
+}
+
+.tier-badge--expert {
+  --tier: var(--tier-expert);
+}
+
+/* Impossible: every tier color races around the rim, and the glow follows */
+.tier-badge--impossible {
+  --tier: var(--ink-strong);
+  --tier-ring: conic-gradient(
+    from var(--spin),
+    var(--tier-beginner),
+    var(--tier-easy),
+    var(--tier-medium),
+    var(--tier-hard),
+    var(--tier-expert),
+    var(--tier-beginner)
+  );
+  filter: drop-shadow(0 0 var(--glow-tight) var(--impossible-glow))
+    drop-shadow(0 0 var(--glow-wide) var(--impossible-glow));
+  animation: impossible-spin var(--impossible-period) linear infinite;
+}
+
+@property --impossible-glow {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: transparent;
+}
+
+@keyframes impossible-spin {
+  0%,
+  100% {
+    --spin: 0deg;
+    --impossible-glow: var(--tier-hard);
+  }
+
+  20% {
+    --impossible-glow: var(--tier-expert);
+  }
+
+  40% {
+    --impossible-glow: var(--tier-beginner);
+  }
+
+  60% {
+    --impossible-glow: var(--tier-easy);
+  }
+
+  80% {
+    --impossible-glow: var(--tier-medium);
+  }
+
+  99.99% {
+    --spin: 360deg;
+  }
+}
+
+.game-hud,
+.game-lives {
+  display: flex;
+  align-items: center;
+}
+
+.game-hud {
+  gap: var(--space-4);
+}
+
+.game-timer {
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: var(--text-22);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+/* Lives: glowing diamonds beside the timer; a lost life is a dim outline */
+.game-lives {
+  gap: var(--space-2);
+}
+
+.game-life {
+  inline-size: var(--space-3);
+  block-size: var(--space-3);
+  border: var(--border-1) solid var(--muted);
+  transform: rotate(45deg);
+}
+
+.game-life--full {
+  border-color: var(--cyan);
+  background: var(--cyan);
+  box-shadow: 0 0 var(--glow-tight) var(--glow-cyan);
+}
+
+/* Stage bar: one cell per stage along the header's bottom edge */
+.page-game .site-header {
+  position: relative;
+  padding-block-end: var(--space-5);
+}
+
+.stage-bar {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: 0;
+  display: flex;
+  gap: var(--space-1);
+  block-size: var(--space-1);
+}
+
+.stage-bar-cell {
+  flex: 1;
+  background: color-mix(in srgb, var(--muted) 30%, transparent);
+}
+
+.stage-bar-cell--done {
+  background: color-mix(in srgb, var(--cyan) 50%, transparent);
+}
+
+.stage-bar-cell--current {
+  background: var(--cyan);
+  box-shadow:
+    0 0 var(--glow-tight) var(--glow-cyan),
+    0 0 var(--glow-wide) var(--glow-cyan);
+}
+
+/* Stage workspace: the two floating windows */
+.page-game .flash-container {
+  margin-top: 0;
+}
+
+.page-game main {
+  max-width: var(--width-game);
+  padding-block-end: var(--space-8);
+}
+
+/* Clip sideways overflow (Monaco lags a resize) without cutting the glow */
+.game-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-8);
+  overflow-x: clip;
+  overflow-clip-margin: var(--space-6);
+}
+
+.game-layout > .floating-panel {
+  display: grid;
+  gap: var(--space-4);
+  min-inline-size: 0;
+  min-block-size: 0;
+  margin-block: 0;
+  padding: var(--space-5);
+}
+
+.game-overlord-panel {
+  grid-template-rows: auto auto;
+}
+
+.game-editor-panel {
+  grid-template-rows: auto auto;
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+
+/* The Overlord's stage: perspective floor, magenta horizon, scanlines */
+.overlord-stage {
+  --horizon: 62%;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: end;
+  gap: var(--space-4);
+  block-size: calc(var(--grid-size) * 2.5);
+  min-block-size: 0;
+  padding-inline: var(--space-4);
+  border: var(--border-1) solid var(--line);
+  background: var(--surface);
+}
+
+.overlord-stage::before {
+  content: "";
+  position: absolute;
+  inset: var(--horizon) -50% -40%;
+  z-index: -1;
+  background-image:
+    linear-gradient(
+      to right,
+      color-mix(in srgb, var(--cyan) 35%, transparent) var(--border-1),
+      transparent var(--border-1)
+    ),
+    linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--cyan) 35%, transparent) var(--border-1),
+      transparent var(--border-1)
+    );
+  background-size: calc(var(--grid-size) / 2) calc(var(--grid-size) / 2);
+  background-position: center top;
+  transform: perspective(var(--grid-size)) rotateX(55deg);
+  transform-origin: center top;
+  mask-image: linear-gradient(transparent, var(--ink) 60%);
+}
+
+/* Scanlines over the whole stage, plus the glowing magenta horizon */
+.overlord-stage::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      transparent calc(var(--horizon) - var(--border-1)),
+      var(--magenta) calc(var(--horizon) - var(--border-1)) var(--horizon),
+      transparent var(--horizon)
+    ),
+    linear-gradient(
+      transparent calc(var(--horizon) - var(--space-2)),
+      color-mix(in srgb, var(--magenta) 30%, transparent) var(--horizon),
+      transparent calc(var(--horizon) + var(--space-1))
+    ),
+    repeating-linear-gradient(
+      to bottom,
+      var(--sheen) 0 var(--border-1),
+      transparent var(--border-1) var(--space-1)
+    );
+}
+
+.overlord {
+  display: block;
+  block-size: 92%;
+  max-block-size: calc(var(--grid-size) * 4);
+  inline-size: auto;
+  aspect-ratio: 200 / 220;
+  align-self: end;
+  filter: drop-shadow(
+    0 0 var(--glow-wide) color-mix(in srgb, var(--magenta) 25%, transparent)
+  );
+}
+
+.overlord-metal-top {
+  stop-color: color-mix(in srgb, var(--muted) 45%, var(--surface-raised));
+}
+
+.overlord-metal-bottom {
+  stop-color: var(--bg);
+}
+
+.overlord-plate {
+  fill: url("#overlord-metal");
+  stroke: var(--bevel-light);
+  stroke-width: var(--border-1);
+  vector-effect: non-scaling-stroke;
+}
+
+.overlord-seam {
+  fill: none;
+  stroke: var(--line);
+  stroke-width: var(--border-2);
+}
+
+.overlord-visor {
+  fill: var(--cyan);
+  filter: drop-shadow(0 0 var(--glow-tight) var(--cyan));
+}
+
+.overlord-scan {
+  fill: var(--cyan-hot);
+  transform-box: fill-box;
+  animation: visor-scan var(--visor-period) ease-in-out infinite alternate;
+}
+
+@keyframes visor-scan {
+  to {
+    transform: translateX(390%);
+  }
+}
+
+.overlord-dialog {
+  align-self: start;
+  margin: 0;
+  padding: var(--space-4) 0 0;
+  list-style: none;
+}
+
+/* The prompt: pinned under the Overlord, always visible */
+.game-feed {
+  min-block-size: 0;
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+  scrollbar-color: var(--muted) transparent;
+  scrollbar-width: thin;
+  color: var(--ink-strong);
+  font-size: var(--text-17);
+}
+
+.game-feed--scrolled:not(:focus-visible) {
+  mask-image: linear-gradient(transparent, var(--ink) var(--space-6));
+}
+
+.game-feed p {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.game-feed code,
+.game-editor-tab,
+.game-editor textarea {
+  font-family: var(--font-mono);
+}
+
+.game-feed code {
+  color: var(--cyan);
+}
+
+/* Editor */
+.game-editor-tab {
+  color: var(--muted);
+  font-size: var(--text-12);
+}
+
+.game-editor {
+  position: relative;
+  min-block-size: 0;
+  block-size: max(60svh, calc(var(--grid-size) * 5));
+  background: var(--surface);
+}
+
+.game-editor:focus-within {
+  outline: var(--focus-outline) solid var(--cyan);
+  outline-offset: var(--focus-offset);
+}
+
+.game-editor > * {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+}
+
+.game-editor textarea {
+  resize: none;
+  border: 0;
+  padding: var(--space-3);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: var(--text-14);
+  tab-size: 4;
+}
+
+.game-editor .monaco-editor .view-overlays .current-line {
+  border-inline-start: var(--border-2) solid var(--cyan);
+}
+
+/*
+Desktop: the page becomes a fixed app shell. The editor takes every spare
+pixel; the Overlord column keeps a readable measure and the prompt keeps
+its space, while the Overlord's stage gives way first.
+*/
+@media (min-width: 960px) and (min-height: 560px) {
+  .page-game {
+    display: flex;
+    flex-direction: column;
+    block-size: 100dvh;
+    overflow: hidden;
+  }
+
+  .page-game main {
+    flex: 1;
+    min-block-size: 0;
+    inline-size: 100%;
+  }
+
+  .page-game .site-header {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+  }
+
+  .page-game .header-actions {
+    justify-self: end;
+  }
+
+  .game-layout {
+    grid-template-columns:
+      clamp(
+        calc(var(--grid-size) * 5.5),
+        34%,
+        calc(var(--grid-size) * 7)
+      )
+      minmax(0, 1fr);
+    block-size: 100%;
+  }
+
+  .game-overlord-panel {
+    grid-template-rows: minmax(calc(var(--grid-size) * 2), 1fr) fit-content(70%);
+  }
+
+  .overlord-stage {
+    block-size: auto;
+  }
+
+  .game-editor-panel {
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .game-editor {
+    block-size: auto;
+  }
+}
+
+/* Short desktop screens: a smaller prompt keeps more of it in view */
+@media (min-width: 960px) and (min-height: 560px) and (max-height: 760px) {
+  .game-feed {
+    font-size: var(--text-14);
+  }
 }
 
 /* Motion accessibility preferences */
@@ -568,6 +1082,11 @@ a:hover {
   }
 
   .floating-panel {
+    animation: none;
+  }
+
+  .tier-badge--impossible,
+  .overlord-scan {
     animation: none;
   }
 }

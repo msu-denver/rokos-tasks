@@ -30,3 +30,4 @@ def test_shipped_seed_campaigns_load(db_session: Session) -> None:
         assert [stage.number for stage in campaign.stages] == list(
             range(1, stage_count + 1)
         )
+        assert all(stage.starter_code is None for stage in campaign.stages)

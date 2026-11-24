@@ -4,9 +4,11 @@ Description: Starts runs from the validated pool and exposes player progress.
 Author(s): Tyler Black
 """
 
+import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
+from typing import TypedDict
 
 from src.business.campaign_selector import CampaignSelector
 from src.business.difficulty import Difficulty
@@ -20,6 +22,50 @@ class TierOverview:
 
     difficulty: Difficulty
     available: bool
+
+
+class RunNotFoundError(LookupError):
+    """The requested run is absent or belongs to another player."""
+
+
+class ActiveRunExistsError(Exception):
+    """Replacing the current run requires confirmation."""
+
+    def __init__(self, run_id: int) -> None:
+        """Identify the run that would be abandoned."""
+        super().__init__(run_id)
+        self.run_id = run_id
+
+
+class PublicSample(TypedDict):
+    """Input and expected output of a player-visible example."""
+
+    input: str
+    expected_output: str
+
+
+_EXAMPLE_BLOCK = re.compile(r"(?:^|\n)[ \t]*Example \d+ input:")
+
+
+@dataclass(frozen=True)
+class StageView:
+    """Player-visible content and progress for an active stage."""
+
+    difficulty: Difficulty
+    number: int
+    lives: int
+    prompt: str
+    samples: tuple[PublicSample, ...]
+
+    @property
+    def description(self) -> str:
+        """Prompt text shown on the page, without its worked examples.
+
+        How examples appear on the game page is still undecided, so the
+        page hides the prompt's trailing "Example N input:" blocks. The
+        samples still reach the browser through the stage data.
+        """
+        return _EXAMPLE_BLOCK.split(self.prompt, maxsplit=1)[0].rstrip()
 
 
 class GameService:
@@ -36,13 +82,24 @@ class GameService:
         self._runs = runs
         self._clock = clock
 
-    def start_run(self, user_id: int, difficulty: Difficulty) -> GameRun:
-        """Replace any active run with a new run in the chosen tier."""
+    def start_run(
+        self,
+        user_id: int,
+        difficulty: Difficulty,
+        replace_active: bool = False,
+        *,
+        expected_active_id: int | None = None,
+    ) -> GameRun:
+        """Start the chosen tier and replace an active run with consent."""
         self._runs.lock_player(user_id)
         campaign = self._selector.choose(user_id, difficulty)
-        now = self._clock()
-
         active = self.active_run(user_id)
+        if active is not None and (
+            not replace_active or expected_active_id not in (None, active.id)
+        ):
+            raise ActiveRunExistsError(active.id)
+
+        now = self._clock()
         if active is not None:
             active.status = "abandoned"
             active.score = 0
@@ -75,6 +132,24 @@ class GameService:
         """Return the player's in-progress run, if any."""
         return self._runs.active_for(user_id)
 
-    def get_run(self, run_id: int, user_id: int) -> GameRun | None:
-        """Return run progress only to the player who owns it."""
-        return self._runs.get_for_user(run_id, user_id)
+    def get_stage_view(self, user_id: int, run_id: int) -> StageView | None:
+        """Return the owned run's public stage, or None for a finished run."""
+        run = self._runs.get_for_user(run_id, user_id)
+        if run is None:
+            raise RunNotFoundError(run_id)
+        if run.status != "in_progress":
+            return None
+
+        stage = self._runs.current_stage_for(run)
+        return StageView(
+            difficulty=Difficulty(run.difficulty),
+            number=run.current_stage,
+            lives=run.lives,
+            prompt=stage.prompt,
+            samples=tuple(
+                PublicSample(
+                    input=case.input, expected_output=case.expected_output
+                )
+                for case in self._runs.samples_for_stage(stage.id)
+            ),
+        )
