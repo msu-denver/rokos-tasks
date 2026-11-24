@@ -467,32 +467,7 @@ GitHub Projects with columns **To Do → In Progress → In Review → Done** (c
 
 ### 12.1 Dependency Diagram
 
-An arrow points from a story to the stories that depend on it: US1 → US2 means US2 needs US1 finished first. Solid boxes are required stories; dashed boxes are optional. Arrows already implied through another story are left out (US11 also depends on US3, which US6 already requires).
-
-```mermaid
-flowchart TD
-    US1["US1: Register"] --> US2["US2: Log In and Log Out"]
-    US2 --> US3["US3: Start a Run"]
-    US3 --> US4["US4: View Stage and Write Code"]
-    US4 --> US5["US5: Play My Program"]
-    US4 --> US6["US6: The Overlord Plays My Program"]
-
-    US5 --> US15["US15: How-to-Play Tutorial"]
-    US6 --> US15
-    US6 --> US11["US11: AI-Generated Campaigns"]
-    US6 --> US8["US8: Stage Timer"]
-    US6 --> US7["US7: Lives, Checkpoints, Progression"]
-    US6 --> US10["US10: Overlord Reactions and Feedback"]
-
-    US7 --> US13["US13: Bonus Life"]
-    US7 --> US9["US9: Scores and Leaderboard"]
-    US9 --> US14["US14: Profile Statistics"]
-    US10 --> US12["US12: Animated Overlord"]
-    US10 --> US16["US16: Contest a Verdict"]
-
-    classDef optional stroke-dasharray: 5 5
-    class US12,US13,US14,US15,US16 optional
-```
+The diagram lives in the README: [Dependency Diagram](../README.md#dependency-diagram).
 
 ---
 

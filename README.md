@@ -297,7 +297,36 @@ User value: 3 = high, 2 = medium, 1 = low. Story points: Fibonacci. Priority sco
 
 **Totals:** 58 required points, 15 optional points, 73 points in the backlog.
 
-† Ranked earlier because of dependencies. ‡ Ranked by team decision. Reasons and the dependency diagram: [roadmap §12](docs/roadmap.md#12-product-backlog).
+† Ranked earlier because of dependencies. ‡ Ranked by team decision. Reasons: [roadmap §12](docs/roadmap.md#12-product-backlog).
+
+### Dependency Diagram
+
+An arrow points from a story to the stories that depend on it: US1 → US2 means US2 needs US1 finished first. Solid boxes are required stories; dashed boxes are optional. Arrows already implied through another story are left out (US11 also depends on US3, which US6 already requires).
+
+```mermaid
+flowchart TD
+    US1["US1: Register"] --> US2["US2: Log In and Log Out"]
+    US2 --> US3["US3: Start a Run"]
+    US3 --> US4["US4: View Stage and Write Code"]
+    US4 --> US5["US5: Play My Program"]
+    US4 --> US6["US6: The Overlord Plays My Program"]
+
+    US5 --> US15["US15: How-to-Play Tutorial"]
+    US6 --> US15
+    US6 --> US11["US11: AI-Generated Campaigns"]
+    US6 --> US8["US8: Stage Timer"]
+    US6 --> US7["US7: Lives, Checkpoints, Progression"]
+    US6 --> US10["US10: Overlord Reactions and Feedback"]
+
+    US7 --> US13["US13: Bonus Life"]
+    US7 --> US9["US9: Scores and Leaderboard"]
+    US9 --> US14["US14: Profile Statistics"]
+    US10 --> US12["US12: Animated Overlord"]
+    US10 --> US16["US16: Contest a Verdict"]
+
+    classDef optional stroke-dasharray: 5 5
+    class US12,US13,US14,US15,US16 optional
+```
 
 ## Sprint Planning
 
