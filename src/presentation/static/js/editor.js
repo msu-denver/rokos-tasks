@@ -169,8 +169,16 @@ export async function init_editor(container) {
       editor.focus();
     }
     textarea.hidden = true;
+
+    return {
+      get_code: () => editor.getValue(),
+    };
   } catch (error) {
     host.hidden = true;
     console.warn("Monaco is unavailable", error);
+
+    return {
+      get_code: () => textarea.value,
+    };
   }
 }
