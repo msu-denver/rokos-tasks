@@ -5,7 +5,17 @@ Keep it short. Reviewers should get the whole picture in 30 seconds.
 
 ## Title
 
-Same style as commits: `feat(US6): add CPU and memory limits to runner`.
+`<type>(<scope>): <summary>`, the same style as commits.
+
+- **type:** `feat`, `fix`, `test`, `refactor`, `docs`, or `chore`.
+- **scope:** the story (`US6`), or the area for work with no story
+  (`agents`, `ci`, `sprint1`).
+- **summary:** lowercase, imperative, no period, under ~70 characters.
+
+Example: `feat(US6): add CPU and memory limits to runner`.
+
+The body's first line links the issue with `Closes #<n>`, so the PR
+shows under the issue's **Development** and merging closes it.
 
 ## Body
 

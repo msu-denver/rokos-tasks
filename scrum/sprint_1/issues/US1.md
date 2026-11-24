@@ -1,4 +1,4 @@
-**Value** 3 · **Points** 2 · **Priority** 1.50 · **Depends on** — · **Type** Required · **Sprint** 1
+**Value** 3 · **Points** 2 · **Priority** 1.50 · **Depends on** — · **Type** Required · **Sprint** 1 · **Label** P0
 
 As a visitor, I want to create an account with a username and password so that I can save my progress and appear on the leaderboard.
 

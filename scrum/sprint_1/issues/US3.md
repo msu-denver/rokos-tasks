@@ -1,4 +1,4 @@
-**Value** 3 · **Points** 3 · **Priority** 1.00 · **Depends on** US2 · **Type** Required · **Sprint** 1
+**Value** 3 · **Points** 3 · **Priority** 1.00 · **Depends on** US2 · **Type** Required · **Sprint** 1 · **Label** P0
 
 As a player, I want to pick a difficulty tier and start a campaign so that I can get a challenge that matches my skill.
 

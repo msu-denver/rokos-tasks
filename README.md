@@ -53,7 +53,8 @@ Full stack in Docker (web + db): see [Deployment](#deployment).
 ## Rules
 
 **Git**
-- Never push to `main` or `dev`. Branch from `dev`: `feature/US6-short-name`, `fix/…`, `chore/…`, `docs/…`.
+- Never push to `main` or `dev`. Assign yourself the issue and create the branch from it, off `dev`: `<type>/<issue#>-short-name` (`feature/14-US6-runner-sandbox`, `fix/…`, `chore/…`, `docs/…`, `debt/…`).
+- Every issue gets one type label (`story`, `task`, `tech-debt`, `bug`) and one priority (`P0`, `P1`, `P2`).
 - PRs go into `dev`. Only `dev` goes into `main`. Merge commits only, no squash.
 - Issue titles: `US6: Build runner container`. Commits: `feat(US6): add runner limits (#14)`.
 
