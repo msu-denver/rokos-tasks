@@ -96,9 +96,28 @@ you're working for.
 - A human merges with a **merge commit** (never squash, because the
   course grades commit history).
 
+## 8. After merge: close the issue
+
+PRs go into `dev`, which isn't the repo's default branch, so GitHub
+ignores `Closes #n` and never closes the issue. The author's agent
+closes it instead.
+
+1. **When:** at the start of every session, and whenever your human
+   says a PR merged.
+2. **Find your human's merged PRs** (`@me` is whoever `gh` is logged
+   in as):
+   `gh pr list --base dev --state merged --author @me --limit 20 --json number,body`
+3. **For each `Closes #n` line** in a PR body, check the issue with
+   `gh issue view <n> --json state`. If it's still open, close it:
+   `gh issue close <n> --reason completed --comment "Done in #<pr>, merged into dev."`
+4. **Only close** issues listed as `Closes #n` in a PR that merged and
+   that your human authored. Leave issues from someone else's PR, from a
+   PR closed without merging, and issues a PR only mentions.
+
 ## Agents never
 
 - Push to `main` or `dev`, or force-push a branch someone else uses.
 - Merge, approve, or mark a PR ready for review.
-- Close issues by hand (use `Closes #n` in the PR body).
+- Close an issue before its PR merges, or one from someone else's PR
+  (see [§8](#8-after-merge-close-the-issue)).
 - Make live LLM calls ([llm-policy.md](llm-policy.md)).

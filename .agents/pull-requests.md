@@ -14,8 +14,10 @@ Keep it short. Reviewers should get the whole picture in 30 seconds.
 
 Example: `feat(US6): add CPU and memory limits to runner`.
 
-The body's first line links the issue with `Closes #<n>`, so the PR
-shows under the issue's **Development** and merging closes it.
+The body's first line names the issue with `Closes #<n>`. PRs go into
+`dev`, not the default branch, so GitHub won't close the issue on
+merge. The author's agent closes it after the merge
+([workflow §8](workflow.md#8-after-merge-close-the-issue)).
 
 ## Body
 

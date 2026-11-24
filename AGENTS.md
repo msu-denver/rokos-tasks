@@ -81,6 +81,7 @@ Breaking any of these is a **HIGH** review finding and blocks merge.
 issue → branch from dev → build + tests → make check → self-review → fix
 → manual test + screenshot → draft PR → human adds screenshot, marks ready
 → peer review (HIGH/MED/LOW/NIT) → human merges with a merge commit
+→ agent closes the issue (dev isn't the default branch, so GitHub won't)
 ```
 
 Full steps: [.agents/workflow.md](.agents/workflow.md).

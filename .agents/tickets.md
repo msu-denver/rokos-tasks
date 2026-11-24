@@ -176,7 +176,8 @@ PR.
 
 **Done:** the Definition of Done in
 [roadmap §9.6](../docs/roadmap.md#96-definition-of-done) is met, and the
-issue is closed by the merging PR (`Closes #n`).
+issue is closed after its PR merges into `dev`
+([workflow §8](workflow.md#8-after-merge-close-the-issue)).
 
 ## Posting
 
