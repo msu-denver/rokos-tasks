@@ -1,7 +1,7 @@
 """
 File: test_seed_loader.py
 Description: Integration tests for SeedLoader service.
-Author(s): Tyler Black
+Author(s): Tyler Black, Richard Hall
 """
 
 import json

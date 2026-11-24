@@ -1,7 +1,7 @@
 """
 File: test_campaign_validator.py
 Description: Unit tests for CampaignValidator rules and quality checks.
-Author(s): Tyler Black
+Author(s): Tyler Black, Richard Hall
 """
 
 import copy
@@ -375,6 +375,10 @@ class TestCheckScripts:
                 "def check(game):\n    from os import path\n",
                 "must not import",
             ),
+            (
+                "def check(game):\n    __import__('os')\n",
+                "must not import",
+            ),
             ("def play(game):\n    pass\n", "must define check(game)"),
             ("def check(game, extra):\n    pass\n", "must define check"),
             ("def check(*game):\n    pass\n", "must define check"),
@@ -451,3 +455,26 @@ class TestCheckScripts:
             "check script failed" in err and "ZeroDivisionError" in err
             for err in errors
         )
+
+    def test_check_script_must_survive_junk_frames(
+        self, tick_campaign: dict
+    ) -> None:
+        """A check that crashes on an empty frame could spare a life."""
+        tick_campaign["stages"][0]["check_script"] = (
+            "def check(game):\n"
+            "    ball = game.tick('go').find('O')[0]\n"
+            "    game.check(ball == (1, 1), 'The O starts in the middle.')\n"
+        )
+        errors = CampaignValidator.validate(tick_campaign)
+        assert any(
+            "check script broke on empty frames" in err and "IndexError" in err
+            for err in errors
+        )
+
+    def test_junk_program_must_not_pass(self, tick_campaign: dict) -> None:
+        """A check script that any program passes checks nothing."""
+        tick_campaign["stages"][0]["check_script"] = (
+            "def check(game):\n    game.tick('go')\n"
+        )
+        errors = CampaignValidator.validate(tick_campaign)
+        assert any("a program printing a single ? passes" in e for e in errors)

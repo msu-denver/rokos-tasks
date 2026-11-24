@@ -1,7 +1,7 @@
 """
 File: validator.py
 Description: Validates campaign definitions against schema and quality rules.
-Author(s): Tyler Black
+Author(s): Tyler Black, Richard Hall
 """
 
 import ast
@@ -27,6 +27,16 @@ SCHEMA_PATH = (
 
 # Two passes catch a check script that depends on luck (a random serve).
 CHECK_PASS_RUNS = 2
+# Tick programs that follow no stage's rules. A check script must fail
+# each one cleanly: if odd frames crash it, a player could print them on
+# purpose to get a check_error instead of losing a life.
+_JUNK_LOOP = "import sys\nfor line in sys.stdin:\n    print({frame})\n"
+_JUNK_LOOP += "    print('---')\n"
+JUNK_PROGRAMS = {
+    "empty frames": _JUNK_LOOP.format(frame="end=''"),
+    "a single ?": _JUNK_LOOP.format(frame="'?'"),
+    "echoed input": _JUNK_LOOP.format(frame="line.rstrip()"),
+}
 
 
 def check_script_problems(source: str) -> list[str]:
@@ -46,14 +56,18 @@ def check_script_problems(source: str) -> list[str]:
     except SyntaxError as error:
         return [f"check_script has a syntax error on line {error.lineno}."]
     problems = []
-    if any(
-        isinstance(node, ast.Import | ast.ImportFrom)
-        for node in ast.walk(tree)
-    ):
+    if any(_is_import(node) for node in ast.walk(tree)):
         problems.append("check_script must not import anything.")
     if not any(_is_check_function(node) for node in tree.body):
         problems.append("check_script must define check(game).")
     return problems
+
+
+def _is_import(node: ast.AST) -> bool:
+    """Return True for an import statement or a use of ``__import__``."""
+    if isinstance(node, ast.Import | ast.ImportFrom):
+        return True
+    return isinstance(node, ast.Name) and node.id == "__import__"
 
 
 def _is_check_function(node: ast.stmt) -> bool:
@@ -314,7 +328,21 @@ class CampaignValidator:
                 ]
         except CheckRunError as error:
             return [str(error)]
-        return []
+        return cls._junk_problems(script)
+
+    @classmethod
+    def _junk_problems(cls, script: str) -> list[str]:
+        """Return problems from playing ``script`` on each junk program."""
+        problems = []
+        for name, program in JUNK_PROGRAMS.items():
+            try:
+                verdict = run_check(program, script)
+            except CheckRunError as error:
+                problems.append(f"check script broke on {name}: {error}")
+                continue
+            if verdict["verdict"] == "pass":
+                problems.append(f"a program printing {name} passes.")
+        return problems
 
     @classmethod
     def _validate_stage_tests(
