@@ -229,6 +229,17 @@ def test_hung_reaper_compromises_the_slot(tmp_path: Path):
         reap_with(tmp_path, side_effect=subprocess.TimeoutExpired("r", 5))
 
 
+def test_reap_tolerates_a_group_of_only_zombies(slot: Slot):
+    """MacOS answers EPERM to killpg when only zombies are left."""
+    session = ProgramSession(slot, HOST_LIMITS)
+    (slot.directory / "left.txt").write_text("x")
+    with mock.patch(
+        "src.runner.session.os.killpg", side_effect=PermissionError
+    ):
+        session._reap(mock.Mock(pid=123))
+    assert list(slot.directory.iterdir()) == []
+
+
 def test_uncleanable_folder_compromises_the_slot(slot: Slot):
     session = ProgramSession(slot, HOST_LIMITS)
     with (
