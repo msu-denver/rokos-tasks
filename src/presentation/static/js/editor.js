@@ -1,7 +1,7 @@
 /*
 File: editor.js
 Description: Loads the Python editor and saves drafts for both editor modes.
-Author(s): Tyler Black
+Author(s): Tyler Black, Richard Hall
 */
 
 const MONACO_BASE = "https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/";
@@ -145,7 +145,9 @@ function editor_options(monaco, value) {
   };
 }
 
-export async function init_editor(container) {
+// Returns a function that reads the code right now, whichever editor
+// is showing: the textarea until Monaco loads (or if it never does).
+export function init_editor(container) {
   const [textarea, host] = container.children;
   const {run, stage} = container.dataset;
   const key = `rokos:run:${run}:stage:${stage}`;
@@ -153,6 +155,14 @@ export async function init_editor(container) {
   textarea.value = initial_code(key);
   textarea.addEventListener("input", () => save(textarea.value));
 
+  let editor = null;
+  start_monaco(textarea, host, save).then((created) => {
+    editor = created;
+  });
+  return () => (editor ? editor.getValue() : textarea.value);
+}
+
+async function start_monaco(textarea, host, save) {
   try {
     const monaco = await load_monaco();
     host.hidden = false;
@@ -169,16 +179,10 @@ export async function init_editor(container) {
       editor.focus();
     }
     textarea.hidden = true;
-
-    return {
-      get_code: () => editor.getValue(),
-    };
+    return editor;
   } catch (error) {
     host.hidden = true;
     console.warn("Monaco is unavailable", error);
-
-    return {
-      get_code: () => textarea.value,
-    };
+    return null;
   }
 }
