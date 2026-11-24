@@ -20,7 +20,9 @@ function show_code(element, text) {
 
 function show_verdict(panel, verdict) {
   panel.classList.toggle("game-verdict--pass", verdict.passed);
-  part(panel, "game-verdict-heading").textContent = verdict.heading;
+  const heading = part(panel, "game-verdict-heading");
+  heading.textContent = verdict.heading;
+  heading.hidden = !verdict.heading;
   part(panel, "game-verdict-reason").textContent = verdict.reason ?? "";
   show_code(part(panel, "game-verdict-traceback"), verdict.traceback);
   show_code(part(panel, "game-verdict-frame"), verdict.last_frame);

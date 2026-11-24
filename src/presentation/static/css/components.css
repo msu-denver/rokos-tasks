@@ -840,6 +840,7 @@ a:hover {
 }
 
 .game-verdict[hidden],
+.game-verdict-heading[hidden],
 .game-verdict-code[hidden] {
   display: none;
 }

@@ -165,3 +165,5 @@ def test_stage_without_check_script_says_so(
     _submit_and_wait(browser)
     reason = browser.find_element(*_selector("game-verdict-reason"))
     assert reason.text == "This stage can't be graded yet."
+    heading = browser.find_element(*_selector("game-verdict-heading"))
+    assert not heading.is_displayed()

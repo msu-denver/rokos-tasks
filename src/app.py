@@ -21,6 +21,7 @@ from src.presentation.main_routes import main_blueprint
 DEFAULT_DATABASE_URL = (
     "postgresql+psycopg://rokos:rokos@localhost:5433/rokos_tasks"
 )
+MAX_REQUEST_BYTES = 1024 * 1024
 # The runner is only reachable from inside the Compose network.
 DEFAULT_RUNNER_URL = "http://runner:9000"
 
@@ -68,6 +69,8 @@ def create_app(config_overrides: dict[str, Any] | None = None) -> Flask:
     )
     app.config["SESSION_COOKIE_HTTPONLY"] = True
     app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+    # The largest request is a Submit: 64 KB of code, JSON-escaped.
+    app.config["MAX_CONTENT_LENGTH"] = MAX_REQUEST_BYTES
 
     if config_overrides:
         app.config.update(config_overrides)

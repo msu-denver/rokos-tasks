@@ -141,6 +141,12 @@ def test_bad_body_is_400(player: FlaskClient, body: object):
     assert player.post("/game/submit", json=body).status_code == 400
 
 
+def test_huge_request_is_refused(player: FlaskClient):
+    """Flask refuses bodies over 1 MB before reading them."""
+    body = {"run_id": 1, "code": "x" * (1024 * 1024)}
+    assert player.post("/game/submit", json=body).status_code == 413
+
+
 def test_oversized_code_is_400(player: FlaskClient, seeded_pong: int):
     run_id = start_run(player, "medium")
     response = submit(player, run_id, "x" * (MAX_CODE_BYTES + 1))
