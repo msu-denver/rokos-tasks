@@ -164,9 +164,11 @@ After this, the campaign is **frozen**. Grading during play is only "run the che
 | The independent **solver** program passes every check | Checks that are too strict, accepting only the generator's own way of building it |
 | The **broken** program fails the stage's checks | Checks too weak to notice the feature is wrong |
 | Stage N's checks **fail** the stage N‑1 reference | Stages that add nothing new |
-| An empty program and a program that prints one fixed frame fail | Checks that pass anything |
+| An empty program fails every stage. From Stage 2 on, a program that prints one fixed frame also fails. Stage 1 is exempt, because a first stage may be static (Pong's ball can sit still) | Checks that pass anything |
 | The reference finishes the checks in < ~10% of the time limit | Checks a reasonable program would time out on |
 | Check scripts only use the helper API and import nothing else | Check scripts that try to read the player's code or reach the network |
+
+**The generator is taught these rules.** The generation prompt template (§4.2) lists every check in this table, including exceptions like the Stage 1 one, so the generator writes a Stage 1 check that accepts a static screen and later checks that require the program to respond. Our code still runs every check; the LLM never decides whether its own campaign passes (§4.1).
 
 ### 4.5 Seed Campaigns
 Hand-written seed campaigns use the **same JSON schema**. Humans write the prompts, check scripts, reference programs, and broken programs (skipping steps 1–2), and they go through step 3 **in CI on every PR**. Pong is the first seed campaign. The seed library doubles as the data for the LLM `fake` mode ([§6](#6-llm-usage--budget)).
