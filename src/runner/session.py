@@ -343,7 +343,8 @@ class ProgramSession:
         if self._slot.uid is None:
             try:
                 os.killpg(process.pid, signal.SIGKILL)
-            except ProcessLookupError:
+            except (ProcessLookupError, PermissionError):
+                # macOS answers EPERM, not ESRCH, once only zombies remain.
                 pass
             try:
                 clear_directory(self._slot.directory)

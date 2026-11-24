@@ -2,7 +2,7 @@
 File: app.py
 Description: Flask application factory. Builds the app and registers the
     presentation-layer blueprints.
-Author(s): Tyler Black
+Author(s): Tyler Black, Richard Hall
 """
 
 import os
@@ -21,6 +21,9 @@ from src.presentation.main_routes import main_blueprint
 DEFAULT_DATABASE_URL = (
     "postgresql+psycopg://rokos:rokos@localhost:5433/rokos_tasks"
 )
+MAX_REQUEST_BYTES = 1024 * 1024
+# The runner is only reachable from inside the Compose network.
+DEFAULT_RUNNER_URL = "http://runner:9000"
 
 csrf = CSRFProtect()
 login_manager = LoginManager()
@@ -66,12 +69,18 @@ def create_app(config_overrides: dict[str, Any] | None = None) -> Flask:
     )
     app.config["SESSION_COOKIE_HTTPONLY"] = True
     app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+    # The largest request is a Submit: 64 KB of code, JSON-escaped.
+    app.config["MAX_CONTENT_LENGTH"] = MAX_REQUEST_BYTES
 
     if config_overrides:
         app.config.update(config_overrides)
 
     if "WTF_CSRF_ENABLED" not in app.config:
         app.config["WTF_CSRF_ENABLED"] = not app.config.get("TESTING", False)
+
+    app.config.setdefault(
+        "RUNNER_URL", os.getenv("RUNNER_URL", DEFAULT_RUNNER_URL)
+    )
 
     database_url = app.config.get(
         "DATABASE_URL",

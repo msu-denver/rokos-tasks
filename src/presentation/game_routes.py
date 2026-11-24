@@ -1,10 +1,22 @@
 """
 File: game_routes.py
 Description: Game blueprint providing player interaction and campaign routes.
-Author(s): Tyler Black
+Author(s): Tyler Black, Richard Hall
 """
 
-from flask import Blueprint, abort, redirect, render_template, request, url_for
+import logging
+from http import HTTPStatus
+
+from flask import (
+    Blueprint,
+    abort,
+    current_app,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    url_for,
+)
 from flask_login import current_user, login_required
 from werkzeug.wrappers import Response
 
@@ -15,9 +27,26 @@ from src.business.game_service import (
     GameService,
     RunNotFoundError,
 )
-from src.business.service_factory import build_game_service
+from src.business.grading_service import (
+    CodeTooLargeError,
+    RunFinishedError,
+    StageNotGradableError,
+)
+from src.business.runner_client import (
+    CheckScriptBrokenError,
+    RunnerUnavailableError,
+)
+from src.business.service_factory import (
+    build_game_service,
+    build_grading_service,
+)
 
 game_blueprint = Blueprint("game", __name__)
+logger = logging.getLogger(__name__)
+
+# Placeholder wording until the PO decides; US10 moves it to dialogue.
+NOT_GRADABLE = "This stage can't be graded yet."
+UNAVAILABLE = "Grading is unavailable. This submit didn't count."
 
 
 def _render_start(game: GameService, error: str | None = None) -> str:
@@ -79,3 +108,39 @@ def play(run_id: int) -> str:
     except RunNotFoundError:
         abort(404)
     return render_template("game/play.html", stage=stage, run_id=run_id)
+
+
+def _message(status: HTTPStatus, message: str) -> tuple[Response, int]:
+    return jsonify(message=message), status
+
+
+@game_blueprint.post("/game/submit")
+@login_required
+def submit() -> tuple[Response, int]:
+    """Grade the editor's code for the run's current stage (US6)."""
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        abort(400)
+    run_id, code = payload.get("run_id"), payload.get("code")
+    if (
+        not isinstance(run_id, int)
+        or isinstance(run_id, bool)
+        or not isinstance(code, str)
+    ):
+        abort(400)
+
+    grading = build_grading_service(current_app.config["RUNNER_URL"])
+    try:
+        verdict = grading.grade(current_user.id, run_id, code)
+    except RunNotFoundError:
+        abort(404)
+    except RunFinishedError:
+        abort(409)
+    except CodeTooLargeError:
+        abort(400)
+    except StageNotGradableError:
+        return _message(HTTPStatus.UNPROCESSABLE_ENTITY, NOT_GRADABLE)
+    except (RunnerUnavailableError, CheckScriptBrokenError):
+        logger.exception("grading failed for run %s", run_id)
+        return _message(HTTPStatus.SERVICE_UNAVAILABLE, UNAVAILABLE)
+    return jsonify(verdict=verdict.to_dict()), HTTPStatus.OK
