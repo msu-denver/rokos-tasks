@@ -69,7 +69,7 @@ The same contract fits non-game campaigns. For a vending machine, the input line
 ### 2.3 Incremental Stages & Checkpoint Rollback
 * Each campaign consists of **2 to 5 cumulative stages**, where each stage builds directly on the previous one (for example, Stage 1 renders a 20x20 grid and places a ball; Stage 2 adds paddles; Stage 3 adds velocity, wall bounces, and scoring).
 * **On Stage Pass:** The player's working Python code is saved as a verified **Checkpoint** in PostgreSQL, the stage timer resets, and Stage $N+1$ unlocks with the player's passing code pre-loaded in the editor.
-* **On Stage Fail or Timeout:** If the player runs out of time, hits a syntax/runtime error, breaks a stage rule, or exceeds the per-tick time limit, they lose **1 Life**. The stage restarts from the **last saved checkpoint code** so a broken edit never soft-locks the run.
+* **On Stage Fail or Timeout:** If the player runs out of time, hits a syntax/runtime error, breaks a stage rule, or exceeds the per-tick time limit, they lose **1 Life**. By default the stage timer resets and the editor goes back to the **last saved checkpoint code**, so a broken edit never soft-locks the run. This is a [LOW] criterion in US7, so the implementer may choose different behavior.
 * **Victory & Game Over:** Completing the final stage defeats the Overlord and posts the run to the global leaderboard. Dropping to **0 Lives** ends the campaign in defeat.
 
 ### 2.4 Submission Evaluation (the Overlord plays it; no LLM)
@@ -87,8 +87,6 @@ There is **no player-written explanation**, and **no LLM call during grading**. 
 **Failure feedback by tier:**
 * **Beginner–Medium:** the broken rule, the tick, the keys pressed, and the frame the program printed, plus any traceback.
 * **Hard–Impossible:** only the broken rule, plus the traceback if the program crashed.
-
-**(Proposed) Contest the Verdict (US16):** A button after a failed Submit that flags the check. On Beginner/Easy it refunds the life immediately with an in-character line. If several players fail or contest the same check, the campaign is automatically **quarantined** from the pool for team review.
 
 ### 2.5 Bonus Life
 * One-time per campaign, only if the player is below their starting lives.
@@ -149,10 +147,11 @@ AI-generated campaigns are **required story US11**. Hand-written seed campaigns 
 | Check script (sandbox) | Plays the player's program and reports the first broken rule | On Submit |
 
 ### 4.3 Pipeline Steps (per campaign)
-1. **Generate (1 LLM call):** The generator returns the **entire** campaign as JSON matching our schema: title, and for each stage its prompt, check script, reference program, and a broken program that gets the new feature subtly wrong (for Pong stage 3, a ball that passes through paddles).
-2. **Solve independently (1 LLM call per stage):** A separate solver call writes a program using **only the player-visible prompt** and its own previous-stage program, like a real player would.
-3. **Validate (our code):** run the checks in §4.4. Any failure → send the reason back to the generator once to fix it; if it still fails, discard the campaign.
-4. **Store (our code):** pass → save to the pool as `validated`. Fail → log the reason and generate another.
+1. **Plan (1 LLM call):** the generator picks the program and returns the campaign outline as JSON: title, the stage list, and each stage's prompt.
+2. **Build each stage (1 LLM call per stage):** given the outline and the previous stage, the generator writes that stage's check script, reference program, and a broken program that gets the new feature subtly wrong (for Pong stage 3, a ball that passes through paddles). A bad stage can be retried on its own.
+3. **Solve independently (1 LLM call per stage):** A separate solver call writes a program using **only the player-visible prompt** and its own previous-stage program, like a real player would.
+4. **Validate (our code):** run the checks in §4.4. Any failure → send the reason back to the generator once to fix it; if it still fails, discard the campaign.
+5. **Store (our code):** pass → save to the pool as `validated`. Fail → log the reason and generate another.
 
 After this, the campaign is **frozen**. Grading during play is only "run the check script against the program."
 
@@ -174,8 +173,8 @@ After this, the campaign is **frozen**. Grading during play is only "run the che
 Hand-written seed campaigns use the **same JSON schema**. Humans write the prompts, check scripts, reference programs, and broken programs (skipping steps 1–2), and they go through step 3 **in CI on every PR**. Pong is the first seed campaign. The seed library doubles as the data for the LLM `fake` mode ([§6](#6-llm-usage--budget)).
 
 ### 4.6 Pool Management
-* Each difficulty tier keeps a target number of `validated` campaigns; a background job (e.g. `make generate-campaigns`) refills a tier when it runs low.
-* Campaign statuses: `validated` → `quarantined` (flagged by contests / failure spikes) → `retired` or back to `validated` after team review.
+* **(Proposed) Automatic refill:** each difficulty tier keeps a target number of unplayed `validated` campaigns. When a tier runs low, a background job generates more, within the budget cap, so starting a run never waits on the LLM. `make generate-campaigns` does the same by hand (humans only).
+* Campaign statuses: `validated` → `retired` (removed by the team).
 
 ### 4.7 Campaign Schema (abridged example)
 
@@ -270,8 +269,6 @@ Summary only — the full environment, course-required repo layout, code standar
 ## 8. Open Questions
 
 * Final bonus-life trigger rule ([§2.5](#25-bonus-life)).
-* Whether "Contest the Verdict" ships ([§2.4](#24-submission-evaluation-the-overlord-plays-it-no-llm)).
 * Custom runner vs. Judge0 ([§5.2](#52-sandboxed-execution)).
-* On a failed Submit, keep the player's edits (with a "Restore checkpoint" button) instead of wiping to the checkpoint ([§2.3](#23-incremental-stages--checkpoint-rollback)); and whether the timer resets after a failure.
 * Public hosting is optional (grading runs via Docker); decide only if we want a live class demo, and keep it off the Azure credit.
 * Campaign pool size per tier and generation budget per campaign (tune from real ledger costs).

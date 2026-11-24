@@ -48,7 +48,7 @@ Every graded item, and where this plan covers it.
 | Docker deployment + frozen `requirements.txt` | 5 | [§5](#5-development-environment) |
 | ≥ 1 white-box + ≥ 1 black-box test (not auth) | 10 | [§7](#7-testing--coverage) |
 | **Bonus:** non-SQLite DB + 3-layer architecture + Compose with ≥ 2 containers | +5 | PostgreSQL; `presentation` / `business` / `data` layers; web + db + runner containers |
-| **Bonus:** each optional story implemented | +1 each (max 5) | US12–US16 |
+| **Bonus:** each optional story implemented | +1 each (max 5) | US12–US15 |
 | **Penalty:** registration or login not working | −10 each | US1, US2 are first in Sprint 1 |
 | **Penalty:** each required story not completed | −5 each (max −25) | Required set kept small and safe ([§11](#11-user-stories)) |
 | **Penalty:** no continuous development on `main` / `dev` | −5 each | Frequent merges + tagged releases ([§9](#9-git--github-workflow)) |
@@ -448,7 +448,7 @@ GitHub Projects with columns **To Do → In Progress → In Review → Done** (c
 **The canonical user stories live in [README.md → User Stories](../README.md#user-stories)**, in the course template format (US1–US17, "As a… I want… so that I can…", Given/When/Then acceptance criteria). They are kept only there so they can't drift out of sync.
 
 * **Required:** US1–US11. The game needs the Overlord to write campaigns (US11) and to play the player's program to grade it (US6). Every required story must ship, since each unfinished one costs −5.
-* **Optional:** US12–US16, worth +1 each (max 5). US17 (Playable Finale) was merged into US5, since every program is now a playable loop (#13).
+* **Optional:** US12–US15, worth +1 each (max 5). US16 (Contest a Verdict) was removed (#25). US17 (Playable Finale) was merged into US5, since every program is now a playable loop (#13).
 * **Developer tasks are not user stories.** Infrastructure work (runner container, grading harness, campaign schema and validator, seed campaigns, LLM client and budget cap) is tracked as GitHub Issues under the story it enables, for example `US6: Build sandbox runner container`, `US6: Write the Pong seed campaign and its check scripts`, `US11: Add LLM budget ledger and cap`. Environment setup is Sprint 0 work.
 
 ---
@@ -458,7 +458,7 @@ GitHub Projects with columns **To Do → In Progress → In Review → Done** (c
 **Canonical table: [README.md → Product Backlog](../README.md#product-backlog).** Summary of how it was built:
 
 * **User value** 1–3, **story points** Fibonacci, **priority score = user value ÷ story points** (course formula).
-* **Totals:** 58 required points, 15 optional points, 73 in the backlog.
+* **Totals:** 58 required points, 10 optional points, 68 in the backlog.
 * **Rank adjustments (allowed by the template):**
   * **Dependencies:** US6 ranks above higher-scoring stories because US7–US11 depend on it. US7 ranks above US8 and US10 because more stories depend on it.
   * **Team decision:** US11 ranks right after US7 despite a low score, because the game depends on generated campaigns (#13). US13 leads the optional stories.
@@ -485,7 +485,7 @@ The diagram lives in the README: [Dependency Diagram](../README.md#dependency-di
 * **Sprint 3 is 4 points over capacity.** The LLM owner starts US11 in Sprint 2 in `fake`/`replay` mode (prompts, schema, validator) so Sprint 3 only has wiring and live tuning left. If Sprint 3 still runs short, cut polish from US10 before cutting any story.
 * **Due 12/6.** Sprint 1 is short (11/18–11/22), and Thanksgiving (11/26) falls in Sprint 2.
 * **Sprint 3 feature freeze: Thursday 12/3.** 12/4–12/5 is for game balancing (timers, lives, campaign difficulty), bug fixes, final coverage report, README, and the final progress report. Tag `v3` by 12/5 and submit 12/6.
-* **Stretch order** if a sprint finishes early: US13, US12, US15, US14, US16.
+* **Stretch order** if a sprint finishes early: US13, US12, US15, US14.
 
 ### 13.1 Sprint Goals
 * **Sprint 1:** a player can register, log in, start a run, see a stage, and play their own program in the browser.
@@ -496,7 +496,7 @@ The diagram lives in the README: [Dependency Diagram](../README.md#dependency-di
 * **Sprint 1:** each story depends on the one before it, so they're ordered to finish in sequence.
 * **Sprint 2:** US7 depends on US6, which comes first.
 * **Sprint 3:** US11, US8 and US10 depend on US6, and US9 on US7 (both done in Sprint 2).
-* **Not planned (15 points):** US13, US12, US15, US14, US16, pulled in that order if a sprint finishes early.
+* **Not planned (10 points):** US13, US12, US15, US14, pulled in that order if a sprint finishes early.
 
 ---
 
@@ -547,7 +547,7 @@ PlantUML sources live in `uml/` (as in the course template) and are exported to 
 | D4 | Public hosting | **Optional** — grading runs via Docker. Only needed for a live class demo; keep it off the Azure credit |
 | D5 | Bonus-life rule (US13) | First-submit clear with ≥ 50% of the timer left |
 | D6 | Failure detail on Hard+ (US10) | The broken rule only, plus the traceback on a crash |
-| D7 | Player's code after a failed submit (US7) | Keep their edits + "Restore checkpoint" button (instead of auto-wiping). Also decide if the timer resets after a failure |
+| D7 | Player's code after a failed submit (US7) | **Decided (#25):** the stage timer resets and the code goes back to the last checkpoint. Rated [LOW] in US7, so the implementer may choose otherwise |
 | D8 | Player devices | Desktop browsers only |
 | D9 | Team capacity (§13) | Agree on a number and justify it in the README |
 | D10 | Rank US11 first among optional stories (‡ in §12) | Superseded by #13: US11 is required |
@@ -597,6 +597,6 @@ PlantUML sources live in `uml/` (as in the course template) and are exported to 
 | Sparse commit history on `main` or `dev` | Med | Med | Merge commits, mid-sprint `dev` → `main` merges, everyone commits from their own account |
 | Azure model access blocked or delayed | Med | High | US11 is required, so tell the instructor early. The game still runs on seed campaigns in `fake` mode |
 | Budget blowout | Low | High | `fake` default, app-level caps, TPM limits, only the LLM owner holds keys |
-| Wrong tests frustrate players | Med | High | Campaign validator in CI, failure feedback (US10), contest (US16) |
+| Wrong tests frustrate players | Med | High | Campaign validator in CI, failure feedback (US10) |
 | Sandbox abuse | Low | High | Runner hardening + hostile-code suite; no secrets or internet in the runner |
 | Inconsistent code from different AI tools | Med | Med | `AGENTS.md` hard rules, CI checks, required reviews |

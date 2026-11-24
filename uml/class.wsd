@@ -28,7 +28,6 @@ enum CampaignSource {
 
 enum CampaignStatus {
     VALIDATED
-    QUARANTINED
     RETIRED
 }
 

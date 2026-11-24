@@ -117,7 +117,7 @@ Source: [uml/use_case.wsd](uml/use_case.wsd). Grey use cases are optional storie
 
 ## User Stories
 
-**Required:** US1–US11. **Optional:** US12–US16. (US17 was merged into US5.)
+**Required:** US1–US11. **Optional:** US12–US15. (US16 was removed; US17 was merged into US5.)
 
 ### US1: Register
 
@@ -184,8 +184,9 @@ As a player, I want passing to unlock the next stage and failing to cost a life 
 **Acceptance Criteria**
 
 1. **Given that** I pass a stage, **when** the verdict appears, **then** my code is saved as a checkpoint, I earn stage points, and the next stage opens with my code preloaded.
-2. **Given that** I fail a submission, **when** the verdict appears, **then** I lose one life and can keep editing my code or restore my last checkpoint.
+2. **Given that** I fail a submission, **when** the verdict appears, **then** I lose one life.
 3. **Given that** I clear the final stage or reach 0 lives, **when** the verdict appears, **then** I see a victory or game-over screen with my score breakdown.
+4. **[LOW] Given that** I fail a submission, **when** the verdict appears, **then** the stage timer resets and my editor goes back to my last checkpoint code. The implementer may choose different behavior.
 
 ### US8: Stage Timer
 
@@ -221,7 +222,7 @@ As a player, I want new campaigns written by the AI Overlord so that I can keep 
 
 **Acceptance Criteria**
 
-1. **Given that** the LLM owner runs the generation command and budget remains, **when** it finishes, **then** campaigns that passed the validation pipeline are added to the pool, and rejected campaigns are logged with a reason.
+1. **Given that** a difficulty's pool of unplayed validated campaigns runs low and budget remains, **when** the background generation job runs, **then** campaigns that passed the validation pipeline are added to the pool before any player needs them, and rejected campaigns are logged with a reason.
 2. **Given that** a campaign was generated, **when** it is validated, **then** it is rejected unless, for every stage, the LLM's reference program **passes** the checks on repeated runs, an independently written solver program **passes** them, and both a deliberately broken program and the previous stage's reference **fail** them.
 3. **Given that** generated campaigns exist for a tier, **when** a player starts a run on that tier, **then** a generated campaign can be assigned like a hand-written one.
 4. **Given that** any live LLM call is made, **when** it completes, **then** its token usage and estimated cost are recorded, and further calls are refused once the budget cap is reached.
@@ -259,14 +260,9 @@ As a first-time player, I want a short unscored tutorial so that I can learn how
 
 1. **Given that** I am logging in for the first time, **when** I open the start screen, **then** I am offered a skippable one-stage tutorial with no timer and no lives at risk.
 
-### US16: Contest a Verdict (Optional)
+### US16: Contest a Verdict (Removed)
 
-As a player, I want to flag a check I think is wrong so that I can get bad checks fixed.
-
-**Acceptance Criteria**
-
-1. **Given that** I failed a submission, **when** I click Contest, **then** the check is flagged for review, and on Beginner and Easy my life is refunded with an in-character apology.
-2. **Given that** the same check in a campaign is contested repeatedly, **when** the contest threshold is reached, **then** the campaign is removed from the pool until the team reviews it.
+Removed by team decision (#25). Failure feedback (US10) and campaign validation (US11) handle wrong checks.
 
 ### US17: Playable Finale (Merged into US5)
 
@@ -286,16 +282,15 @@ User value: 3 = high, 2 = medium, 1 = low. Story points: Fibonacci. Priority sco
 | US6 | 6 † | 3 | 13 | 0.23 | US4 | Required |
 | US7 | 7 † | 3 | 5 | 0.60 | US6 | Required |
 | US11 | 8 ‡ | 3 | 13 | 0.23 | US3, US6 | Required |
-| US8 | 9 | 2 | 3 | 0.67 | US6 | Required |
-| US10 | 10 | 2 | 3 | 0.67 | US6 | Required |
+| US8 | 9 | 2 | 3 | 0.67 | US6, US7 | Required |
+| US10 | 10 | 2 | 3 | 0.67 | US6, US7, US8 | Required |
 | US9 | 11 † | 2 | 3 | 0.67 | US7 | Required |
-| US13 | 12 ‡ | 1 | 2 | 0.50 | US7 | Optional |
+| US13 | 12 ‡ | 1 | 2 | 0.50 | US7, US8 | Optional |
 | US12 | 13 | 2 | 3 | 0.67 | US10 | Optional |
 | US15 | 14 | 2 | 3 | 0.67 | US5, US6 | Optional |
 | US14 | 15 | 1 | 2 | 0.50 | US9 | Optional |
-| US16 | 16 | 1 | 5 | 0.20 | US10 | Optional |
 
-**Totals:** 58 required points, 15 optional points, 73 points in the backlog.
+**Totals:** 58 required points, 10 optional points, 68 points in the backlog.
 
 † Ranked earlier because of dependencies. ‡ Ranked by team decision. Reasons: [roadmap §12](docs/roadmap.md#12-product-backlog).
 
@@ -314,18 +309,17 @@ flowchart TD
     US5 --> US15["US15: How-to-Play Tutorial"]
     US6 --> US15
     US6 --> US11["US11: AI-Generated Campaigns"]
-    US6 --> US8["US8: Stage Timer"]
+    US7 --> US8["US8: Stage Timer"]
     US6 --> US7["US7: Lives, Checkpoints, Progression"]
-    US6 --> US10["US10: Overlord Reactions and Feedback"]
+    US8 --> US10["US10: Overlord Reactions and Feedback"]
 
-    US7 --> US13["US13: Bonus Life"]
+    US8 --> US13["US13: Bonus Life"]
     US7 --> US9["US9: Scores and Leaderboard"]
     US9 --> US14["US14: Profile Statistics"]
     US10 --> US12["US12: Animated Overlord"]
-    US10 --> US16["US16: Contest a Verdict"]
 
     classDef optional stroke-dasharray: 5 5
-    class US12,US13,US14,US15,US16 optional
+    class US12,US13,US14,US15 optional
 ```
 
 ## Sprint Planning
