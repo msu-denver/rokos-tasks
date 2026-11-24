@@ -8,6 +8,7 @@ Author(s): Tyler Black
 import json
 import threading
 from pathlib import Path
+from unittest import mock
 
 import pytest
 
@@ -15,6 +16,7 @@ from src.runner.limits import PRODUCTION_LIMITS, SandboxLimits
 from src.runner.slots import (
     RunnerBusyError,
     Slot,
+    SlotCompromisedError,
     SlotPool,
     production_slots,
 )
@@ -71,3 +73,15 @@ def test_pool_waits_for_a_slot_to_free_up(tmp_path: Path):
     with pool.acquire(timeout=2) as slot:
         assert slot.directory == tmp_path
     holder.join()
+
+
+def test_compromised_slot_is_never_lent_again(tmp_path: Path):
+    pool = SlotPool([Slot(None, tmp_path)])
+    with mock.patch("src.runner.slots.logger") as logger:
+        with pytest.raises(SlotCompromisedError):
+            with pool.acquire(timeout=0):
+                raise SlotCompromisedError("left over")
+    assert "retiring" in logger.error.call_args.args[0]
+    with pytest.raises(RunnerBusyError):
+        with pool.acquire(timeout=0):
+            pass

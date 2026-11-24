@@ -6,7 +6,9 @@ Description: Unit tests for ProgramSession in host mode: real player
 Author(s): Tyler Black
 """
 
+import os
 import subprocess
+import time
 from pathlib import Path
 from textwrap import dedent
 from unittest import mock
@@ -23,7 +25,7 @@ from src.runner.session import (
     RunTimeoutError,
     TickTimeoutError,
 )
-from src.runner.slots import Slot
+from src.runner.slots import Slot, SlotCompromisedError
 
 # macOS rejects RLIMIT_AS, so host-mode tests leave memory unset.
 HOST_LIMITS = SandboxLimits(memory_bytes=None, tick_seconds=2.0)
@@ -155,37 +157,95 @@ def test_launch_failure_is_a_launch_error(slot: Slot):
             session.start("print('too long')")
 
 
-def test_hung_launcher_is_a_launch_error(slot: Slot):
-    limits = SandboxLimits(memory_bytes=None, run_seconds=0.0)
-    with ProgramSession(slot, limits) as session:
-        with mock.patch(
-            "src.runner.session.selectors.DefaultSelector.select",
-            return_value=[],
+def test_launcher_that_never_reports_is_a_launch_error(slot: Slot):
+    session = ProgramSession(slot, HOST_LIMITS)
+    session._run_deadline = 0.0
+    read_end, write_end = os.pipe()
+    try:
+        with pytest.raises(LaunchError, match="did not start"):
+            session._wait_for_launch(read_end)
+    finally:
+        os.close(write_end)
+
+
+def test_launcher_that_never_reads_the_code_is_a_launch_error(slot: Slot):
+    with ProgramSession(slot, HOST_LIMITS) as session:
+        with mock.patch.object(
+            session, "_write", side_effect=RunTimeoutError("full")
         ):
-            with pytest.raises(LaunchError, match="did not start"):
+            with pytest.raises(LaunchError, match="did not take the code"):
                 session.start("print('hi')")
+
+
+def test_spawn_failure_is_a_launch_error(slot: Slot):
+    with ProgramSession(slot, HOST_LIMITS) as session:
+        with mock.patch(
+            "src.runner.session.subprocess.Popen",
+            side_effect=BlockingIOError("fork failed"),
+        ):
+            with pytest.raises(LaunchError, match="fork failed"):
+                session.start("print('hi')")
+
+
+def test_program_that_never_reads_input_cannot_stall_the_run(slot: Slot):
+    """A program printing frames on a timer fills stdin; the run still ends."""
+    limits = SandboxLimits(memory_bytes=None, run_seconds=2.0)
+    code = (
+        "import time\nwhile True:\n    print('---')\n    time.sleep(0.001)\n"
+    )
+    started = time.monotonic()
+    with pytest.raises((RunTimeoutError, TickTimeoutError)):
+        play(slot, code, ["x" * 64] * 2000, limits)
+    assert time.monotonic() - started < 4
 
 
 def test_close_before_start_does_nothing(slot: Slot):
     ProgramSession(slot, HOST_LIMITS).close()
 
 
-def test_reap_in_slot_mode_uses_the_launcher(tmp_path: Path):
+def reap_with(tmp_path: Path, **run_behavior: object) -> mock.Mock:
     session = ProgramSession(Slot(10001, tmp_path), HOST_LIMITS)
-    session._process = mock.Mock(pid=123)
-    failed = subprocess.CompletedProcess([], 1, b"", b"denied")
     with mock.patch(
-        "src.runner.session.subprocess.run", return_value=failed
+        "src.runner.session.subprocess.run", **run_behavior
     ) as run:
-        session._reap()
+        session._reap(mock.Mock(pid=123))
+    return run
+
+
+def test_reap_in_slot_mode_uses_the_launcher(tmp_path: Path):
+    done = subprocess.CompletedProcess([], 0, b"", b"")
+    run = reap_with(tmp_path, return_value=done)
     assert run.call_args.args[0][-3:] == ["reap", "10001", str(tmp_path)]
 
 
-def test_survivor_after_reap_is_logged(slot: Slot):
+def test_failed_reap_compromises_the_slot(tmp_path: Path):
+    failed = subprocess.CompletedProcess([], 1, b"", b"denied")
+    with pytest.raises(SlotCompromisedError, match="denied"):
+        reap_with(tmp_path, return_value=failed)
+
+
+def test_hung_reaper_compromises_the_slot(tmp_path: Path):
+    with pytest.raises(SlotCompromisedError):
+        reap_with(tmp_path, side_effect=subprocess.TimeoutExpired("r", 5))
+
+
+def test_uncleanable_folder_compromises_the_slot(slot: Slot):
+    session = ProgramSession(slot, HOST_LIMITS)
+    with (
+        mock.patch(
+            "src.runner.session.clear_directory",
+            side_effect=PermissionError("locked"),
+        ),
+        pytest.raises(SlotCompromisedError, match="locked"),
+    ):
+        session._reap(mock.Mock(pid=999999999))
+
+
+def test_survivor_after_reap_compromises_the_slot(slot: Slot):
     session = ProgramSession(slot, HOST_LIMITS)
     process = mock.Mock(pid=999999999)
     process.wait.side_effect = subprocess.TimeoutExpired("x", 1)
     session._process = process
-    with mock.patch("src.runner.session.logger") as logger:
+    with pytest.raises(SlotCompromisedError, match="survived reaping"):
         session.close()
-    assert "survived reaping" in logger.error.call_args.args[0]
+    process.stdout.close.assert_called_once()

@@ -19,13 +19,14 @@ import pytest
 from src.runner import server as runner_server
 from src.runner.limits import SandboxLimits
 from src.runner.service import (
+    MAX_INPUT_CHARS,
     MAX_INPUTS,
     RunnerService,
     RunRequestError,
     parse_run_request,
 )
 from src.runner.session import LaunchError
-from src.runner.slots import Slot, SlotPool
+from src.runner.slots import Slot, SlotCompromisedError, SlotPool
 
 HOST_LIMITS = SandboxLimits(memory_bytes=None, tick_seconds=2.0)
 ECHO = "while True:\n    line = input()\n    print(line)\n    print('---')\n"
@@ -47,7 +48,7 @@ def service(tmp_path: Path) -> RunnerService:
         ({"code": "", "inputs": [1]}, "one line"),
         ({"code": "", "inputs": ["a\nb"]}, "one line"),
         ({"code": "", "inputs": ["a\rb"]}, "one line"),
-        ({"code": "", "inputs": ["x" * 257]}, "one line"),
+        ({"code": "", "inputs": ["x" * 65]}, "one line"),
     ],
 )
 def test_bad_requests_are_rejected(payload: object, message: str):
@@ -99,7 +100,17 @@ def test_launch_failure_is_500_not_the_players_fault(service):
         status, body = service.run({"code": "", "inputs": [""]})
     assert status == HTTPStatus.INTERNAL_SERVER_ERROR
     assert body == {"status": "runner_error"}
-    assert "failed to launch" in logger.exception.call_args.args[0]
+    assert "sandbox failed" in logger.exception.call_args.args[0]
+
+
+def test_compromised_slot_is_500(service: RunnerService):
+    with mock.patch(
+        "src.runner.service.ProgramSession.close",
+        side_effect=SlotCompromisedError("left over"),
+    ):
+        status, body = service.run({"code": "", "inputs": []})
+    assert status == HTTPStatus.INTERNAL_SERVER_ERROR
+    assert body == {"status": "runner_error"}
 
 
 @pytest.fixture
@@ -154,6 +165,15 @@ def test_body_size_is_capped(http_server: int):
     assert status == 413
 
 
+def test_unexpected_error_still_gets_json(http_server: int):
+    with (
+        mock.patch.object(RunnerService, "run", side_effect=RuntimeError),
+        mock.patch.object(runner_server, "logger"),
+    ):
+        status, body = request(http_server, "POST", "/run", b"{}")
+    assert (status, body) == (500, {"status": "runner_error"})
+
+
 def test_missing_length_is_411(http_server: int):
     connection = http.client.HTTPConnection("127.0.0.1", http_server)
     connection.putrequest("POST", "/run")
@@ -181,3 +201,13 @@ def test_main_serves_with_production_settings():
     address, _service = server_class.call_args.args
     assert address == ("0.0.0.0", 9000)
     server_class.return_value.serve_forever.assert_called_once()
+
+
+def test_largest_valid_request_fits_the_body_cap():
+    worst_code = "\x01" * (64 * 1024)  # JSON-escapes to six bytes each
+    largest = {
+        "code": worst_code,
+        "inputs": ["x" * MAX_INPUT_CHARS] * MAX_INPUTS,
+    }
+    parse_run_request(largest, SandboxLimits())
+    assert len(json.dumps(largest).encode()) <= runner_server.MAX_BODY_BYTES

@@ -6,6 +6,7 @@ Description: Sandbox slots. Each slot is one unprivileged user with its
 Author(s): Tyler Black
 """
 
+import logging
 import queue
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -16,9 +17,19 @@ SLOT_COUNT = 4
 FIRST_SLOT_UID = 10001
 SANDBOX_ROOT = Path("/sandbox")
 
+logger = logging.getLogger(__name__)
+
 
 class RunnerBusyError(Exception):
     """Raised when every slot stays busy for the whole wait."""
+
+
+class SlotCompromisedError(Exception):
+    """Raised when a slot couldn't be cleaned after a run.
+
+    Processes from the last run might still be alive under the slot's
+    user, so the pool never lends that slot out again.
+    """
 
 
 @dataclass(frozen=True)
@@ -57,15 +68,23 @@ class SlotPool:
 
         Raises:
             RunnerBusyError: If no slot frees up in time.
+            SlotCompromisedError: Passed through from the block. The slot
+                is retired instead of returned.
         """
         try:
             slot = self._free.get(timeout=timeout)
         except queue.Empty as error:
             raise RunnerBusyError("every sandbox slot is busy") from error
+        retired = False
         try:
             yield slot
+        except SlotCompromisedError:
+            retired = True
+            logger.error("retiring %s: it could not be cleaned", slot)
+            raise
         finally:
-            self._free.put(slot)
+            if not retired:
+                self._free.put(slot)
 
 
 def production_slots() -> list[Slot]:

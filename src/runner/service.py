@@ -12,13 +12,19 @@ from http import HTTPStatus
 
 from src.runner.limits import SandboxLimits
 from src.runner.session import LaunchError, ProgramError, ProgramSession
-from src.runner.slots import RunnerBusyError, SlotPool
+from src.runner.slots import (
+    RunnerBusyError,
+    SlotCompromisedError,
+    SlotPool,
+)
 
 MAX_INPUTS = 2000
-MAX_INPUT_CHARS = 256
+MAX_INPUT_CHARS = 64
 SLOT_WAIT_SECONDS = 15.0
 COMPLETED = "completed"
 STATUSES_WITH_EXIT_CODE = ("crashed", "exited")
+# Never the player's fault, so callers must never cost a life for it.
+RUNNER_ERROR = (HTTPStatus.INTERNAL_SERVER_ERROR, {"status": "runner_error"})
 
 logger = logging.getLogger(__name__)
 
@@ -104,9 +110,9 @@ class RunnerService:
                 return HTTPStatus.OK, self._play(session, request)
         except RunnerBusyError as error:
             return HTTPStatus.SERVICE_UNAVAILABLE, {"error": str(error)}
-        except LaunchError:
-            logger.exception("the sandbox failed to launch a program")
-            return HTTPStatus.INTERNAL_SERVER_ERROR, {"status": "runner_error"}
+        except (LaunchError, SlotCompromisedError):
+            logger.exception("the sandbox failed")
+            return RUNNER_ERROR
 
     def _play(self, session: ProgramSession, request: RunRequest) -> dict:
         """Run every input through ``session`` and describe the result."""

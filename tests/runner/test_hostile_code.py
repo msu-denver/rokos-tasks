@@ -114,6 +114,43 @@ def test_writes_outside_own_folder_fail(run_in_sandbox: RunInSandbox):
     assert run_in_sandbox(code)["frames"] == ["NONE"]
 
 
+def test_other_slots_are_unreadable(run_in_sandbox: RunInSandbox):
+    code = dedent(
+        """
+        import os
+        input()
+        seen = []
+        for slot in range(4):
+            folder = f"/sandbox/{slot}"
+            if folder == os.getcwd():
+                continue
+            try:
+                seen.append(os.listdir(folder))
+            except OSError:
+                pass
+            try:
+                open(f"{folder}/main.py").read()
+                seen.append(folder)
+            except OSError:
+                pass
+        print(seen or "NONE")
+        print("---")
+        """
+    )
+    assert run_in_sandbox(code)["frames"] == ["NONE"]
+
+
+def test_program_that_never_reads_input_is_stopped(
+    run_in_sandbox: RunInSandbox,
+):
+    code = (
+        "import time\nwhile True:\n    print('---')\n    time.sleep(0.001)\n"
+    )
+    result = run_in_sandbox(code, ["x" * 64] * 2000)
+    assert result["status"] in ("run_timeout", "tick_timeout")
+    assert run_in_sandbox(COUNT_SANDBOX_PROCESSES)["frames"] == ["0"]
+
+
 def test_slot_folder_is_empty_for_next_run(run_in_sandbox: RunInSandbox):
     leave_file = 'input()\nopen("left.txt", "w").write("x")\nprint("---")\n'
     list_files = 'import os\ninput()\nprint(os.listdir("."))\nprint("---")\n'

@@ -13,12 +13,14 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from src.runner.limits import PRODUCTION_LIMITS
-from src.runner.service import RunnerService
+from src.runner.service import RUNNER_ERROR, RunnerService
 from src.runner.slots import SlotPool, production_slots
 
 HOST = "0.0.0.0"
 PORT = 9000
-MAX_BODY_BYTES = 256 * 1024
+# Fits the largest valid request: 64 KB of code (JSON-escaped) plus
+# MAX_INPUTS lines of MAX_INPUT_CHARS.
+MAX_BODY_BYTES = 1024 * 1024
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +59,13 @@ class RunnerRequestHandler(BaseHTTPRequestHandler):
         except (json.JSONDecodeError, UnicodeDecodeError):
             self._send_json(HTTPStatus.BAD_REQUEST, {"error": "bad JSON"})
             return
-        status, body = self.server.service.run(payload)
+        try:
+            status, body = self.server.service.run(payload)
+        except Exception:
+            # The HTTP boundary: anything unexpected still gets the one
+            # error shape RunnerClient handles, never a dropped connection.
+            logger.exception("unexpected error while running a program")
+            status, body = RUNNER_ERROR
         self._send_json(status, body)
 
     def _send_json(self, status: HTTPStatus, body: dict) -> None:

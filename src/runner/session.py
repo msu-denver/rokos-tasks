@@ -19,7 +19,7 @@ from types import TracebackType
 
 from src.runner.launcher import clear_directory
 from src.runner.limits import SandboxLimits
-from src.runner.slots import Slot
+from src.runner.slots import Slot, SlotCompromisedError
 
 LAUNCHER_PATH = Path(__file__).with_name("launcher.py")
 FRAME_END = b"---\n"
@@ -88,6 +88,7 @@ class ProgramSession:
         self._limits = limits
         self._process: subprocess.Popen[bytes] | None = None
         self._selector = selectors.DefaultSelector()
+        self._stdin_selector = selectors.DefaultSelector()
         self._stdout = b""
         self._stderr = b""
         self._stdout_open = False
@@ -119,8 +120,37 @@ class ProgramSession:
             LaunchError: If the sandbox couldn't start the program.
         """
         status_read, status_write = os.pipe()
+        try:
+            self._process = self._spawn_launcher(status_write)
+        except OSError as error:
+            os.close(status_read)
+            raise LaunchError(
+                f"could not start the launcher: {error}"
+            ) from error
+        finally:
+            os.close(status_write)
+        self._run_deadline = time.monotonic() + self._limits.run_seconds
+        os.set_blocking(self._process.stdin.fileno(), False)
+        self._stdin_selector.register(
+            self._process.stdin, selectors.EVENT_WRITE
+        )
+        source = code.encode()
+        try:
+            self._write(
+                f"{len(source)}\n".encode() + source, self._run_deadline
+            )
+        except ProgramError as error:
+            os.close(status_read)
+            raise LaunchError("the launcher did not take the code") from error
+        self._wait_for_launch(status_read)
+        self._selector.register(self._process.stdout, selectors.EVENT_READ)
+        self._selector.register(self._process.stderr, selectors.EVENT_READ)
+        self._stdout_open = True
+
+    def _spawn_launcher(self, status_write: int) -> subprocess.Popen[bytes]:
+        """Start the launcher in run mode, in its own session."""
         uid = "-" if self._slot.uid is None else str(self._slot.uid)
-        self._process = subprocess.Popen(
+        return subprocess.Popen(
             [
                 sys.executable,
                 "-I",
@@ -138,14 +168,6 @@ class ProgramSession:
             start_new_session=True,
             env={},
         )
-        os.close(status_write)
-        self._run_deadline = time.monotonic() + self._limits.run_seconds
-        source = code.encode()
-        self._write(f"{len(source)}\n".encode() + source)
-        self._wait_for_launch(status_read)
-        self._selector.register(self._process.stdout, selectors.EVENT_READ)
-        self._selector.register(self._process.stderr, selectors.EVENT_READ)
-        self._stdout_open = True
 
     def _wait_for_launch(self, status_read: int) -> None:
         """Wait until exec closes the status pipe, or report why it didn't.
@@ -178,9 +200,9 @@ class ProgramSession:
             ProgramError: If the program crashed, exited, timed out, or
                 printed too much.
         """
-        self._write(line.encode() + b"\n")
         tick_deadline = time.monotonic() + self._limits.tick_seconds
         deadline = min(tick_deadline, self._run_deadline)
+        self._write(line.encode() + b"\n", deadline)
         while True:
             frame = self._pop_frame()
             if frame is not None:
@@ -189,23 +211,44 @@ class ProgramSession:
                 raise self._ended_error(deadline)
             remaining = deadline - time.monotonic()
             if remaining <= 0:
-                if deadline == self._run_deadline:
-                    raise RunTimeoutError("the run took too long")
-                raise TickTimeoutError("the tick took too long")
+                raise self._timeout_error(deadline)
             self._pump(remaining)
+
+    def _timeout_error(self, deadline: float) -> ProgramError:
+        """Return the timeout matching whichever deadline just passed."""
+        if deadline == self._run_deadline:
+            return RunTimeoutError("the run took too long")
+        return TickTimeoutError("the tick took too long")
 
     def _remaining(self) -> float:
         """Return the seconds left in the run, never below zero."""
         return max(0.0, self._run_deadline - time.monotonic())
 
-    def _write(self, data: bytes) -> None:
-        """Write to the program's stdin, ignoring a program that quit."""
-        try:
-            self._process.stdin.write(data)
-            self._process.stdin.flush()
-        except BrokenPipeError:
-            # The read side reports how the program ended.
-            pass
+    def _write(self, data: bytes, deadline: float) -> None:
+        """Write all of ``data`` to stdin before ``deadline``.
+
+        Stdin is non-blocking, so a program that never reads its input
+        can't stall the runner past the deadline. A program that already
+        quit is ignored here; the read side reports how it ended.
+
+        Raises:
+            TickTimeoutError: If the pipe stays full past a tick deadline.
+            RunTimeoutError: If it stays full past the run deadline.
+        """
+        pending = memoryview(data)
+        fd = self._process.stdin.fileno()
+        while pending:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise self._timeout_error(deadline)
+            if not self._stdin_selector.select(remaining):
+                continue
+            try:
+                pending = pending[os.write(fd, pending) :]
+            except BlockingIOError:
+                continue
+            except BrokenPipeError:
+                return
 
     def _pop_frame(self) -> str | None:
         """Remove and return the next whole frame, if one has arrived."""
@@ -264,47 +307,67 @@ class ProgramSession:
                 return
 
     def close(self) -> None:
-        """Kill everything the program started and empty the slot."""
-        if self._process is None:
-            return
-        self._reap()
-        try:
-            self.exit_code = self._process.wait(timeout=EXIT_WAIT_SECONDS)
-        except subprocess.TimeoutExpired:
-            logger.error("sandbox process %s survived reaping", self._slot)
-        self._selector.close()
-        for stream in (
-            self._process.stdin,
-            self._process.stdout,
-            self._process.stderr,
-        ):
-            stream.close()
-        self._process = None
+        """Kill everything the program started and empty the slot.
 
-    def _reap(self) -> None:
-        """Kill the slot's processes, then clear its folder."""
+        Raises:
+            SlotCompromisedError: If the slot couldn't be cleaned, so the
+                pool must not lend it out again.
+        """
+        process, self._process = self._process, None
+        try:
+            if process is not None:
+                self._reap(process)
+                self._collect(process)
+        finally:
+            self._selector.close()
+            self._stdin_selector.close()
+            if process is not None:
+                for stream in (process.stdin, process.stdout, process.stderr):
+                    stream.close()
+
+    def _collect(self, process: subprocess.Popen[bytes]) -> None:
+        """Wait for the killed program and record its exit code."""
+        try:
+            self.exit_code = process.wait(timeout=EXIT_WAIT_SECONDS)
+        except subprocess.TimeoutExpired as error:
+            raise SlotCompromisedError(
+                f"{self._slot}: the program survived reaping"
+            ) from error
+
+    def _reap(self, process: subprocess.Popen[bytes]) -> None:
+        """Kill the slot's processes, then clear its folder.
+
+        Raises:
+            SlotCompromisedError: If killing or clearing failed.
+        """
         if self._slot.uid is None:
             try:
-                os.killpg(self._process.pid, signal.SIGKILL)
+                os.killpg(process.pid, signal.SIGKILL)
             except ProcessLookupError:
                 pass
-            clear_directory(self._slot.directory)
+            try:
+                clear_directory(self._slot.directory)
+            except OSError as error:
+                raise SlotCompromisedError(str(error)) from error
             return
-        result = subprocess.run(
-            [
-                sys.executable,
-                "-I",
-                str(LAUNCHER_PATH),
-                "reap",
-                str(self._slot.uid),
-                str(self._slot.directory),
-            ],
-            capture_output=True,
-            timeout=REAP_TIMEOUT_SECONDS,
-            env={},
-            check=False,
-        )
+        try:
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-I",
+                    str(LAUNCHER_PATH),
+                    "reap",
+                    str(self._slot.uid),
+                    str(self._slot.directory),
+                ],
+                capture_output=True,
+                timeout=REAP_TIMEOUT_SECONDS,
+                env={},
+                check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired) as error:
+            raise SlotCompromisedError(f"{self._slot}: {error}") from error
         if result.returncode != 0:
-            logger.error(
-                "reaping %s failed: %s", self._slot, result.stderr.decode()
+            raise SlotCompromisedError(
+                f"{self._slot}: reaping failed: {result.stderr.decode()}"
             )
