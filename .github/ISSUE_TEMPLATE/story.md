@@ -38,7 +38,10 @@ As a <role>, I want <goal> so that I can <benefit>.
 | --- | --- | --- |
 
 ## Tasks
-- [ ] #
+<!-- One issue per story: list the work here, never as separate task issues. -->
+- [ ] **<task>** · Depends on: <other task, #<n>, or none>
+  - **What:** 
+  - **[HIGH]** 
 
 ## Open Questions
 - None.

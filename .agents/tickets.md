@@ -26,7 +26,7 @@ label**.
 | Type | For |
 | :--- | :--- |
 | `story` | A user story (`US#`) |
-| `task` | Work under a story, or process work (`Chore: …`) |
+| `task` | Process work with no story (`Chore: …`, `Scrum: …`) |
 | `tech-debt` | A deferred MED/LOW/NIT review finding |
 | `bug` | Something that worked and is now broken (task shape, title `Fix: …`) |
 
@@ -93,7 +93,10 @@ A guide, not a requirement, unless an AC says otherwise.
 | --- | --- | --- |
 
 ## Tasks
-- [ ] #<n> US#: <task title>
+- [ ] **<task>** · Depends on: <other task, #<n>, or none>
+  - **What:** 1–2 sentences.
+  - **[HIGH]** <checkable statement>
+  - **Notes:** files or gotchas. **Tests:** which tests.
 
 ## Open Questions
 - <question> (who answers)
@@ -104,12 +107,16 @@ A guide, not a requirement, unless an AC says otherwise.
 **Title:** `US#: <verb phrase>` (for example,
 `US1: Add the data layer`). Process work with no story uses
 `Scrum: …` or `Chore: …`, and a bug uses `Fix: …` (label `bug`).
-**Labels:** `task` + a priority. Make it a **sub-issue** of its story. **Tasks have no story points of their own.** Points live on stories, so
-the burndown doesn't count anything twice. The task's first line shows
-its sprint, its story's points, and what it depends on.
+**One issue per story.** Never split a story into separate task
+issues. The story's work goes in its **Tasks** checklist instead. Use a
+separate task issue only for process work with no story (`Chore: …`,
+`Scrum: …`) or a bug (`Fix: …`).
+
+**Labels:** `task` + a priority. **Tasks have no story points.** The
+task's first line shows its sprint and what it depends on.
 
 ```markdown
-**Sprint N** · **Story** #<n> (US#, <points> points for the whole story) · **Depends on** #<n> or —
+**Sprint N** · **Story** none · **Depends on** #<n> or —
 
 ## What
 1–3 sentences.
@@ -189,6 +196,6 @@ issue is closed after its PR merges into `dev`
 gh issue create --title "US1: Register" --label story --label P1 --body-file scrum/sprint_1/issues/US1.md
 ```
 
-Add tasks as sub-issues of their story (in the issue's
-**Sub-issues → Add existing issue** panel). Task status lives in the
-issues themselves. There is no Project board.
+Don't create task issues or sub-issues for a story's work: it stays
+in the story's Tasks checklist. Task status lives in the issues
+themselves. There is no Project board.
