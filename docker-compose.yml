@@ -1,5 +1,7 @@
 # File: docker-compose.yml
-# Description: Multi-container setup for local development (web + db).
+# Description: Multi-container setup (web + db + runner). The runner sits
+#     alone on an internal-only network that the web app joins; it has no
+#     internet, no secrets, and no published ports.
 # Author(s): Tyler Black
 
 services:
@@ -28,10 +30,55 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      runner:
+        condition: service_healthy
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://rokos:rokos@db:5432/rokos_tasks}
       SECRET_KEY: ${SECRET_KEY:-change-me-locally}
       LLM_MODE: ${LLM_MODE:-fake}
+      RUNNER_URL: ${RUNNER_URL:-http://runner:9000}
+    networks:
+      - default
+      - sandbox
+
+  # Runs untrusted player code. Every setting here is part of the sandbox;
+  # read src/runner/AGENTS.md before changing any of them.
+  runner:
+    build:
+      context: .
+      dockerfile: Dockerfile.runner
+    # No environment block on purpose: the runner gets no secrets.
+    read_only: true
+    init: true
+    cap_drop:
+      - ALL
+    # Only so the server can switch each run to its slot user. Player
+    # programs run as those users and end up with no capabilities.
+    cap_add:
+      - SETUID
+      - SETGID
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 1g
+    cpus: 2
+    tmpfs:
+      - /sandbox/0:uid=10001,gid=10001,mode=0700,size=16m,noexec,nosuid,nodev
+      - /sandbox/1:uid=10002,gid=10002,mode=0700,size=16m,noexec,nosuid,nodev
+      - /sandbox/2:uid=10003,gid=10003,mode=0700,size=16m,noexec,nosuid,nodev
+      - /sandbox/3:uid=10004,gid=10004,mode=0700,size=16m,noexec,nosuid,nodev
+    networks:
+      - sandbox
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9000/health', timeout=2)"]
+      interval: 3s
+      timeout: 3s
+      retries: 5
+      start_period: 3s
+
+networks:
+  sandbox:
+    internal: true
 
 volumes:
   postgres_data:
