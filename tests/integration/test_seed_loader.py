@@ -77,15 +77,15 @@ class TestSeedLoader:
 
         initial = loader.load_file(temp_file)
         initial_id = initial.id
-        assert initial.title == "Tick Ball"
+        assert initial.title == "Ball Board"
 
         # Edit title and re-save
-        data["title"] = "Updated Tick Ball Title"
+        data["title"] = "Updated Ball Board Title"
         temp_file.write_text(json.dumps(data), encoding="utf-8")
 
         updated = loader.load_file(temp_file)
         assert updated.id == initial_id
-        assert updated.title == "Updated Tick Ball Title"
+        assert updated.title == "Updated Ball Board Title"
 
     def test_reload_unchanged_file_performs_no_update(
         self, db_session: Session
@@ -261,12 +261,12 @@ class TestCheckScriptStorage:
         repo = CampaignRepository(db_session)
         loader = SeedLoader(repo)
         data = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
-        first = loader.load_campaign_data(data, slug="beginner/tick")
+        first = loader.load_campaign_data(data, slug="beginner/ball")
         stage_id = first.stages[0].id
-        data["stages"][0]["check_script"] += "    game.tick('go')\n"
-        second = loader.load_campaign_data(data, slug="beginner/tick")
+        data["stages"][0]["check_script"] += "    game.screen()\n"
+        second = loader.load_campaign_data(data, slug="beginner/ball")
         assert second.stages[0].id == stage_id
-        assert second.stages[0].check_script.endswith("game.tick('go')\n")
+        assert second.stages[0].check_script.endswith("game.screen()\n")
 
 
 class TestUntrustedCampaigns:

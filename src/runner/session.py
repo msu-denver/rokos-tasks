@@ -1,9 +1,11 @@
 """
 File: session.py
 Description: One sandboxed run of a player program. Starts the program
-    through the launcher in a borrowed slot, sends one input line per
-    tick, reads back one frame (ending with a line of only `---`) under
-    the tick and run deadlines, and kills everything when the run ends.
+    through the launcher in a borrowed slot and plays it like a person at
+    a terminal: everything it prints until it asks for input (or exits)
+    is one screen, and each input line is sent only when it asks. Enforces
+    the turn and run deadlines and the output cap, and kills everything
+    when the run ends.
 Author(s): Richard Hall, Tyler Black
 """
 
@@ -28,9 +30,11 @@ from src.runner.slots import (
 )
 
 LAUNCHER_PATH = Path(__file__).with_name("launcher.py")
-FRAME_END = b"---\n"
 READ_CHUNK_BYTES = 65536
 EXIT_WAIT_SECONDS = 1.0
+# How often to check whether the program exited while a child it left
+# behind still holds its stdout open.
+EXIT_POLL_SECONDS = 0.05
 REAP_TIMEOUT_SECONDS = 5.0
 
 logger = logging.getLogger(__name__)
@@ -45,7 +49,7 @@ class LaunchError(SandboxError):
 
 
 class ProgramError(SandboxError):
-    """The player's program broke the tick contract or a limit."""
+    """The player's program crashed, ended too soon, or broke a limit."""
 
     status = "failed"
 
@@ -57,15 +61,15 @@ class ProgramCrashedError(ProgramError):
 
 
 class ProgramExitedError(ProgramError):
-    """The program exited cleanly before the run was over."""
+    """The program had already exited when it was sent more input."""
 
     status = "exited"
 
 
-class TickTimeoutError(ProgramError):
-    """The program took longer than one tick to print its frame."""
+class TurnTimeoutError(ProgramError):
+    """The program took too long to ask for input or exit."""
 
-    status = "tick_timeout"
+    status = "turn_timeout"
 
 
 class RunTimeoutError(ProgramError):
@@ -81,11 +85,13 @@ class OutputLimitError(ProgramError):
 
 
 class ProgramSession:
-    """Runs one player program in one slot, one tick at a time.
+    """Runs one player program in one slot, one screen at a time.
 
-    Use as a context manager: ``start`` the program, call ``tick`` for
-    each input line, and leaving the block kills the program and empties
-    the slot. ``stderr`` and ``exit_code`` are filled in by then.
+    Use as a context manager: ``start`` the program, read its
+    ``first_screen``, then ``send`` each input line, which returns the
+    next screen. ``finished`` turns true once the program has exited
+    cleanly. Leaving the block kills the program and empties the slot;
+    ``stderr`` and ``exit_code`` are filled in by then.
     """
 
     def __init__(self, slot: Slot, limits: SandboxLimits) -> None:
@@ -95,10 +101,14 @@ class ProgramSession:
         self._process: subprocess.Popen[bytes] | None = None
         self._selector = selectors.DefaultSelector()
         self._stdin_selector = selectors.DefaultSelector()
+        self._waiting_read: int | None = None
         self._stdout = b""
         self._stderr = b""
         self._stdout_open = False
+        self._asked_for_input = False
         self._run_deadline = 0.0
+        self._turn_deadline = 0.0
+        self.finished = False
         self.exit_code: int | None = None
 
     @property
@@ -125,9 +135,18 @@ class ProgramSession:
         Raises:
             LaunchError: If the sandbox couldn't start the program.
         """
-        status_read, status_write = os.pipe()
         try:
-            self._process = self._spawn_launcher(status_write)
+            self._waiting_read, waiting_write = os.pipe()
+        except OSError as error:
+            raise LaunchError(f"could not make a pipe: {error}") from error
+        # From here on, ``close`` closes the waiting pipe's read end.
+        try:
+            status_read, status_write = os.pipe()
+        except OSError as error:
+            os.close(waiting_write)
+            raise LaunchError(f"could not make a pipe: {error}") from error
+        try:
+            self._process = self._spawn_launcher(status_write, waiting_write)
         except OSError as error:
             os.close(status_read)
             raise LaunchError(
@@ -135,6 +154,29 @@ class ProgramSession:
             ) from error
         finally:
             os.close(status_write)
+            os.close(waiting_write)
+        try:
+            self._send_code(code)
+        except BaseException:
+            os.close(status_read)
+            raise
+        self._wait_for_launch(status_read)
+        # Non-blocking, so a spurious wakeup can never stall a read.
+        for stream in (self._process.stdout, self._process.stderr):
+            os.set_blocking(stream.fileno(), False)
+            self._selector.register(stream, selectors.EVENT_READ)
+        os.set_blocking(self._waiting_read, False)
+        self._selector.register(self._waiting_read, selectors.EVENT_READ)
+        self._stdout_open = True
+        self._turn_deadline = self._deadline_from_now()
+
+    def _send_code(self, code: str) -> None:
+        """Send the launcher the code's length line, then the code.
+
+        Raises:
+            LaunchError: If the launcher didn't take it before the run
+                deadline.
+        """
         self._run_deadline = time.monotonic() + self._limits.run_seconds
         os.set_blocking(self._process.stdin.fileno(), False)
         self._stdin_selector.register(
@@ -146,14 +188,11 @@ class ProgramSession:
                 f"{len(source)}\n".encode() + source, self._run_deadline
             )
         except ProgramError as error:
-            os.close(status_read)
             raise LaunchError("the launcher did not take the code") from error
-        self._wait_for_launch(status_read)
-        self._selector.register(self._process.stdout, selectors.EVENT_READ)
-        self._selector.register(self._process.stderr, selectors.EVENT_READ)
-        self._stdout_open = True
 
-    def _spawn_launcher(self, status_write: int) -> subprocess.Popen[bytes]:
+    def _spawn_launcher(
+        self, status_write: int, waiting_write: int
+    ) -> subprocess.Popen[bytes]:
         """Start the launcher in run mode, in its own session."""
         uid = "-" if self._slot.uid is None else str(self._slot.uid)
         return subprocess.Popen(
@@ -166,11 +205,12 @@ class ProgramSession:
                 str(self._slot.directory),
                 self._limits.to_json(),
                 str(status_write),
+                str(waiting_write),
             ],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            pass_fds=(status_write,),
+            pass_fds=(status_write, waiting_write),
             start_new_session=True,
             env={},
         )
@@ -193,38 +233,79 @@ class ProgramSession:
         if message:
             raise LaunchError(message.decode("utf-8", "replace"))
 
-    def tick(self, line: str) -> str:
-        """Send one input line and return the frame the program prints.
-
-        Args:
-            line: The tick's input, without a newline.
-
-        Returns:
-            The frame text, without the closing ``---`` line.
+    def first_screen(self) -> str:
+        """Return what the program prints before it first asks for input.
 
         Raises:
-            ProgramError: If the program crashed, exited, timed out, or
-                printed too much.
+            ProgramError: If the program crashed, timed out, or printed
+                too much.
         """
-        tick_deadline = time.monotonic() + self._limits.tick_seconds
-        deadline = min(tick_deadline, self._run_deadline)
+        return self._next_screen(self._turn_deadline)
+
+    def send(self, line: str) -> str:
+        """Type ``line`` as the program's input and return the next screen.
+
+        Args:
+            line: One input line, without a newline.
+
+        Returns:
+            Everything the program printed until it asked for input
+            again or exited, without its final newline.
+
+        Raises:
+            ProgramError: If the program had already exited, or crashed,
+                timed out, or printed too much on this turn.
+        """
+        if self.finished:
+            raise ProgramExitedError("the program exited before this input")
+        deadline = self._deadline_from_now()
         self._write(line.encode() + b"\n", deadline)
+        return self._next_screen(deadline)
+
+    def _deadline_from_now(self) -> float:
+        """Return when the turn starting now must end."""
+        turn_deadline = time.monotonic() + self._limits.turn_seconds
+        return min(turn_deadline, self._run_deadline)
+
+    def _next_screen(self, deadline: float) -> str:
+        """Wait until the program asks for input or exits; return its screen.
+
+        Raises:
+            ProgramError: If the program crashed, timed out, or printed
+                too much.
+        """
         while True:
-            frame = self._pop_frame()
-            if frame is not None:
-                return frame
-            if not self._stdout_open:
-                raise self._ended_error(deadline)
-            remaining = deadline - time.monotonic()
-            if remaining <= 0:
+            if self._asked_for_input:
+                self._asked_for_input = False
+                # The program printed before it asked, so the rest of
+                # its screen is already in the pipe.
+                self._drain_stdout()
+                if self._process.poll() is not None:
+                    # Something else wrote the signal, then it exited.
+                    self._finish(deadline)
+                break
+            if not self._stdout_open or self._process.poll() is not None:
+                self._finish(deadline)
+                break
+            late = time.monotonic() >= deadline
+            # Even when late, read once: the program may have asked in time.
+            remaining = max(0.0, deadline - time.monotonic())
+            self._pump(min(remaining, EXIT_POLL_SECONDS))
+            still_working = (
+                self._stdout_open
+                and not self._asked_for_input
+                and self._process.poll() is None
+            )
+            if late and still_working:
                 raise self._timeout_error(deadline)
-            self._pump(remaining)
+        screen, self._stdout = self._stdout, b""
+        return screen.decode("utf-8", "replace").removesuffix("\n")
 
     def _timeout_error(self, deadline: float) -> ProgramError:
         """Return the timeout matching whichever deadline just passed."""
         if deadline == self._run_deadline:
             return RunTimeoutError("the run took too long")
-        return TickTimeoutError("the tick took too long")
+        return TurnTimeoutError("the turn took too long")
 
     def _remaining(self) -> float:
         """Return the seconds left in the run, never below zero."""
@@ -238,7 +319,7 @@ class ProgramSession:
         quit is ignored here; the read side reports how it ended.
 
         Raises:
-            TickTimeoutError: If the pipe stays full past a tick deadline.
+            TurnTimeoutError: If the pipe stays full past a turn deadline.
             RunTimeoutError: If it stays full past the run deadline.
         """
         pending = memoryview(data)
@@ -256,52 +337,69 @@ class ProgramSession:
             except BrokenPipeError:
                 return
 
-    def _pop_frame(self) -> str | None:
-        """Remove and return the next whole frame, if one has arrived."""
-        if self._stdout.startswith(FRAME_END):
-            end = 0
-        else:
-            marker = self._stdout.find(b"\n" + FRAME_END)
-            if marker < 0:
-                return None
-            end = marker + 1
-        frame = self._stdout[:end]
-        self._stdout = self._stdout[end + len(FRAME_END) :]
-        return frame.decode("utf-8", "replace").removesuffix("\n")
+    def _pump(self, timeout: float) -> bool:
+        """Read whatever the program's pipes have, waiting up to ``timeout``.
 
-    def _pump(self, timeout: float) -> None:
-        """Read whatever stdout and stderr have, waiting up to ``timeout``.
+        Returns:
+            True if anything was read from stdout.
 
         Raises:
             OutputLimitError: If either stream goes over the output limit.
         """
+        printed = False
+        if not self._selector.get_map():
+            # Some selectors return at once with nothing to watch.
+            time.sleep(timeout)
+            return printed
         for key, _events in self._selector.select(timeout):
-            chunk = os.read(key.fd, READ_CHUNK_BYTES)
-            is_stdout = key.fileobj is self._process.stdout
+            try:
+                chunk = os.read(key.fd, READ_CHUNK_BYTES)
+            except BlockingIOError:
+                continue  # A spurious wakeup: nothing to read after all.
             if not chunk:
                 self._selector.unregister(key.fileobj)
-                if is_stdout:
+                if key.fileobj is self._process.stdout:
                     self._stdout_open = False
-            elif is_stdout:
+            elif key.fileobj is self._process.stdout:
                 self._stdout += chunk
-            else:
+                printed = True
+            elif key.fileobj is self._process.stderr:
                 self._stderr += chunk
+            else:
+                # Any bytes on the waiting pipe mean "asking for input".
+                self._asked_for_input = True
         limit = self._limits.output_bytes
         if len(self._stdout) > limit or len(self._stderr) > limit:
             self._stderr = self._stderr[:limit]
             raise OutputLimitError("the program printed too much")
+        return printed
 
-    def _ended_error(self, deadline: float) -> ProgramError:
-        """Return the error for a program whose stdout closed mid-tick."""
-        try:
-            wait = max(0.0, deadline - time.monotonic())
-            returncode = self._process.wait(timeout=wait)
-        except subprocess.TimeoutExpired:
-            return TickTimeoutError("the program closed its output")
+    def _drain_stdout(self) -> None:
+        """Read the stdout already waiting in the pipe, without blocking."""
+        while self._stdout_open and self._pump(0):
+            pass
+
+    def _finish(self, deadline: float) -> None:
+        """Handle an exit or a closed stdout: a clean exit finishes.
+
+        Raises:
+            ProgramCrashedError: If the program exited with an error.
+            TurnTimeoutError: If it closed stdout but kept running.
+            RunTimeoutError: The same, past the run deadline.
+            OutputLimitError: If it printed too much while exiting.
+        """
+        while self._process.poll() is None:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise self._timeout_error(deadline)
+            # Keep reading, so a full stderr pipe can't block the exit.
+            self._pump(min(remaining, EXIT_POLL_SECONDS))
+        returncode = self._process.returncode
+        self._drain_stdout()
         self._drain_stderr()
-        if returncode == 0:
-            return ProgramExitedError("the program exited early")
-        return ProgramCrashedError(f"the program exited with {returncode}")
+        if returncode != 0:
+            raise ProgramCrashedError(f"the program exited with {returncode}")
+        self.finished = True
 
     def _drain_stderr(self) -> None:
         """Collect the rest of stderr (the traceback) after an exit."""
@@ -327,6 +425,9 @@ class ProgramSession:
         finally:
             self._selector.close()
             self._stdin_selector.close()
+            if self._waiting_read is not None:
+                os.close(self._waiting_read)
+                self._waiting_read = None
             if process is not None:
                 for stream in (process.stdin, process.stdout, process.stderr):
                     stream.close()

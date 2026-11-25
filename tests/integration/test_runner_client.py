@@ -32,17 +32,16 @@ from src.runner.slots import SlotPool
 
 ROOT = Path(__file__).resolve().parents[2]
 
-ECHO = "import sys\nfor line in sys.stdin:\n    print(line.strip())\n"
-ECHO += "    print('---')\n"
+ECHO = "while True:\n    print(input())\n"
 ECHO_CHECK = (
-    "def check(game):\n    game.check(game.tick('q') == 'q', 'echo')\n"
+    "def check(game):\n    game.check(game.send('q') == 'q', 'echo')\n"
 )
 
 
 def test_pass_and_fail_verdicts(local_runner: str):
     client = RunnerClient(local_runner)
     assert client.grade(ECHO, ECHO_CHECK)["verdict"] == "pass"
-    failing = client.grade("input()\nprint('x\\n---')\n", ECHO_CHECK)
+    failing = client.grade("input()\nprint('x')\ninput()\n", ECHO_CHECK)
     assert (failing["verdict"], failing["rule"]) == ("fail", "echo")
 
 

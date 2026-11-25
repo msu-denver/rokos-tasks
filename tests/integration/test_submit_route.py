@@ -66,18 +66,18 @@ def test_reference_passes(player: FlaskClient, seeded_pong: int):
 
 
 def test_broken_rule_is_named(player: FlaskClient, seeded_pong: int):
-    """US6 AC2: a frame with two O characters fails with the rule."""
+    """US6 AC2: a board with two O characters fails with the rule."""
     verdict = submit(
         player, start_run(player, "medium"), TWO_BALLS
     ).get_json()["verdict"]
     assert verdict["heading"] == "FAIL"
     assert verdict["reason"] == "The board must show exactly one ball (O)."
-    assert verdict["last_frame"].count("O") == 2
+    assert verdict["last_screen"].count("O") == 2
 
 
 def test_crash_shows_the_traceback(player: FlaskClient, seeded_pong: int):
     """US6 AC2: a crash fails with a traceback that names main.py."""
-    code = "input()\nraise ValueError('no ball')\n"
+    code = "print('thinking')\nraise ValueError('no ball')\n"
     verdict = submit(player, start_run(player, "medium"), code).get_json()[
         "verdict"
     ]

@@ -1,12 +1,11 @@
 """
 File: stage3_random_serve.py
-Description: Correct Pong stage 3 program (US6 AC3): 2 columns per tick, a
+Description: Correct Pong stage 3 program (US6 AC3): 2 columns per turn, a
     random start, and a random serve after every point.
-Author(s): Richard Hall
+Author(s): Richard Hall, Tyler Black
 """
 
 import random
-import sys
 
 PADDLE = 3
 left = random.randint(0, 20 - PADDLE)
@@ -18,7 +17,24 @@ column_step = random.choice([-2, 2])
 score_left = 0
 score_right = 0
 
-for line in sys.stdin:
+
+def draw() -> None:
+    """Print the board and the score line."""
+    for board_row in range(20):
+        cells = ["."] * 20
+        if left <= board_row < left + PADDLE:
+            cells[0] = "|"
+        if right <= board_row < right + PADDLE:
+            cells[19] = "|"
+        if board_row == row:
+            cells[column] = "O"
+        print("".join(cells))
+    print(score_left, score_right)
+
+
+draw()
+while True:
+    line = input()
     if "q" in line:
         left = max(0, left - 1)
     if "a" in line:
@@ -46,14 +62,4 @@ for line in sys.stdin:
             row_step = random.choice([-1, 1])
             column_step = random.choice([-2, 2])
     column = target
-    for board_row in range(20):
-        cells = ["."] * 20
-        if left <= board_row < left + PADDLE:
-            cells[0] = "|"
-        if right <= board_row < right + PADDLE:
-            cells[19] = "|"
-        if board_row == row:
-            cells[column] = "O"
-        print("".join(cells))
-    print(score_left, score_right)
-    print("---")
+    draw()

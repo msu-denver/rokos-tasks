@@ -28,13 +28,9 @@ TRAFFIC_STAGE_1 = json.loads(
         "utf-8"
     )
 )["stages"][0]["reference_program"]
-# Answers every tick in 0.6 s, inside the 1 s limit, so grading is slow
+# Prints the board after 0.6 s, inside the 1 s limit, so grading is slow
 # enough to see the busy button.
-SLOW_STAGE_1 = STAGE_1.replace(
-    "import sys\n", "import sys\nimport time\n"
-).replace(
-    "for line in sys.stdin:\n", "for line in sys.stdin:\n    time.sleep(0.6)\n"
-)
+SLOW_STAGE_1 = "import time\n\ntime.sleep(0.6)\n" + STAGE_1
 BUSY_LABEL = "The Overlord is playing your program…"
 VERDICT_SECONDS = 10
 
@@ -70,7 +66,7 @@ def test_broken_rule_is_named(
     db_session: Session,
     seeded_pong: int,
 ) -> None:
-    """US6 AC2: a frame with two O characters fails, naming the rule."""
+    """US6 AC2: a board with two O characters fails, naming the rule."""
     ready = start_run(browser, live_server, db_session, "medium")
     write_code(browser, ready, TWO_BALLS)
     _submit_and_wait(browser)

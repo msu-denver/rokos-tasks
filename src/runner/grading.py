@@ -2,10 +2,11 @@
 File: grading.py
 Description: Grades a player's program with a stage's check script. Runs
     the program and the check script in two sandbox slots and relays
-    between them: each tick request from the check script is played on
-    the program, and its frame is sent back. Stops at the first broken
-    rule, crash, or timeout and returns the verdict.
-Author(s): Richard Hall
+    between them: the check script gets the program's first screen, and
+    each line it sends is typed into the program, whose next screen goes
+    back. Stops at the first broken rule, crash, or timeout and returns
+    the verdict.
+Author(s): Richard Hall, Tyler Black
 """
 
 import json
@@ -13,16 +14,15 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from src.runner import harness
-from src.runner.limits import MAX_INPUT_CHARS, MAX_TICKS, SandboxLimits
+from src.runner.limits import MAX_INPUT_CHARS, MAX_TURNS, SandboxLimits
 from src.runner.session import ProgramError, ProgramSession
 from src.runner.slots import Slot
 
 HARNESS_SOURCE = Path(harness.__file__).read_text(encoding="utf-8")
 CHECK_SCRIPT_BYTES = 32 * 1024
-# The check script waits on the player's ticks, so its run clock gets a
+# The check script waits on the player's turns, so its run clock gets a
 # margin: when time runs out, the player's clock must stop first.
 CHECK_RUN_MARGIN_SECONDS = 2.0
-START = "start"
 RULE = "rule"
 
 
@@ -46,7 +46,7 @@ class Verdict:
     reason: str | None = None
     rule: str | None = None
     inputs: list[str] = field(default_factory=list)
-    last_frame: str | None = None
+    last_screen: str | None = None
     traceback: str = ""
 
     def to_dict(self) -> dict:
@@ -55,9 +55,9 @@ class Verdict:
             "verdict": "pass" if self.reason is None else "fail",
             "reason": self.reason,
             "rule": self.rule,
-            "tick": len(self.inputs),
+            "turn": len(self.inputs),
             "inputs": self.inputs,
-            "last_frame": self.last_frame,
+            "last_screen": self.last_screen,
             "traceback": self.traceback,
         }
 
@@ -67,29 +67,34 @@ def harness_program(check_script: str) -> str:
     return f"{HARNESS_SOURCE}\n\nrun({check_script!r})\n"
 
 
-def parse_check_request(frame: str) -> dict:
+def parse_check_request(screen: str) -> dict:
     """Decode and check one message the check script sent.
 
     Returns:
-        ``{"tick": line}`` or ``{"done": True, "rule": str | None}``.
+        ``{"send": line}`` or ``{"done": True, "rule": str | None}``.
 
     Raises:
         CheckScriptError: If the message isn't one of those.
     """
     try:
-        message = json.loads(frame)
+        message = json.loads(screen)
     except json.JSONDecodeError as error:
         raise CheckScriptError("the check script sent bad JSON") from error
     if not isinstance(message, dict):
         raise CheckScriptError("the check script sent a non-object")
-    line = message.get("tick")
+    line = message.get("send")
     if isinstance(line, str) and len(line) <= MAX_INPUT_CHARS:
         if "\n" not in line and "\r" not in line:
-            return {"tick": line}
+            return {"send": line}
     rule = message.get("rule")
     if message.get("done") is True and (rule is None or isinstance(rule, str)):
         return {"done": True, "rule": rule}
     raise CheckScriptError(f"the check script sent {message!r}")
+
+
+def screen_reply(screen: str, finished: bool) -> str:
+    """Return the message that hands the check script one screen."""
+    return json.dumps({"screen": screen, "finished": finished})
 
 
 class Grader:
@@ -139,32 +144,47 @@ class Grader:
         checker: ProgramSession,
         verdict: Verdict,
     ) -> None:
-        """Relay ticks until the check script finishes or the program fails."""
-        reply = START
+        """Relay turns until the check script finishes or the program fails."""
+        try:
+            screen = program.first_screen()
+        except ProgramError as failure:
+            verdict.reason = failure.status
+            return
+        verdict.last_screen = screen
+        # The harness asks for the first screen before printing anything.
+        self._check_script_says(checker, None)
+        reply = screen_reply(screen, program.finished)
         while True:
-            request = self._next_request(checker, reply)
+            request = parse_check_request(
+                self._check_script_says(checker, reply)
+            )
             if "done" in request:
                 if request["rule"] is not None:
                     verdict.reason = RULE
                     verdict.rule = request["rule"] or harness.DEFAULT_RULE
                 return
-            if len(verdict.inputs) >= MAX_TICKS:
+            if len(verdict.inputs) >= MAX_TURNS:
                 raise CheckScriptError("the check script played too long")
-            verdict.inputs.append(request["tick"])
+            verdict.inputs.append(request["send"])
             try:
-                frame = program.tick(request["tick"])
+                screen = program.send(request["send"])
             except ProgramError as failure:
                 verdict.reason = failure.status
                 return
-            verdict.last_frame = frame
-            reply = json.dumps({"frame": frame})
+            verdict.last_screen = screen
+            reply = screen_reply(screen, program.finished)
 
-    def _next_request(self, checker: ProgramSession, reply: str) -> dict:
-        """Send the check script ``reply`` and return its next request."""
+    @staticmethod
+    def _check_script_says(checker: ProgramSession, reply: str | None) -> str:
+        """Send the check script ``reply`` and return what it prints next.
+
+        ``None`` reads the check script's first screen instead.
+        """
         try:
-            frame = checker.tick(reply)
+            if reply is None:
+                return checker.first_screen()
+            return checker.send(reply)
         except ProgramError as failure:
             raise CheckScriptError(
                 f"the check script stopped: {failure.status}"
             ) from failure
-        return parse_check_request(frame)

@@ -39,7 +39,7 @@ def _make_campaign(
                 number=num,
                 prompt=f"Stage {num} prompt.",
                 reference_program="print(1)",
-                check_script=f"def check(game):\n    game.tick('{num}')\n",
+                check_script=f"def check(game):\n    game.send('{num}')\n",
             )
         )
     return campaign
@@ -61,7 +61,7 @@ class TestCampaignRepository:
         assert len(retrieved.stages) == 2
         assert retrieved.stages[0].number == 1
         assert retrieved.stages[1].number == 2
-        assert retrieved.stages[1].check_script.endswith("tick('2')\n")
+        assert retrieved.stages[1].check_script.endswith("send('2')\n")
 
     def test_upsert_inserts_new_campaign(self, db_session: Session) -> None:
         """Verify upsert inserts when no campaign with slug exists."""
@@ -197,7 +197,7 @@ class TestCampaignRepository:
             number=3,
             prompt="Stage 3 prompt.",
             reference_program="print(3)",
-            check_script="def check(game):\n    game.tick('3')\n",
+            check_script="def check(game):\n    game.send('3')\n",
         )
         updated.stages.append(stage3)
 
@@ -207,7 +207,7 @@ class TestCampaignRepository:
         assert result.stages[1].id == stage2_id
         assert result.stages[2].number == 3
         assert result.stages[2].id is not None
-        assert result.stages[2].check_script.endswith("tick('3')\n")
+        assert result.stages[2].check_script.endswith("send('3')\n")
 
     def test_validated_for_filters_by_difficulty_and_status(
         self, db_session: Session

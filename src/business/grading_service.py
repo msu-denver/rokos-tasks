@@ -20,10 +20,12 @@ FAIL = "FAIL"
 # Placeholder wording until the PO decides; US10 moves it to dialogue.
 REASON_TEXT = {
     "crashed": "Crashed.",
-    "tick_timeout": "Timed out: more than 1 second for one tick.",
+    "turn_timeout": (
+        "Timed out: more than 1 second before asking for input or exiting."
+    ),
     "run_timeout": "Timed out: more than 10 seconds in total.",
-    "output_limit": "Printed more than 64 KB in one frame.",
-    "exited": "Exited before the check finished.",
+    "output_limit": "Printed more than 64 KB in one screen.",
+    "exited": "Exited before reading all of its input.",
 }
 UNKNOWN_REASON = "Failed."
 # The runner's slot folder means nothing to the player; their file is
@@ -49,7 +51,7 @@ class Verdict:
     """What the page shows after a Submit.
 
     ``kind`` is how the program failed, for US7 and US10: ``rule``,
-    ``crashed``, ``exited``, ``tick_timeout``, ``run_timeout``, or
+    ``crashed``, ``exited``, ``turn_timeout``, ``run_timeout``, or
     ``output_limit``; None on a pass.
     """
 
@@ -57,9 +59,9 @@ class Verdict:
     heading: str
     kind: str | None
     reason: str | None
-    tick: int
+    turn: int
     inputs: tuple[str, ...]
-    last_frame: str | None
+    last_screen: str | None
     traceback: str
 
     def to_dict(self) -> dict:
@@ -69,9 +71,9 @@ class Verdict:
             "heading": self.heading,
             "kind": self.kind,
             "reason": self.reason,
-            "tick": self.tick,
+            "turn": self.turn,
             "inputs": list(self.inputs),
-            "last_frame": self.last_frame,
+            "last_screen": self.last_screen,
             "traceback": self.traceback,
         }
 
@@ -104,9 +106,9 @@ def to_verdict(reply: dict) -> Verdict:
         heading=PASS if passed else FAIL,
         kind=None if passed else reason,
         reason=reason_text,
-        tick=reply.get("tick", 0),
+        turn=reply.get("turn", 0),
         inputs=tuple(reply.get("inputs", ())),
-        last_frame=reply.get("last_frame"),
+        last_screen=reply.get("last_screen"),
         traceback=clean_traceback(reply.get("traceback") or ""),
     )
 

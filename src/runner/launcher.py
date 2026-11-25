@@ -2,10 +2,13 @@
 File: launcher.py
 Description: Runs inside each sandbox child. In "run" mode it switches to
     the slot's unprivileged user, applies resource limits, receives the
-    player's code on stdin, and execs `python -I -u main.py` with a bare
-    environment. In "reap" mode it kills every process the slot user owns
-    and empties the slot folder. Started as `python -I launcher.py`, so it
-    imports only the standard library, never `src`.
+    player's code on stdin, saves it as main.py, and execs Python with a
+    bare environment to run it like `python main.py`. A small bootstrap
+    announces each read of stdin on an extra pipe, so the server knows
+    when the program is waiting for input. In "reap" mode it kills every
+    process the slot user owns and empties the slot folder. Started as
+    `python -I launcher.py`, so it imports only the standard library,
+    never `src`.
 Author(s): Richard Hall, Tyler Black
 """
 
@@ -25,6 +28,89 @@ CHILD_PATH = "/usr/local/bin:/usr/bin:/bin"
 HOST_MODE_UID = "-"
 REAP_ROUNDS = 50
 REAP_POLL_SECONDS = 0.01
+# Runs main.py as `__main__`, like `python main.py`. Every read of stdin
+# (input() included) first writes one byte to the "waiting" pipe whose fd
+# is argv[1], so the server knows the screen so far is complete. A crash
+# prints the traceback without the bootstrap's or runpy's frames.
+BOOTSTRAP = """\
+import os
+import runpy
+import sys
+import traceback
+
+WAITING_FD = int(sys.argv.pop(1))
+READS = {"read", "read1", "readinto", "readinto1", "readline", "readlines"}
+
+
+def announce():
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.flush()
+        except Exception:
+            pass
+    try:
+        os.write(WAITING_FD, b"?")
+    except OSError:
+        pass
+
+
+class Stdin:
+    def __init__(self, stream):
+        self._stream = stream
+
+    def __getattr__(self, name):
+        value = getattr(self._stream, name)
+        if name == "buffer":
+            return Stdin(value)
+        if name not in READS:
+            return value
+
+        def read(*args, **kwargs):
+            announce()
+            return value(*args, **kwargs)
+
+        return read
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        line = self.readline()
+        if not line:
+            raise StopIteration
+        return line
+
+
+def hide_plumbing(error, seen):
+    while error is not None and id(error) not in seen:
+        seen.add(id(error))
+        kept = []
+        trace = error.__traceback__
+        while trace is not None:
+            if not any(trace.tb_frame.f_globals is g for g in HIDDEN):
+                kept.append(trace)
+            trace = trace.tb_next
+        for trace, after in zip(kept, kept[1:] + [None]):
+            trace.tb_next = after
+        error.__traceback__ = kept[0] if kept else None
+        hide_plumbing(error.__cause__, seen)
+        error = error.__context__
+
+
+HIDDEN = (globals(), runpy.__dict__)
+sys.stdin = Stdin(sys.stdin)
+try:
+    runpy.run_path("main.py", run_name="__main__")
+except SystemExit:
+    raise
+except BaseException as error:
+    try:
+        hide_plumbing(error, set())
+    except Exception:
+        pass  # Never lose the player's traceback over a cosmetic step.
+    traceback.print_exception(error)
+    sys.exit(1)
+"""
 
 
 class LauncherError(Exception):
@@ -134,13 +220,14 @@ def start_program(argv: list[str]) -> int:
     """Set up the sandbox and exec the player's program.
 
     Args:
-        argv: ``[uid, directory, limits_json, status_fd]``.
+        argv: ``[uid, directory, limits_json, status_fd, waiting_fd]``.
 
     Returns:
         ``LAUNCH_FAILED_EXIT`` if setup failed. On success, exec replaces
         this process and nothing returns.
     """
     status_fd = int(argv[3])
+    waiting_fd = int(argv[4])
     try:
         uid = parse_uid(argv[0])
         directory = Path(argv[1])
@@ -155,9 +242,10 @@ def start_program(argv: list[str]) -> int:
         (directory / "main.py").write_bytes(code)
         # Closed by exec, which is how the server knows the launch worked.
         os.set_inheritable(status_fd, False)
+        os.set_inheritable(waiting_fd, True)
         os.execve(
             sys.executable,
-            [sys.executable, "-I", "-u", "main.py"],
+            [sys.executable, "-I", "-u", "-c", BOOTSTRAP, str(waiting_fd)],
             child_environment(directory),
         )
     except (OSError, ValueError, KeyError, LauncherError) as error:
@@ -258,7 +346,7 @@ def main(argv: list[str]) -> int:
     Returns:
         The process exit code.
     """
-    if len(argv) == 6 and argv[1] == "run":
+    if len(argv) == 7 and argv[1] == "run":
         return start_program(argv[2:])
     if len(argv) == 5 and argv[1] == "reap":
         return reap_slot(argv[2:])

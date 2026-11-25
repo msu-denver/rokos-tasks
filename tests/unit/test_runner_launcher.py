@@ -146,11 +146,11 @@ def test_linux_message_queue_limit_is_zero() -> None:
     setrlimit.assert_any_call(12, (0, 0))
 
 
-def test_read_code_leaves_tick_input_in_the_pipe():
-    fd = pipe_with(b"11\nprint('hi')first tick\n")
+def test_read_code_leaves_the_first_input_in_the_pipe():
+    fd = pipe_with(b"11\nprint('hi')first input\n")
     try:
         assert launcher.read_code(fd, 100) == b"print('hi')"
-        assert os.read(fd, 100) == b"first tick\n"
+        assert os.read(fd, 100) == b"first input\n"
     finally:
         os.close(fd)
 
@@ -191,8 +191,15 @@ def test_prefer_oom_victim_writes_the_score(tmp_path: Path) -> None:
 @pytest.mark.parametrize("uid", ["10001", "-"])
 def test_start_program_execs_python_isolated(tmp_path: Path, uid: str):
     status_read, status_write = os.pipe()
+    waiting_read, waiting_write = os.pipe()
     stdin = pipe_with(b"5\nx = 1")
-    argv = [uid, str(tmp_path), LIMITS.to_json(), str(status_write)]
+    argv = [
+        uid,
+        str(tmp_path),
+        LIMITS.to_json(),
+        str(status_write),
+        str(waiting_write),
+    ]
     setup = mock.Mock()
     with (
         mock.patch.object(launcher, "drop_privileges", setup.drop),
@@ -205,9 +212,10 @@ def test_start_program_execs_python_isolated(tmp_path: Path, uid: str):
         ),
     ):
         launcher.start_program(argv)
-    os.close(stdin)
-    os.close(status_write)
-    os.close(status_read)
+    assert not os.get_inheritable(status_write)
+    assert os.get_inheritable(waiting_write)
+    for fd in (stdin, status_write, status_read, waiting_read, waiting_write):
+        os.close(fd)
     if uid == "10001":
         assert setup.mock_calls == [
             mock.call.prefer_oom(),
@@ -217,13 +225,19 @@ def test_start_program_execs_python_isolated(tmp_path: Path, uid: str):
         assert setup.mock_calls == []
     assert (tmp_path / "main.py").read_bytes() == b"x = 1"
     executable, args, env = execve.call_args.args
-    assert args[1:] == ["-I", "-u", "main.py"]
+    assert args[1:] == [
+        "-I",
+        "-u",
+        "-c",
+        launcher.BOOTSTRAP,
+        str(waiting_write),
+    ]
     assert env["HOME"] == str(tmp_path)
 
 
 def test_start_program_reports_setup_failure(tmp_path: Path):
     status_read, status_write = os.pipe()
-    argv = ["0", str(tmp_path), LIMITS.to_json(), str(status_write)]
+    argv = ["0", str(tmp_path), LIMITS.to_json(), str(status_write), "9"]
     result = launcher.start_program(argv)
     os.close(status_write)
     message = os.read(status_read, 500)
@@ -318,7 +332,7 @@ def test_slot_process_scan_checks_real_and_saved_uids(tmp_path: Path) -> None:
 
 def test_main_dispatches_and_rejects_bad_usage(capsys):
     with mock.patch.object(launcher, "start_program", return_value=7):
-        assert launcher.main(["l", "run", "1", "d", "{}", "3"]) == 7
+        assert launcher.main(["l", "run", "1", "d", "{}", "3", "4"]) == 7
     with mock.patch.object(launcher, "reap_slot", return_value=0):
         assert launcher.main(["l", "reap", "1", "d", "2"]) == 0
     assert launcher.main(["l", "nope"]) == launcher.USAGE_EXIT

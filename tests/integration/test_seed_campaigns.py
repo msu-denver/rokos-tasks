@@ -4,7 +4,7 @@ Description: Verify that the shipped seed campaigns load into PostgreSQL,
     and that every seed stage is graded only by its check script and
     passes the game-design §4.4 checks: its reference passes on 3 runs,
     and its broken program, an empty program, the previous stage's
-    reference, and (from Stage 2) one fixed frame all fail.
+    reference, and (from Stage 2) one fixed screen all fail.
 Author(s): Tyler Black, Richard Hall
 """
 
@@ -14,9 +14,12 @@ from pathlib import Path
 import pytest
 from sqlalchemy.orm import Session
 
-from src.business.campaigns.check_runner import run_check, run_frames
+from src.business.campaigns.check_runner import run_check, run_screens
 from src.business.campaigns.seed_loader import SeedLoader
-from src.business.campaigns.validator import CampaignValidator, frame_program
+from src.business.campaigns.validator import (
+    CampaignValidator,
+    screen_program,
+)
 from src.business.difficulty import Difficulty
 from src.data.repositories.campaign_repository import CampaignRepository
 
@@ -82,5 +85,5 @@ def test_seed_stage_checks(name: str, index: int, stages: list) -> None:
     if index:
         previous = stages[index - 1]["reference_program"]
         assert verdict(previous, stage) == "fail"
-        first_frame = run_frames(reference, [""])[0]
-        assert verdict(frame_program(first_frame), stage) == "fail"
+        first_screen = run_screens(reference, [])[0]
+        assert verdict(screen_program(first_screen), stage) == "fail"

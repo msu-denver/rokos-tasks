@@ -4,7 +4,8 @@ Description: Validates campaign definitions against the schema and the
     automated quality checks in game-design §4.4: every stage is graded
     only by its check script, which must pass the reference program,
     fail the broken program, the previous stage's reference, an empty
-    program, and (from Stage 2 on) a program that prints one fixed frame.
+    program, and (from Stage 2 on) a program that prints one fixed screen
+    every time it asks for input.
 Author(s): Tyler Black, Richard Hall
 """
 
@@ -41,16 +42,20 @@ TIME_BUDGET_SECONDS = PRODUCTION_LIMITS.run_seconds * 0.10
 # Digits per number in the "huge numbers" probe: past int()'s default
 # 4,300-digit cap, so an unbounded int() in a check script crashes on it.
 HUGE_NUMBER_DIGITS = 5000
-# Tick programs that follow no stage's rules. A check script must fail
-# each one cleanly: if odd frames crash it, a player could print them on
+# The probe makes one number huge at a time, for at most this many numbers
+# on the reference's first screen, so a check that bounds the first number
+# still has to bound the next.
+MAX_HUGE_NUMBER_PROBES = 3
+# Programs that follow no stage's rules. A check script must fail each
+# one cleanly: if odd screens crash it, a player could print them on
 # purpose to get a check_error instead of losing a life.
-_JUNK_LOOP = "import sys\nfor line in sys.stdin:\n    print({frame})\n"
-_JUNK_LOOP += "    print('---')\n"
+_SCREEN_LOOP = "while True:\n    print({screen})\n    input()\n"
 JUNK_PROGRAMS = {
     "an empty program": "",
-    "empty frames": _JUNK_LOOP.format(frame="end=''"),
-    "a single ?": _JUNK_LOOP.format(frame="'?'"),
-    "echoed input": _JUNK_LOOP.format(frame="line.rstrip()"),
+    "a program that only prints ?": "print('?')\n",
+    "empty screens": "while True:\n    input()\n",
+    "a screen of ? every turn": _SCREEN_LOOP.format(screen="'?'"),
+    "echoed input": "while True:\n    print(input())\n",
 }
 # Built-ins that reach outside the helper API (files, code, attributes).
 FORBIDDEN_NAMES = frozenset(
@@ -138,12 +143,27 @@ def _describe(verdict: dict) -> str:
     """Return the broken rule, or how the program failed."""
     if verdict["reason"] == "rule":
         return f"rule: {verdict['rule']}"
-    return f"the program {verdict['reason']} at tick {verdict['tick']}"
+    return f"the program {verdict['reason']} at turn {verdict['turn']}"
 
 
-def frame_program(frame: str) -> str:
-    """Return a tick program that prints ``frame`` on every tick."""
-    return _JUNK_LOOP.format(frame=f"{frame!r}")
+def screen_program(screen: str) -> str:
+    """Return a program that prints ``screen`` each time before input."""
+    return _SCREEN_LOOP.format(screen=f"{screen!r}")
+
+
+def static_program(screen: str) -> str:
+    """Return a program that prints ``screen`` once and exits."""
+    return f"print({screen!r})\n"
+
+
+def huge_number_screens(screen: str) -> list[str]:
+    """Return copies of ``screen`` with one of its numbers made huge."""
+    return [
+        screen[: number.start()]
+        + "9" * HUGE_NUMBER_DIGITS
+        + screen[number.end() :]
+        for number in list(_DIGITS.finditer(screen))[:MAX_HUGE_NUMBER_PROBES]
+    ]
 
 
 class CampaignValidator:
@@ -266,13 +286,13 @@ class _StageCheck:
             problems = self._reference_problems()
             if problems:
                 return problems
-            first_frame = self._player.frames(self._reference, [""])[0]
+            first_screen = self._player.screens(self._reference, [])[0]
         except CheckRunError as error:
             return [str(error)]
         return (
             self._must_fail("broken_program", self._broken)
             + self._previous_problems()
-            + self._probe_problems(first_frame)
+            + self._probe_problems(first_screen)
         )
 
     def _reference_problems(self) -> list[str]:
@@ -312,23 +332,25 @@ class _StageCheck:
             ]
         return []
 
-    def _probe_problems(self, first_frame: str) -> list[str]:
-        """Junk programs fail; from Stage 2, so does one fixed frame."""
+    def _probe_problems(self, first_screen: str) -> list[str]:
+        """Junk programs fail; from Stage 2, so does one fixed screen."""
         problems = []
         for name, program in JUNK_PROGRAMS.items():
             problems += self._must_fail(name, program)
         if self._previous_reference is not None:
             problems += self._must_fail(
-                "a program printing one fixed frame",
-                frame_program(first_frame),
+                "a program printing one fixed screen",
+                screen_program(first_screen),
             )
-        huge = _DIGITS.sub("9" * HUGE_NUMBER_DIGITS, first_frame)
-        if huge != first_frame:
-            # Passing is fine here; crashing the check script is not.
-            problems += self._crash_problems(
-                "a frame of huge numbers", frame_program(huge)
-            )
-        return problems
+        # Passing is fine here; crashing the check script is not. Each
+        # screen is played both ways, since a check may first test whether
+        # the program exits.
+        for huge in huge_number_screens(first_screen):
+            for program in (screen_program(huge), static_program(huge)):
+                problems += self._crash_problems(
+                    "a screen of huge numbers", program
+                )
+        return list(dict.fromkeys(problems))
 
     def _must_fail(self, name: str, program: str) -> list[str]:
         """Return a problem unless the check script fails ``program``."""

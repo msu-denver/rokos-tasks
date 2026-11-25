@@ -150,7 +150,7 @@ class MemoSeedPlayer(TrustedSeedPlayer):
     def __init__(self) -> None:
         """Start with nothing played."""
         self._grades: dict[tuple[str, str], dict] = {}
-        self._frames: dict[tuple[str, tuple[str, ...]], list[str]] = {}
+        self._screens: dict[tuple[str, tuple[str, ...]], list[str]] = {}
 
     def grade(self, code: str, check_script: str) -> dict:
         """Return the verdict, playing it the first time only."""
@@ -159,12 +159,12 @@ class MemoSeedPlayer(TrustedSeedPlayer):
             self._grades[key] = super().grade(code, check_script)
         return self._grades[key]
 
-    def frames(self, code: str, inputs: list[str]) -> list[str]:
-        """Return the frames, playing them the first time only."""
+    def screens(self, code: str, inputs: list[str]) -> list[str]:
+        """Return the screens, playing them the first time only."""
         key = (code, tuple(inputs))
-        if key not in self._frames:
-            self._frames[key] = super().frames(code, inputs)
-        return self._frames[key]
+        if key not in self._screens:
+            self._screens[key] = super().screens(code, inputs)
+        return self._screens[key]
 
 
 @pytest.fixture(scope="session")

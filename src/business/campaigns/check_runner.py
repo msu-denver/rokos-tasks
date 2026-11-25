@@ -2,7 +2,7 @@
 File: check_runner.py
 Description: Plays trusted seed programs locally for offline campaign
     validation: a stage's check script against a program (`run_check`),
-    or a program through fixed input lines (`run_frames`). Uses the
+    or a program through fixed input lines (`run_screens`). Uses the
     runner's own code in host mode, because `make validate-campaigns`
     runs on the host, where the runner container isn't reachable. Also
     defines `CheckPlayer`, the interface the validator plays through, so
@@ -38,8 +38,8 @@ class CheckPlayer(Protocol):
     def grade(self, code: str, check_script: str) -> dict:
         """Return the ``/grade`` verdict of ``check_script`` on ``code``."""
 
-    def frames(self, code: str, inputs: list[str]) -> list[str]:
-        """Return the frames ``code`` prints for ``inputs``."""
+    def screens(self, code: str, inputs: list[str]) -> list[str]:
+        """Return the screens ``code`` prints, typing ``inputs`` in turn."""
 
 
 class TrustedSeedPlayer:
@@ -49,9 +49,9 @@ class TrustedSeedPlayer:
         """Return the verdict of ``check_script`` on ``code``."""
         return run_check(code, check_script)
 
-    def frames(self, code: str, inputs: list[str]) -> list[str]:
-        """Return the frames ``code`` prints for ``inputs``."""
-        return run_frames(code, inputs)
+    def screens(self, code: str, inputs: list[str]) -> list[str]:
+        """Return the screens ``code`` prints, typing ``inputs`` in turn."""
+        return run_screens(code, inputs)
 
 
 def run_check(code: str, check_script: str) -> dict:
@@ -94,17 +94,17 @@ def run_check(code: str, check_script: str) -> dict:
             ) from error
 
 
-def run_frames(code: str, inputs: list[str]) -> list[str]:
-    """Play trusted ``code`` through ``inputs`` and return its frames.
+def run_screens(code: str, inputs: list[str]) -> list[str]:
+    """Play trusted ``code`` through ``inputs`` and return its screens.
 
     The same trust rule as ``run_check`` applies.
 
     Args:
         code: A seed program.
-        inputs: One input line per tick.
+        inputs: The lines to type, one each time the program asks.
 
     Returns:
-        One frame per input line.
+        The first screen, then the screen after each input line.
 
     Raises:
         CheckRunError: If the program failed or the sandbox did.
@@ -114,7 +114,9 @@ def run_frames(code: str, inputs: list[str]) -> list[str]:
         try:
             with session:
                 session.start(code)
-                return [session.tick(line) for line in inputs]
+                screens = [session.first_screen()]
+                screens += [session.send(line) for line in inputs]
+                return screens
         except ProgramError as error:
             raise CheckRunError(
                 f"the program failed: {error.status}. {session.stderr}"

@@ -23,7 +23,7 @@ from src.business.grading_service import (
     to_verdict,
 )
 
-CHECK = "def check(game):\n    game.tick()\n"
+CHECK = "def check(game):\n    game.send()\n"
 
 
 def runner_reply(**overrides: object) -> dict:
@@ -31,9 +31,9 @@ def runner_reply(**overrides: object) -> dict:
         "verdict": "pass",
         "reason": None,
         "rule": None,
-        "tick": 3,
+        "turn": 3,
         "inputs": ["", "q", ""],
-        "last_frame": "..O..",
+        "last_screen": "..O..",
         "traceback": "",
     }
     reply.update(overrides)
@@ -118,9 +118,9 @@ def test_verdict_and_normalization_logic():
 
     sparse = to_verdict({"verdict": "fail", "reason": "crashed"})
     assert (
-        sparse.tick,
+        sparse.turn,
         sparse.inputs,
-        sparse.last_frame,
+        sparse.last_screen,
         sparse.traceback,
     ) == (
         0,
@@ -139,9 +139,9 @@ def test_grade_sends_code_and_check_script():
         "heading": "PASS",
         "kind": None,
         "reason": None,
-        "tick": 3,
+        "turn": 3,
         "inputs": ["", "q", ""],
-        "last_frame": "..O..",
+        "last_screen": "..O..",
         "traceback": "",
     }
 

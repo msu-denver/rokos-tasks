@@ -36,8 +36,8 @@ from src.runner.slots import Slot, SlotCompromisedError, SlotPool
 POSIX_ONLY = pytest.mark.skipif(
     sys.platform == "win32", reason="Linux only; CI runs it (POSIX APIs)"
 )
-HOST_LIMITS = SandboxLimits(memory_bytes=None, tick_seconds=2.0)
-ECHO = "while True:\n    line = input()\n    print(line)\n    print('---')\n"
+HOST_LIMITS = SandboxLimits(memory_bytes=None, turn_seconds=2.0)
+ECHO = "print('ready')\nwhile True:\n    print(input())\n"
 
 
 @pytest.fixture
@@ -74,20 +74,38 @@ def test_completed_run(service: RunnerService):
     assert status == HTTPStatus.OK
     assert body == {
         "status": "completed",
-        "frames": ["q", "p"],
-        "ticks": 2,
+        "screens": ["ready", "q", "p"],
+        "finished": False,
         "stderr": "",
         "exit_code": None,
     }
 
 
 @POSIX_ONLY
-def test_crash_keeps_frames_so_far_and_exit_code(service: RunnerService):
-    code = "input()\nprint('---')\ninput()\nraise SystemExit(3)\n"
+def test_program_that_prints_and_exits_completes(service: RunnerService):
+    status, body = service.run({"code": "print('board')\n", "inputs": []})
+    assert status == HTTPStatus.OK
+    assert body["status"] == "completed"
+    assert (body["screens"], body["finished"]) == (["board"], True)
+
+
+@POSIX_ONLY
+def test_input_after_the_program_exits_is_exited(service: RunnerService):
+    code = "print(input())\n"
+    status, body = service.run({"code": code, "inputs": ["a", "b"]})
+    assert status == HTTPStatus.OK
+    assert body["status"] == "exited"
+    assert body["screens"] == ["", "a"]
+    assert body["exit_code"] == 0
+
+
+@POSIX_ONLY
+def test_crash_keeps_screens_so_far_and_exit_code(service: RunnerService):
+    code = "input()\nprint('one')\ninput()\nraise SystemExit(3)\n"
     status, body = service.run({"code": code, "inputs": ["", ""]})
     assert status == HTTPStatus.OK
     assert body["status"] == "crashed"
-    assert body["frames"] == [""]
+    assert body["screens"] == ["", "one"]
     assert body["exit_code"] == 3
 
 
@@ -128,8 +146,8 @@ def test_compromised_slot_is_500(service: RunnerService):
     assert body == {"status": "runner_error"}
 
 
-ONE_TICK_CHECK = (
-    "def check(game):\n    game.check(game.tick('q') == 'q', 'echo')\n"
+ONE_TURN_CHECK = (
+    "def check(game):\n    game.check(game.send('q') == 'q', 'echo')\n"
 )
 
 
@@ -153,7 +171,7 @@ def test_bad_grade_requests_are_rejected(payload: dict, message: str):
 @POSIX_ONLY
 def test_grade_returns_the_verdict(service: RunnerService):
     status, body = service.grade(
-        {"code": ECHO, "check_script": ONE_TICK_CHECK}
+        {"code": ECHO, "check_script": ONE_TURN_CHECK}
     )
     assert status == HTTPStatus.OK
     assert body["verdict"] == "pass"
@@ -169,7 +187,7 @@ def test_grade_needs_two_free_slots(tmp_path: Path):
     lonely = RunnerService(
         SlotPool([Slot(None, tmp_path)]), HOST_LIMITS, slot_wait_seconds=0
     )
-    status, _ = lonely.grade({"code": ECHO, "check_script": ONE_TICK_CHECK})
+    status, _ = lonely.grade({"code": ECHO, "check_script": ONE_TURN_CHECK})
     assert status == HTTPStatus.SERVICE_UNAVAILABLE
 
 
@@ -396,12 +414,12 @@ def test_run_over_http(http_server: int):
     body = json.dumps({"code": ECHO, "inputs": ["a"]}).encode()
     status, reply = request(http_server, "POST", "/run", body)
     assert status == 200
-    assert reply["frames"] == ["a"]
+    assert reply["screens"] == ["ready", "a"]
 
 
 @POSIX_ONLY
 def test_grade_over_http(http_server: int):
-    body = json.dumps({"code": ECHO, "check_script": ONE_TICK_CHECK}).encode()
+    body = json.dumps({"code": ECHO, "check_script": ONE_TURN_CHECK}).encode()
     status, reply = request(http_server, "POST", "/grade", body)
     assert (status, reply["verdict"]) == (200, "pass")
 

@@ -23,7 +23,7 @@ from src.runner.slots import (
 
 
 def test_production_limits_match_us6():
-    assert PRODUCTION_LIMITS.tick_seconds == 1.0
+    assert PRODUCTION_LIMITS.turn_seconds == 1.0
     assert PRODUCTION_LIMITS.run_seconds == 10.0
     assert PRODUCTION_LIMITS.output_bytes == 64 * 1024
     assert PRODUCTION_LIMITS.memory_bytes == 256 * 1024 * 1024

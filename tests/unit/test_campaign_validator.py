@@ -21,7 +21,8 @@ from src.business.campaigns.validator import (
     HUGE_NUMBER_DIGITS,
     CampaignValidator,
     check_script_problems,
-    frame_program,
+    huge_number_screens,
+    screen_program,
 )
 from src.runner.grading import CHECK_SCRIPT_BYTES
 
@@ -31,7 +32,7 @@ FIXTURE_PATH = (
     / "campaigns"
     / "valid_beginner.json"
 )
-PASS_ANYTHING = "def check(game):\n    game.tick('')\n"
+PASS_ANYTHING = "def check(game):\n    game.screen()\n"
 
 
 @pytest.fixture
@@ -248,9 +249,9 @@ class TestQualityChecks:
 
     def test_reference_crash_is_described(self, campaign: dict) -> None:
         """A crashing reference says how it failed."""
-        campaign["stages"][0]["reference_program"] = "input()\n1 / 0\n"
+        campaign["stages"][0]["reference_program"] = "1 / 0\n"
         assert errors_for(campaign)[0].endswith(
-            "(the program crashed at tick 1)."
+            "(the program crashed at turn 0)."
         )
 
     @pytest.mark.parametrize("failing_run", [2, 3])
@@ -303,10 +304,10 @@ class TestQualityChecks:
             errors
         )
 
-    def test_fixed_frame_must_fail_from_stage_two(
+    def test_fixed_screen_must_fail_from_stage_two(
         self, campaign: dict
     ) -> None:
-        """A one-tick check passes a static screen: fine only in Stage 1."""
+        """A first-screen check passes a static screen: Stage 1 only."""
         stage = campaign["stages"][1]
         stage["reference_program"] = stage["reference_program"].replace(
             "column = 1", "column = 2"
@@ -314,21 +315,21 @@ class TestQualityChecks:
         stage["broken_program"] = campaign["stages"][0]["broken_program"]
         stage["check_script"] = (
             "def check(game):\n"
-            "    rows = game.tick('go').rows\n"
+            "    rows = game.screen().rows\n"
             "    game.check(rows == ['...', '..O', '...'], 'Start right.')\n"
         )
         assert errors_for(campaign) == [
-            "[t] Stage 2: a program printing one fixed frame passes the "
+            "[t] Stage 2: a program printing one fixed screen passes the "
             "check script."
         ]
 
     def test_stage_one_may_be_static(self, campaign: dict) -> None:
-        """Stage 1's check passes a fixed frame and that is allowed."""
-        frame = TrustedSeedPlayer().frames(
-            campaign["stages"][0]["reference_program"], [""]
+        """Stage 1's check passes a fixed screen and that is allowed."""
+        screen = TrustedSeedPlayer().screens(
+            campaign["stages"][0]["reference_program"], []
         )[0]
         verdict = TrustedSeedPlayer().grade(
-            frame_program(frame), campaign["stages"][0]["check_script"]
+            screen_program(screen), campaign["stages"][0]["check_script"]
         )
         assert verdict["verdict"] == "pass"
         assert errors_for(campaign) == []
@@ -336,13 +337,13 @@ class TestQualityChecks:
     def test_huge_numbers_must_not_crash_the_check(
         self, campaign: dict
     ) -> None:
-        """An unbounded int() on a frame is a check_error waiting to happen."""
+        """An unbounded int() on a screen is a check_error in waiting."""
         stage = campaign["stages"][0]
-        stage["reference_program"] = frame_program("5")
-        stage["broken_program"] = frame_program("6")
+        stage["reference_program"] = screen_program("5")
+        stage["broken_program"] = screen_program("6")
         stage["check_script"] = (
             "def check(game):\n"
-            "    rows = game.tick('').rows\n"
+            "    rows = game.screen().rows\n"
             "    game.check(rows and rows[0].isdecimal(), 'A number.')\n"
             "    game.check(int(rows[0]) == 5, 'Five.')\n"
         )
@@ -350,10 +351,39 @@ class TestQualityChecks:
         campaign["difficulty"] = "beginner"
         errors = errors_for(campaign)
         assert any(
-            "check script broke on a frame of huge numbers" in error
+            "check script broke on a screen of huge numbers" in error
             for error in errors
         ), errors
         assert HUGE_NUMBER_DIGITS > 4300
+
+    def test_huge_numbers_go_in_one_at_a_time(self) -> None:
+        """A check that bounds only the first number is still caught."""
+        huge = "9" * HUGE_NUMBER_DIGITS
+        assert huge_number_screens("a 1 b 22\nc 3 d 4") == [
+            f"a {huge} b 22\nc 3 d 4",
+            f"a 1 b {huge}\nc 3 d 4",
+            f"a 1 b 22\nc {huge} d 4",
+        ]
+        assert huge_number_screens("no digits") == []
+
+    def test_huge_numbers_reach_a_static_check(self, campaign: dict) -> None:
+        """A check that demands an exit first still gets the huge probe."""
+        stage = campaign["stages"][0]
+        stage["reference_program"] = "print('5')\n"
+        stage["broken_program"] = "print('6')\n"
+        stage["check_script"] = (
+            "def check(game):\n"
+            "    game.check(game.finished, 'Exit.')\n"
+            "    rows = game.screen().rows\n"
+            "    game.check(rows and rows[0].isdecimal(), 'A number.')\n"
+            "    game.check(int(rows[0]) == 5, 'Five.')\n"
+        )
+        campaign["stages"] = [stage]
+        errors = errors_for(campaign)
+        assert any(
+            "check script broke on a screen of huge numbers" in error
+            for error in errors
+        ), errors
 
     def test_crashing_check_script_is_reported(self, campaign: dict) -> None:
         """A check script that crashes is a campaign bug."""
@@ -364,23 +394,26 @@ class TestQualityChecks:
         assert first.startswith("[t] Stage 1: check script failed")
 
     def test_check_script_must_fail_junk_cleanly(self, campaign: dict) -> None:
-        """A script that crashes on odd frames gives players an escape."""
+        """A script that crashes on odd screens gives players an escape."""
         campaign["stages"][0]["check_script"] = (
             "def check(game):\n"
-            "    rows = game.tick('go').rows\n"
+            "    rows = game.screen().rows\n"
             "    game.check(rows[1][1] == 'O', 'Ball in the middle.')\n"
         )
         errors = errors_for(campaign)
         assert any(
-            error.startswith("[t] Stage 1: check script broke on a single ?")
+            error.startswith(
+                "[t] Stage 1: check script broke on a program that only "
+                "prints ?"
+            )
             for error in errors
         ), errors
 
-    def test_first_frame_failure_is_reported(self, campaign: dict) -> None:
-        """If the reference's first frame can't be read, say so."""
+    def test_first_screen_failure_is_reported(self, campaign: dict) -> None:
+        """If the reference's first screen can't be read, say so."""
         player = TrustedSeedPlayer()
         with patch.object(
-            player, "frames", side_effect=CheckRunError("no frame")
+            player, "screens", side_effect=CheckRunError("no screen")
         ):
             errors = errors_for(campaign, player=player)
-        assert errors == ["[t] Stage 1: no frame", "[t] Stage 2: no frame"]
+        assert errors == ["[t] Stage 1: no screen", "[t] Stage 2: no screen"]
