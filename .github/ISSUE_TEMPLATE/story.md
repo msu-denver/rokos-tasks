@@ -7,7 +7,9 @@ labels: story
 
 <!-- Add exactly one priority label: P0, P1, or P2 (.agents/tickets.md#labels). -->
 
-**Value** 1–3 · **Points** 1/2/3/5/8/13 · **Priority** value ÷ points · **Depends on** US# or — · **Type** Required/Optional · **Sprint** N
+**Sprint N** · **<points> points** · **Depends on** #<n> (US#) or —
+
+**Value** 1–3 · **Priority** value ÷ points · **Type** Required/Optional · **Label** P0/P1/P2
 
 As a <role>, I want <goal> so that I can <benefit>.
 
@@ -36,7 +38,10 @@ As a <role>, I want <goal> so that I can <benefit>.
 | --- | --- | --- |
 
 ## Tasks
-- [ ] #
+<!-- One issue per story: list the work here, never as separate task issues. -->
+- [ ] **<task>** · Depends on: <other task, #<n>, or none>
+  - **What:** 
+  - **[HIGH]** 
 
 ## Open Questions
 - None.

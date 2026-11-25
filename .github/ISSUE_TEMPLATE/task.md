@@ -1,13 +1,13 @@
 ---
 name: Task
-about: Work under a story (sub-issue, no story points). Rules in .agents/tickets.md.
-title: "US#: "
+about: Process work with no story (Chore or Scrum). A story's work goes in its Tasks checklist instead. Rules in .agents/tickets.md.
+title: "Chore: "
 labels: task
 ---
 
 <!-- Add exactly one priority label: P0, P1, or P2 (.agents/tickets.md#labels). -->
 
-**Story** US# · **Needs** #<n> or —
+**Sprint N** · **Story** none · **Depends on** #<n> or —
 
 ## What
 <!-- 1–3 sentences. -->

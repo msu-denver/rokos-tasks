@@ -48,7 +48,7 @@ Every graded item, and where this plan covers it.
 | Docker deployment + frozen `requirements.txt` | 5 | [§5](#5-development-environment) |
 | ≥ 1 white-box + ≥ 1 black-box test (not auth) | 10 | [§7](#7-testing--coverage) |
 | **Bonus:** non-SQLite DB + 3-layer architecture + Compose with ≥ 2 containers | +5 | PostgreSQL; `presentation` / `business` / `data` layers; web + db + runner containers |
-| **Bonus:** each optional story implemented | +1 each (max 5) | US11–US17 |
+| **Bonus:** each optional story implemented | +1 each (max 5) | US12–US15 |
 | **Penalty:** registration or login not working | −10 each | US1, US2 are first in Sprint 1 |
 | **Penalty:** each required story not completed | −5 each (max −25) | Required set kept small and safe ([§11](#11-user-stories)) |
 | **Penalty:** no continuous development on `main` / `dev` | −5 each | Frequent merges + tagged releases ([§9](#9-git--github-workflow)) |
@@ -61,11 +61,11 @@ Every graded item, and where this plan covers it.
 
 1. **Required stories are sacred.** Each unfinished required story costs −5; each finished optional story earns only +1. Keep the required set small, and finish it before touching optional work.
 2. **Registration and login ship first.** They carry −10 penalties each.
-3. **Playable without the LLM.** Hand-written seed campaigns carry the game. AI-generated campaigns (US11) are an optional layer on top — and the grader will run the app without our Azure key, so `docker compose up` must give a fully working game in `fake` LLM mode.
+3. **Playable without an Azure key.** The LLM is core: US11 fills the campaign pool. But the grader will run the app without our Azure key, so `docker compose up` must give a fully working game in `fake` LLM mode, which plays the hand-written seed campaigns.
 4. **Python everywhere it counts.** Code quality is graded on Python, so the app is server-rendered Python with as little JavaScript as possible.
 5. **One environment, one set of commands.** Humans, AI agents, CI, and the grader all use the same Docker setup.
 6. **Fair before fancy.** Wrong tests, lost work, and unexplained failures are the bugs that matter most.
-7. **Plain-text prompts, exact contract.** The Overlord's stage prompt is plain text and can be as sarcastic as we like, but it always states the exact input/output format and an example.
+7. **Plain-text prompts, checkable rules.** The Overlord's stage prompt is plain text and can be as sarcastic as we like, but it always states the feature, the controls, the characters on screen, and the rules the Overlord will check.
 
 ---
 
@@ -80,7 +80,7 @@ Every graded item, and where this plan covers it.
 | Game page | Native browser **ES modules** (no bundler, no Node), with **Monaco** editor and **Pyodide** loaded from a CDN. **Alpine.js** (one script tag) is optional for reactive state like lives, timer, and verdict | The game page is the one heavy interactive screen: a single `game.js` would pass 1,000 lines and cause merge conflicts, so it's split into small modules. React/TypeScript was rejected: it adds Node, a bundler, and a second test/lint stack, none of it graded (coverage.py is Python-only), and Selenium already covers JS behavior |
 | Overlord art | Inline **SVG** + CSS classes per state | Easy to animate; no framework needed |
 | Code sandbox | **Custom `runner` service** (Python standard library only, own container) | See [§3.2](#32-why-a-custom-runner-instead-of-judge0) |
-| LLM (optional US11) | **Azure OpenAI** via the official `openai` SDK, structured outputs | Our credit is on Azure; structured outputs force our JSON schema |
+| LLM (US11) | **Azure OpenAI** via the official `openai` SDK, structured outputs | Our credit is on Azure; structured outputs force our JSON schema |
 | Production server | **Gunicorn** | Standard WSGI server inside Docker |
 | Lint / format | **Ruff** (lint + format, line length 79) + **pycodestyle** in CI | PEP 8 is graded; pycodestyle is the reference checker |
 | Tests | **pytest** + **coverage.py** (HTML report → `htmlcov/`) + **Selenium** (headless Chromium) for end-to-end tests | Course requires Python's `coverage` tool; Selenium covers the real browser flows |
@@ -88,7 +88,7 @@ Every graded item, and where this plan covers it.
 | CI | **GitHub Actions** | Runs lint, header check, tests, and a Docker build on every PR |
 
 ### 3.1 Version Pinning
-* **Python 3.13** everywhere, matching the Python version of the pinned Pyodide release, so **Run Sample (browser) and Submit (server) behave identically**.
+* **Python 3.13** everywhere, matching the Python version of the pinned Pyodide release, so **Run (browser) and Submit (server) run the program the same way**.
 * All Python dependencies **frozen with exact versions** in `requirements.txt` (course requirement).
 * Docker images pinned to explicit tags (e.g. `python:3.13-slim`, `postgres:17`), never `latest`. Both are multi-architecture, so the grader's Apple Silicon or Intel machine works.
 
@@ -96,8 +96,8 @@ Every graded item, and where this plan covers it.
 Judge0's sandbox needs privileged containers and has historically required cgroup v1, which clashes with Docker Desktop and Codespaces — and with whatever machine the grader uses. Our runner is a small standard-library Python service:
 
 * Separate container on an **internal-only Docker network** (no internet), reachable only by the web app; **no secrets in its environment**.
-* Each test runs as `python -I main.py` as an **unprivileged user** in a fresh temp directory, in its own process group (killed afterward).
-* `setrlimit` caps on CPU seconds, memory, file size, and process count; a wall-clock timeout per test; output capped at 64 KB.
+* Each submission runs the player's program once as `python -I main.py` as an **unprivileged user** in a fresh temp directory, in its own process group (killed afterward), driven by the stage's check script.
+* `setrlimit` caps on CPU seconds, memory, file size, and process count; a wall-clock timeout per tick (~1 s) and per run (~10 s); output capped at 64 KB.
 * Read-only root filesystem, `tmpfs` scratch, all capabilities dropped, `no-new-privileges`, PID limit.
 * Verified by a **hostile-code test suite** (infinite loop, fork bomb, memory bomb, network access, file writes, env-var reads, huge output).
 
@@ -245,7 +245,7 @@ LLM_TOTAL_BUDGET_USD=70            # $100 credit minus ~$30 demo reserve
 * Only the **LLM owner** holds the Azure key (Codespaces secret or local `.env`). Everyone else works in `fake`/`replay` mode.
 * **gitleaks** in pre-commit, plus GitHub push protection.
 * **If a key leaks:** switch the app to Azure's second key, then regenerate the first.
-* Seed campaign files (including expected outputs) are publicly visible. Acceptable for a class project.
+* Seed campaign files (including check scripts) are publicly visible. Acceptable for a class project.
 
 ---
 
@@ -290,7 +290,7 @@ Author(s): Jane Doe, John Smith
 
 | Kind | Target | Why it fits |
 | :--- | :--- | :--- |
-| **White-box** | `GradingService` output normalization and verdict logic | Tests are designed from the code's branches: CRLF line endings, trailing spaces, trailing blank lines, timeout path, runtime-error path, syntax-error path, first-failure stop — aiming for 100% branch coverage of that module |
+| **White-box** | `GradingService` verdict logic | Tests are designed from the code's branches: pass, broken rule, crash with traceback, per-tick timeout, whole-run timeout, broken check script, runner unavailable, first-failure stop — aiming for 100% branch coverage of that module |
 | **Black-box** | `ScoreCalculator` | Tests are derived only from the scoring rules in game-design.md §3.3 using equivalence classes and boundary values (0 seconds left, 0 lives, failed campaign, each multiplier) without looking at the implementation |
 
 * Mark them with pytest markers (`@pytest.mark.whitebox`, `@pytest.mark.blackbox`) and a docstring stating **purpose, functionality tested, and expected outcome**.
@@ -334,7 +334,7 @@ Author(s): Jane Doe, John Smith
    * PEP 8 via Ruff at 79 columns; docstrings and type hints on public functions.
    * Respect the three layers: routes → services → repositories; services never import Flask; only repositories query the DB.
    * Never set `LLM_MODE=live` or run live `make` targets; never read, print, or commit `.env` or secrets.
-   * Never hand-edit `expected_output` in campaign files or anything in `htmlcov/`.
+   * Never hand-edit anything in `htmlcov/`, and never loosen a campaign's `check_script` to make a program pass.
    * Never weaken runner limits or isolation without a reviewed decision.
    * Never commit directly to `main` or `dev`; branch names and commits reference the story/issue (§9).
    * Every behavior change ships with tests; campaign files must pass `make validate-campaigns`.
@@ -359,7 +359,7 @@ Author(s): Jane Doe, John Smith
 Planned when the code exists: `campaign-authoring.md`, `overlord-voice.md`, `security.md` (runner threat model).
 
 ### 8.4 Keeping Agents Consistent
-* Task status lives on the **GitHub Project board**, not in agent files. Agents read issues with `gh issue view <n>`.
+* Task status lives in **GitHub Issues**, not in agent files. Agents read issues with `gh issue view <n>`.
 * Changes to `AGENTS.md` or `.agents/` go through a normal PR reviewed by the Scrum Master.
 * `.claude/settings.json` (shared) denies reading `.env`, running the live `make` targets, merging or approving PRs, and pushing to `main`/`dev`. Other tools rely on [.agents/llm-policy.md](../.agents/llm-policy.md).
 
@@ -374,7 +374,7 @@ Planned when the code exists: `campaign-authoring.md`, `overlord-voice.md`, `sec
 ### 9.2 Branches
 * **`main`** — stable releases only. **Protected:** PR required, **≥ 1 approval**, CI must pass, no direct pushes.
 * **`dev`** — ongoing development. Protected: PR required, ≥ 1 approval, CI must pass.
-* **Feature branches** from `dev`, named with the story: `feature/US6-runner-sandbox`, `fix/US7-checkpoint-restore`, `chore/sprint0-devcontainer`.
+* **Work branches** from `dev`, named `<type>/<issue#>-<short-name>` ([workflow](../.agents/workflow.md)): `feature/14-US6-runner-sandbox`, `fix/21-checkpoint-restore`, `docs/25-consolidate-docs`.
 
 ### 9.3 Merging & Releases
 * Feature → `dev` by PR (small PRs, ideally < 400 lines).
@@ -447,9 +447,9 @@ GitHub Projects with columns **To Do → In Progress → In Review → Done** (c
 
 **The canonical user stories live in [README.md → User Stories](../README.md#user-stories)**, in the course template format (US1–US17, "As a… I want… so that I can…", Given/When/Then acceptance criteria). They are kept only there so they can't drift out of sync.
 
-* **Required:** US1–US10, the complete playable game on hand-written campaigns. Every one must ship, since each unfinished required story costs −5.
-* **Optional:** US11–US17, worth +1 each (max 5). US11 (AI-generated campaigns) is the signature optional story.
-* **Developer tasks are not user stories.** Infrastructure work (runner container, grading harness, campaign schema and validator, seed campaigns, LLM client and budget cap) is tracked as GitHub Issues under the story it enables, for example `US6: Build sandbox runner container`, `US3: Write Beginner and Easy seed campaigns`, `US11: Add LLM budget ledger and cap`. Environment setup is Sprint 0 work.
+* **Required:** US1–US11. The game needs the Overlord to write campaigns (US11) and to play the player's program to grade it (US6). Every required story must ship, since each unfinished one costs −5.
+* **Optional:** US12–US15, worth +1 each (max 5). US16 (Contest a Verdict) was removed (#25). US17 (Playable Finale) was merged into US5, since every program is now a playable loop (#13).
+* **Developer tasks are not user stories.** Infrastructure work (runner container, grading harness, campaign schema and validator, seed campaigns, LLM client and budget cap) is tracked as GitHub Issues under the story it enables, for example `US6: Build sandbox runner container`, `US6: Write the Pong seed campaign and its check scripts`, `US11: Add LLM budget ledger and cap`. Environment setup is Sprint 0 work.
 
 ---
 
@@ -458,44 +458,16 @@ GitHub Projects with columns **To Do → In Progress → In Review → Done** (c
 **Canonical table: [README.md → Product Backlog](../README.md#product-backlog).** Summary of how it was built:
 
 * **User value** 1–3, **story points** Fibonacci, **priority score = user value ÷ story points** (course formula).
-* **Totals:** 37 required points, 31 optional points, 68 in the backlog.
+* **Totals:** 58 required points, 10 optional points, 68 in the backlog.
 * **Rank adjustments (allowed by the template):**
-  * **Dependencies:** US6 ranks above higher-scoring stories because US7–US10 depend on it. US7 ranks above US8 and US10 because more stories depend on it.
-  * **(Proposed) Team decision:** US11 leads the optional stories despite a lower score (D10).
+  * **Dependencies:** US6 ranks above higher-scoring stories because US7–US11 depend on it. US7 ranks above US8 and US10 because more stories depend on it.
+  * **Team decision:** US11 ranks right after US7 despite a low score, because the game depends on generated campaigns (#13). US13 leads the optional stories.
+* **Re-sized for #13:** US5 5 → 8 (it now runs the program as a live loop in the browser, absorbing US17), US6 8 → 13 (check scripts that play the program, instead of comparing one output), US11 8 → 13 (it also generates and validates check scripts) and became Required.
 * **Changing a story's value or points:** update the README table, re-check ranks and the sprint plan, and record why in the next sprint planning notes.
-
-* **By score alone**, the optional order would be US12, US15, US13, US14, US11, US16, US17. US13 follows US11 because it fits the remaining Sprint 3 capacity.
 
 ### 12.1 Dependency Diagram
 
-An arrow points from a story to the stories that depend on it: US1 → US2 means US2 needs US1 finished first. Solid boxes are required stories; dashed boxes are optional. Arrows already implied through another story are left out (US11 also depends on US3, which US6 already requires).
-
-```mermaid
-flowchart TD
-    US1["US1: Register"] --> US2["US2: Log In and Log Out"]
-    US2 --> US3["US3: Start a Run"]
-    US3 --> US4["US4: View Stage and Write Code"]
-    US4 --> US5["US5: Run Sample Tests"]
-    US4 --> US6["US6: Submit and Get Graded"]
-
-    US5 --> US15["US15: How-to-Play Tutorial"]
-    US6 --> US15
-    US6 --> US11["US11: AI-Generated Campaigns"]
-    US6 --> US8["US8: Stage Timer"]
-    US6 --> US7["US7: Lives, Checkpoints, Progression"]
-    US6 --> US10["US10: Overlord Reactions and Feedback"]
-
-    US5 --> US17["US17: Playable Finale"]
-    US7 --> US17
-    US7 --> US13["US13: Bonus Life"]
-    US7 --> US9["US9: Scores and Leaderboard"]
-    US9 --> US14["US14: Profile Statistics"]
-    US10 --> US12["US12: Animated Overlord"]
-    US10 --> US16["US16: Contest a Verdict"]
-
-    classDef optional stroke-dasharray: 5 5
-    class US11,US12,US13,US14,US15,US16,US17 optional
-```
+The diagram lives in the README: [Dependency Diagram](../README.md#dependency-diagram).
 
 ---
 
@@ -505,27 +477,26 @@ flowchart TD
 
 | Sprint | Stories | Points | Remaining after |
 | --- | --- | :---: | :---: |
-| Sprint 1 (11/18–11/22) | US1 → US2 → US3 → US4 → US5 | 15 | 53 |
-| Sprint 2 (11/23–11/29) | US6 → US7 → US8 | 16 | 37 |
-| Sprint 3 (11/30–12/6) | US10 → US9 → US11 | 14 | 23 |
+| Sprint 1 (11/18–11/22) | US1 → US2 → US3 → US4 (US5 carried over) | 10 | 58 |
+| Sprint 2 (11/23–11/29) | US5 → US6 → US7 | 26 | 32 |
+| Sprint 3 (11/30–12/6) | US11 → US8 → US10 → US9 | 22 | 10 |
 
-* **Capacity of 16 is a placeholder.** Covering all 37 required points in three sprints needs at least ~13 points per sprint. If real capacity is lower, drop optional stories, never required ones.
+* **Capacity target is 18 points per week.** Sprint 1 planned 18 and finished 10 (US1–US4); US5 carried over into Sprint 2. Per-ticket breakdown: [scrum/capacity.md](../scrum/capacity.md).
+* **Sprint 2 is 8 points over capacity and Sprint 3 is 4 over.** The LLM owner starts US11 in Sprint 2 in `fake`/`replay` mode (prompts, schema, validator) so Sprint 3 only has wiring and live tuning left. If Sprint 3 still runs short, cut polish from US10 before cutting any story.
 * **Due 12/6.** Sprint 1 is short (11/18–11/22), and Thanksgiving (11/26) falls in Sprint 2.
 * **Sprint 3 feature freeze: Thursday 12/3.** 12/4–12/5 is for game balancing (timers, lives, campaign difficulty), bug fixes, final coverage report, README, and the final progress report. Tag `v3` by 12/5 and submit 12/6.
-* **LLM prompt tuning** for US11 happens along the way. The LLM owner drafts prompts and the generator in `fake`/`replay` mode as soon as the campaign schema exists (Sprint 1), and tunes them with live runs in Sprint 3.
-* **Stretch order** if a sprint finishes early: US13, US12, US15, US14, US16, US17.
-* **If Sprint 3 runs short:** cut US11 and protect US9 and US10.
+* **Stretch order** if a sprint finishes early: US13, US12, US15, US14.
 
 ### 13.1 Sprint Goals
-* **Sprint 1:** a player can register, log in, start a run, see a stage, and run sample tests in the browser.
-* **Sprint 2:** a player can play a full campaign: submit, get graded, lose and keep lives, advance through stages, and race the timer.
-* **Sprint 3:** the Overlord reacts and explains failures, scores reach the leaderboard, and AI-generated campaigns can join the pool.
+* **Sprint 1:** a player can register, log in, start a run, see a stage, and play their own program in the browser.
+* **Sprint 2:** the player can play their own program in the browser (US5, carried over), and the Overlord plays it to grade each stage; passing advances, failing costs a life.
+* **Sprint 3:** the Overlord writes new campaigns, the timer runs, the Overlord reacts and explains failures, and scores reach the leaderboard.
 
 ### 13.2 Dependency Check
 * **Sprint 1:** each story depends on the one before it, so they're ordered to finish in sequence.
-* **Sprint 2:** US7 and US8 depend on US6, which comes first.
-* **Sprint 3:** US9 depends on US7 (done in Sprint 2). US11 depends on US3 and US6 (Sprints 1–2).
-* **Not planned (23 points):** US13, US12, US15, US14, US16, US17, pulled in that order if a sprint finishes early.
+* **Sprint 2:** US5 and US6 depend on US4 (done in Sprint 1); US7 depends on US6, which comes first.
+* **Sprint 3:** US11 depends on US6 and US3; US8 and US9 depend on US7 (all done earlier); US10 depends on US8, which comes first in the sprint.
+* **Not planned (10 points):** US13, US12, US15, US14, pulled in that order if a sprint finishes early.
 
 ---
 
@@ -546,7 +517,7 @@ PlantUML sources live in `uml/` (as in the course template) and are exported to 
 | --- | --- | --- |
 | Use case | [uml/use_case.wsd](../uml/use_case.wsd) | Actors: Visitor, Player, LLM Owner, Azure OpenAI. Every use case is labeled with its story; optional ones are grey |
 | Sequence | [uml/sequence-US6.wsd](../uml/sequence-US6.wsd) | US6 Submit, through all three layers and the runner container |
-| Class | [uml/class.wsd](../uml/class.wsd) | Model classes only: `User`, `Campaign`, `Stage`, `TestCase`, `GameRun`, `Checkpoint`, `Submission`, `LlmUsageRecord`, plus enums |
+| Class | [uml/class.wsd](../uml/class.wsd) | Model classes only: `User`, `Campaign`, `Stage`, `CheckScript`, `GameRun`, `Checkpoint`, `Submission`, `LlmUsageRecord`, plus enums |
 
 **Rendering:** install PlantUML (`brew install plantuml`, or the VS Code PlantUML extension), then export each `.wsd` to PNG in `uml/`. Re-export whenever a source changes, and keep the class diagram in sync with `src/data/models.py`.
 
@@ -556,8 +527,8 @@ PlantUML sources live in `uml/` (as in the course template) and are exported to 
 | --- | --- |
 | `User` | A registered player account; verifies its own password |
 | `Campaign` | A multi-stage project (e.g. ASCII Pong) at one difficulty; either a hand-written seed or AI-generated; only `VALIDATED` campaigns are playable |
-| `Stage` | One feature request: the Overlord's prompt, the exact input/output contract, and starter code |
-| `TestCase` | One input with its expected output; samples are visible to players, hidden cases are used for grading |
+| `Stage` | One feature request: the Overlord's prompt and its check script. No starter code |
+| `CheckScript` | The hidden script that plays a stage's program and checks its rules (replaces `TestCase`, #13) |
 | `GameRun` | One player's attempt at a campaign: lives, current stage, timer deadline, score, and status |
 | `Checkpoint` | The player's passing code saved at the end of a stage |
 | `Submission` | One graded submission and its verdict |
@@ -575,11 +546,11 @@ PlantUML sources live in `uml/` (as in the course template) and are exported to 
 | D3 | Web framework and frontend | **Decided (2026-11-17, game page updated 2026-11-18):** Flask + Jinja templates, with the game page as native ES modules (no build step) and Alpine.js optional. React/TypeScript/Tailwind was considered and rejected to keep one toolchain and keep the graded code in Python |
 | D4 | Public hosting | **Optional** — grading runs via Docker. Only needed for a live class demo; keep it off the Azure credit |
 | D5 | Bonus-life rule (US13) | First-submit clear with ≥ 50% of the timer left |
-| D6 | Failure detail on Hard+ (US10) | Test number + traceback only |
-| D7 | Player's code after a failed submit (US7) | Keep their edits + "Restore checkpoint" button (instead of auto-wiping). Also decide if the timer resets after a failure |
+| D6 | Failure detail on Hard+ (US10) | The broken rule only, plus the traceback on a crash |
+| D7 | Player's code after a failed submit (US7) | **Decided (#25):** the stage timer resets and the code goes back to the last checkpoint. Rated [LOW] in US7, so the implementer may choose otherwise |
 | D8 | Player devices | Desktop browsers only |
 | D9 | Team capacity (§13) | Agree on a number and justify it in the README |
-| D10 | Rank US11 first among optional stories (‡ in §12) | Yes — it's the signature feature |
+| D10 | Rank US11 first among optional stories (‡ in §12) | Superseded by #13: US11 is required |
 | D11 | Repo move | Transfer `Riconashty/Roko_tasks` into msu-denver (keeps history) or create a fresh repo there |
 
 ---
@@ -624,8 +595,8 @@ PlantUML sources live in `uml/` (as in the course template) and are exported to 
 | Scrum notes fall behind | Med | Med | Notes committed the same day; Scrum Master owns them |
 | Missing headers / PEP 8 issues | Med | Med | Ruff + pycodestyle + header check in pre-commit and CI |
 | Sparse commit history on `main` or `dev` | Med | Med | Merge commits, mid-sprint `dev` → `main` merges, everyone commits from their own account |
-| Azure model access blocked or delayed | Med | Low | US11 is optional; the game is complete on seed campaigns |
+| Azure model access blocked or delayed | Med | High | US11 is required, so tell the instructor early. The game still runs on seed campaigns in `fake` mode |
 | Budget blowout | Low | High | `fake` default, app-level caps, TPM limits, only the LLM owner holds keys |
-| Wrong tests frustrate players | Med | High | Campaign validator in CI, failure feedback (US10), contest (US16) |
+| Wrong tests frustrate players | Med | High | Campaign validator in CI, failure feedback (US10) |
 | Sandbox abuse | Low | High | Runner hardening + hostile-code suite; no secrets or internet in the runner |
 | Inconsistent code from different AI tools | Med | Med | `AGENTS.md` hard rules, CI checks, required reviews |

@@ -22,19 +22,17 @@ rectangle "Roko's Tasks" {
     usecase "Log In / Log Out\n(US2)" as UC2
     usecase "Start Run\n(US3)" as UC3
     usecase "View Stage &\nWrite Code\n(US4)" as UC4
-    usecase "Run Sample\n(US5)" as UC5
+    usecase "Play My Program\n(US5)" as UC5
     usecase "Submit Code\n(US6)" as UC6
     usecase "Grade in Sandbox\n(US6)" as UCGrade
     usecase "Advance Stage /\nLose Life\n(US7)" as UC7
     usecase "Auto-Submit\non Timeout\n(US8)" as UC8
     usecase "View Leaderboard\n(US9)" as UC9
     usecase "Receive Overlord\nFeedback\n(US10, US12)" as UC10
-    usecase "Generate Campaigns\n(US11)" as UC11 <<optional>>
+    usecase "Generate Campaigns\n(US11)" as UC11
     usecase "Earn Bonus Life\n(US13)" as UC13 <<optional>>
     usecase "View Profile\n(US14)" as UC14 <<optional>>
     usecase "Play Tutorial\n(US15)" as UC15 <<optional>>
-    usecase "Contest Verdict\n(US16)" as UC16 <<optional>>
-    usecase "Play Finale\n(US17)" as UC17 <<optional>>
 }
 
 Visitor --> UC1
@@ -49,13 +47,11 @@ Player --> UC9
 Player --> UC10
 Player --> UC14
 Player --> UC15
-Player --> UC17
 
 UC6 ..> UCGrade : <<include>>
 UC6 ..> UC7 : <<include>>
 UC8 ..> UC6 : <<extend>>
 UC13 ..> UC7 : <<extend>>
-UC16 ..> UC6 : <<extend>>
 
 LlmOwner --> UC11
 UC11 --> Azure

@@ -64,9 +64,17 @@ validate-campaigns:
 ## What CI runs: lint, campaign validation, and coverage.
 check: lint validate-campaigns coverage
 
-## Flask with auto-reload on http://localhost:8001.
+## Flask with auto-reload on http://localhost:8001. It runs in Compose
+## (the web-dev service), so it starts db and runner first and can reach
+## the internal-only runner. CI has no Compose stack, so there it runs
+## Flask on the host instead.
 dev:
-	$(PYTHON) -m flask --app src.app:create_dev_app run --debug --port 8001
+	@if [ "$$CI" = "true" ]; then \
+		$(PYTHON) -m flask --app src.app:create_dev_app run --debug \
+			--port 8001; \
+	else \
+		docker compose --profile dev up --build web-dev; \
+	fi
 
 ## Start web, db, and runner containers with Docker Compose.
 up:

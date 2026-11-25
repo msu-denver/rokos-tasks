@@ -14,8 +14,10 @@ Keep it short. Reviewers should get the whole picture in 30 seconds.
 
 Example: `feat(US6): add CPU and memory limits to runner`.
 
-The body's first line links the issue with `Closes #<n>`, so the PR
-shows under the issue's **Development** and merging closes it.
+The body's first line names the issue with `Closes #<n>`. PRs go into
+`dev`, not the default branch, so GitHub won't close the issue on
+merge. The author's agent closes it after the merge
+([workflow §8](workflow.md#8-after-merge-close-the-issue)).
 
 ## Body
 
@@ -38,7 +40,7 @@ Closes #<issue>
 
 ## Checklist
 - [ ] `make check` passes (lint, tests incl. Selenium, coverage ≥ 90%)
-- [ ] Self-review done: <n> findings fixed · deferred: #<issue> or none
+- [ ] Self-review done: <n> findings fixed
 - [ ] All [HIGH] acceptance criteria met · [MED] deviations: <none or explanation>
 - [ ] No live LLM calls, no secrets
 - Author: <human> with <agent/model, or "no agent">
@@ -85,7 +87,7 @@ is ready, send any requests still pending.
 | ✅ Good | ❌ Bad |
 | :--- | :--- |
 | Registered `tester1` with an 8-char password in Chrome and landed on the home screen logged in. | Tested it, works. |
-| Submitted a solution with a trailing newline on Stage 2 and got "All tests passed" with lives unchanged. | Ran the tests. All pass. Also checked the UI and it looks good. Fixed a typo too. |
+| Submitted a Pong Stage 2 program whose right paddle ignores `l`, and got a fail verdict naming that rule, with one life lost. | Ran the tests. All pass. Also checked the UI and it looks good. Fixed a typo too. |
 | Ran `make validate-campaigns` on the new Easy campaign and it reported 0 errors. | See screenshot. |
 
 Passing automated tests don't count as manual testing. The point is that

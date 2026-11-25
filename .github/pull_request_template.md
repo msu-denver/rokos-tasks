@@ -16,7 +16,7 @@ Closes #
 
 ## Checklist
 - [ ] `make check` passes (lint, tests incl. Selenium, coverage ≥ 90%)
-- [ ] Self-review done: _n_ findings fixed · deferred: #_ or none
+- [ ] Self-review done: _n_ findings fixed
 - [ ] All [HIGH] acceptance criteria met · [MED] deviations: none
 - [ ] No live LLM calls, no secrets
 - Author: _human_ with _agent/model, or "no agent"_

@@ -28,7 +28,6 @@ enum CampaignSource {
 
 enum CampaignStatus {
     VALIDATED
-    QUARANTINED
     RETIRED
 }
 
@@ -39,7 +38,7 @@ enum RunStatus {
 }
 
 enum FailureKind {
-    WRONG_OUTPUT
+    BROKEN_RULE
     RUNTIME_ERROR
     SYNTAX_ERROR
     TIMEOUT
@@ -68,18 +67,11 @@ class Stage {
     id: int
     number: int
     prompt: str
-    input_format: str
-    output_format: str
-    starter_code: str | None
-    +sample_cases(): list[TestCase]
-    +hidden_cases(): list[TestCase]
 }
 
-class TestCase {
+class CheckScript {
     id: int
-    input_text: str
-    expected_output: str
-    is_sample: bool
+    source: str
 }
 
 class GameRun {
@@ -108,12 +100,13 @@ class Submission {
     code: str
     passed: bool
     failure_kind: FailureKind | None
-    failed_test_index: int | None
+    failed_rule: str | None
+    failed_tick: int | None
     seconds_remaining: int
     submitted_at: datetime
 }
 
-class LlmUsageRecord <<optional US11>> {
+class LlmUsageRecord <<US11>> {
     id: int
     purpose: str
     model: str
@@ -125,8 +118,8 @@ class LlmUsageRecord <<optional US11>> {
 
 User "1" -- "0..*" GameRun : plays >
 GameRun "0..*" --> "1" Campaign : follows >
-Campaign "1" *-- "1..*" Stage
-Stage "1" *-- "1..*" TestCase
+Campaign "1" *-- "2..5" Stage
+Stage "1" *-- "1" CheckScript
 GameRun "1" *-- "0..*" Checkpoint
 GameRun "1" *-- "0..*" Submission
 Submission "0..*" --> "1" Stage : answers >

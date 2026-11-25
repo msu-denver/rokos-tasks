@@ -44,14 +44,12 @@ line first, then the findings sorted HIGH → NIT.
 
 ## 4. Then
 
-- **Self-review:** fix every finding. For a non-HIGH you truly can't fix
-  in scope, open a tech-debt issue
-  (`gh issue create --label tech-debt --label P2
-  --title "Tech debt: …" --body-file <file>` using the fields in `.github/ISSUE_TEMPLATE/tech-debt.md`, or
-  draft it for your human)
-  and note its number. Rerun `make check`. If round 1 had a HIGH, run
-  this skill again. Remember the counts for the PR checklist line:
-  `Self-review done: <n> findings fixed · deferred: #<issue> or none`.
+- **Self-review:** fix every finding. If a fix is out of scope or
+  touches files you may not edit, ask your human what to do. **Never
+  open a tech-debt issue for your own code.** Tech-debt issues are only
+  for findings on someone else's PR. Rerun `make check`. If round 1 had
+  a HIGH, run this skill again. Remember the count for the PR checklist
+  line: `Self-review done: <n> findings fixed`.
 - **Someone else's PR:** post it with
   `gh pr review <n> --comment --body-file <file>`. Never `--approve`.
   Use `--request-changes` only if your human says to.
