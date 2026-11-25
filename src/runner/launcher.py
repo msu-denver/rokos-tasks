@@ -6,15 +6,15 @@ Description: Runs inside each sandbox child. In "run" mode it switches to
     environment. In "reap" mode it kills every process the slot user owns
     and empties the slot folder. Started as `python -I launcher.py`, so it
     imports only the standard library, never `src`.
-Author(s): Richard Hall
+Author(s): Richard Hall, Tyler Black
 """
 
 import json
 import os
-import resource
 import shutil
 import signal
 import sys
+import time
 from pathlib import Path
 
 LAUNCH_FAILED_EXIT = 70
@@ -23,6 +23,8 @@ MAX_HEADER_BYTES = 20
 MAX_STATUS_BYTES = 500
 CHILD_PATH = "/usr/local/bin:/usr/bin:/bin"
 HOST_MODE_UID = "-"
+REAP_ROUNDS = 50
+REAP_POLL_SECONDS = 0.01
 
 
 class LauncherError(Exception):
@@ -63,16 +65,29 @@ def apply_limits(limits: dict) -> None:
     Args:
         limits: The fields of ``SandboxLimits`` as a dict.
     """
+    import resource
+
     caps = [
         (resource.RLIMIT_CPU, limits["cpu_seconds"]),
         (resource.RLIMIT_FSIZE, limits["file_size_bytes"]),
         (resource.RLIMIT_NPROC, limits["process_count"]),
+        (resource.RLIMIT_NOFILE, limits["open_files"]),
         (resource.RLIMIT_CORE, 0),
     ]
     if limits["memory_bytes"] is not None:
         caps.append((resource.RLIMIT_AS, limits["memory_bytes"]))
+    if sys.platform == "linux":
+        caps.append((resource.RLIMIT_MSGQUEUE, 0))
     for limit, value in caps:
         resource.setrlimit(limit, (value, value))
+
+
+def prefer_oom_victim(path: Path = Path("/proc/self/oom_score_adj")) -> None:
+    """Ask Linux to prefer this program and its children as OOM victims."""
+    try:
+        path.write_text("1000\n", encoding="ascii")
+    except OSError:
+        pass  # Best effort on kernels that don't expose a writable score.
 
 
 def read_exact(fd: int, count: int) -> bytes:
@@ -131,6 +146,8 @@ def start_program(argv: list[str]) -> int:
         directory = Path(argv[1])
         limits = json.loads(argv[2])
         if uid is not None:
+            if uid > 0:
+                prefer_oom_victim()
             drop_privileges(uid)
         apply_limits(limits)
         os.chdir(directory)
@@ -177,11 +194,31 @@ def unlock_tree(root: Path) -> None:
                 os.chmod(path, 0o700)
 
 
+def slot_has_processes(proc_root: Path, uid: int, reaper_pid: int) -> bool:
+    """Find any live process whose real or saved UID matches the slot."""
+    for entry in proc_root.iterdir():
+        if not entry.name.isdecimal() or entry.name == str(reaper_pid):
+            continue
+        try:
+            status = (entry / "status").read_bytes()
+        except (FileNotFoundError, ProcessLookupError):
+            continue  # The process exited during the scan.
+        fields = dict(
+            line.split(b":", 1) for line in status.split(b"\n") if b":" in line
+        )
+        if fields[b"State"].split()[0] == b"Z":
+            continue
+        real, _effective, saved, _filesystem = map(int, fields[b"Uid"].split())
+        if uid in (real, saved):
+            return True
+    return False
+
+
 def reap_slot(argv: list[str]) -> int:
     """Kill every process of the slot user, then empty its folder.
 
     Args:
-        argv: ``[uid, directory]``. Host mode is refused, because
+        argv: ``[uid, directory, reaper_uid]``. Host mode is refused, because
             ``kill(-1)`` as the developer would kill their own session.
 
     Returns:
@@ -190,13 +227,26 @@ def reap_slot(argv: list[str]) -> int:
     uid = parse_uid(argv[0])
     if uid is None:
         raise LauncherError("reap needs a sandbox uid")
-    drop_privileges(uid)
-    try:
-        os.kill(-1, signal.SIGKILL)
-    except ProcessLookupError:
-        pass
-    clear_directory(Path(argv[1]))
-    return 0
+    reaper_uid = int(argv[2])
+    if min(uid, reaper_uid) <= 0 or uid == reaper_uid:
+        raise LauncherError("reaping needs two distinct non-root uids")
+    os.setgroups([])
+    # The effective UID lets us signal slot processes. Linux checks the
+    # target's real and saved UIDs, which shield us from their signals.
+    os.setresgid(reaper_uid, uid, reaper_uid)
+    os.setresuid(reaper_uid, uid, reaper_uid)
+    for _ in range(REAP_ROUNDS):
+        try:
+            os.kill(-1, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        if not slot_has_processes(Path("/proc"), uid, os.getpid()):
+            directory = Path(argv[1])
+            directory.chmod(0o700)
+            clear_directory(directory)
+            return 0
+        time.sleep(REAP_POLL_SECONDS)
+    raise LauncherError("slot processes survived reaping")
 
 
 def main(argv: list[str]) -> int:
@@ -210,7 +260,7 @@ def main(argv: list[str]) -> int:
     """
     if len(argv) == 6 and argv[1] == "run":
         return start_program(argv[2:])
-    if len(argv) == 4 and argv[1] == "reap":
+    if len(argv) == 5 and argv[1] == "reap":
         return reap_slot(argv[2:])
     sys.stderr.write("usage: launcher.py run|reap ...\n")
     return USAGE_EXIT

@@ -4,7 +4,7 @@ Description: One sandboxed run of a player program. Starts the program
     through the launcher in a borrowed slot, sends one input line per
     tick, reads back one frame (ending with a line of only `---`) under
     the tick and run deadlines, and kills everything when the run ends.
-Author(s): Richard Hall
+Author(s): Richard Hall, Tyler Black
 """
 
 import logging
@@ -13,13 +13,19 @@ import selectors
 import signal
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 from types import TracebackType
 
 from src.runner.launcher import clear_directory
 from src.runner.limits import SandboxLimits
-from src.runner.slots import Slot, SlotCompromisedError
+from src.runner.slots import (
+    FIRST_REAPER_UID,
+    FIRST_SLOT_UID,
+    Slot,
+    SlotCompromisedError,
+)
 
 LAUNCHER_PATH = Path(__file__).with_name("launcher.py")
 FRAME_END = b"---\n"
@@ -347,12 +353,12 @@ class ProgramSession:
                 # macOS answers EPERM, not ESRCH, once only zombies remain.
                 pass
             try:
-                clear_directory(self._slot.directory)
+                clear_directory(Path(self._slot.directory))
             except OSError as error:
                 raise SlotCompromisedError(str(error)) from error
             return
         try:
-            result = subprocess.run(
+            reaper = subprocess.Popen(
                 [
                     sys.executable,
                     "-I",
@@ -360,15 +366,24 @@ class ProgramSession:
                     "reap",
                     str(self._slot.uid),
                     str(self._slot.directory),
+                    str(FIRST_REAPER_UID + self._slot.uid - FIRST_SLOT_UID),
                 ],
-                capture_output=True,
-                timeout=REAP_TIMEOUT_SECONDS,
+                stdin=subprocess.DEVNULL,
                 env={},
-                check=False,
             )
-        except (OSError, subprocess.TimeoutExpired) as error:
+        except OSError as error:
             raise SlotCompromisedError(f"{self._slot}: {error}") from error
-        if result.returncode != 0:
+        try:
+            exit_code = reaper.wait(timeout=REAP_TIMEOUT_SECONDS)
+        except subprocess.TimeoutExpired as error:
+            try:
+                reaper.kill()
+            except OSError:
+                logger.warning("could not kill the timed-out reaper")
+            # Collect it whenever it ends, without blocking this request.
+            threading.Thread(target=reaper.wait, daemon=True).start()
+            raise SlotCompromisedError(f"{self._slot}: {error}") from error
+        if exit_code != 0:
             raise SlotCompromisedError(
-                f"{self._slot}: reaping failed: {result.stderr.decode()}"
+                f"{self._slot}: reaping failed with exit code {exit_code}"
             )

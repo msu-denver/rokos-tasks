@@ -4,7 +4,7 @@ Description: The runner's two operations. `run` plays a program through
     a fixed list of input lines; `grade` has a stage's check script play
     it. Both check the request, borrow sandbox slots, and map failures to
     replies. Used by the HTTP server; has no HTTP code of its own.
-Author(s): Richard Hall
+Author(s): Richard Hall, Tyler Black
 """
 
 import logging
@@ -127,6 +127,16 @@ class RunnerService:
         self._limits = limits
         self._slot_wait_seconds = slot_wait_seconds
         self._grader = Grader(limits)
+
+    def health(self) -> tuple[HTTPStatus, dict]:
+        """Report whether every sandbox slot is still usable."""
+        retired = self._pool.retired
+        if retired:
+            return HTTPStatus.SERVICE_UNAVAILABLE, {
+                "ok": False,
+                "retired": retired,
+            }
+        return HTTPStatus.OK, {"ok": True}
 
     def run(self, payload: object) -> tuple[HTTPStatus, dict]:
         """Handle one run request.

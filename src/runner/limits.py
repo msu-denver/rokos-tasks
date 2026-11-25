@@ -28,6 +28,8 @@ class SandboxLimits:
             only the host-mode unit tests do (macOS rejects this limit).
         file_size_bytes: Largest file the program may write.
         process_count: Processes the sandbox user may own at once.
+        open_files: File descriptors one program may hold, so it can't
+            pile up connections to the runner or other services.
         output_bytes: Cap on stdout, and separately on stderr.
         code_bytes: Largest accepted source file.
     """
@@ -38,6 +40,7 @@ class SandboxLimits:
     memory_bytes: int | None = 256 * MEGABYTE
     file_size_bytes: int = 1 * MEGABYTE
     process_count: int = 16
+    open_files: int = 64
     output_bytes: int = 64 * KILOBYTE
     code_bytes: int = 64 * KILOBYTE
 

@@ -2,7 +2,7 @@
 File: test_runner_limits_and_slots.py
 Description: Unit tests for the runner's production limits (pinned to
     the US6 values so nobody loosens them by accident) and the slot pool.
-Author(s): Richard Hall
+Author(s): Richard Hall, Tyler Black
 """
 
 import json
@@ -29,6 +29,7 @@ def test_production_limits_match_us6():
     assert PRODUCTION_LIMITS.memory_bytes == 256 * 1024 * 1024
     assert PRODUCTION_LIMITS.cpu_seconds <= 10
     assert PRODUCTION_LIMITS.process_count <= 16
+    assert PRODUCTION_LIMITS.open_files <= 64
 
 
 def test_limits_serialize_for_the_launcher():
@@ -117,6 +118,7 @@ def test_compromised_slots_are_never_lent_again(tmp_path: Path):
             with pool.acquire(timeout=0, count=2):
                 raise SlotCompromisedError("left over")
     assert "retiring" in logger.error.call_args.args[0]
+    assert pool.retired == 2
     with pytest.raises(RunnerBusyError):
         with pool.acquire(timeout=0):
             pass

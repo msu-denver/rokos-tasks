@@ -4,9 +4,10 @@ Description: Unit tests for Grader in host mode: a real player program
     and a real check script, each in its own slot, relayed tick by tick.
     Covers pass, a broken rule, crashes, timeouts, what the check script
     can see, and check-script failures.
-Author(s): Richard Hall
+Author(s): Richard Hall, Tyler Black
 """
 
+import sys
 from pathlib import Path
 from textwrap import dedent
 
@@ -21,6 +22,9 @@ from src.runner.grading import (
 from src.runner.limits import SandboxLimits
 from src.runner.slots import Slot
 
+POSIX_ONLY = pytest.mark.skipif(
+    sys.platform == "win32", reason="Linux only; CI runs it (POSIX APIs)"
+)
 HOST_LIMITS = SandboxLimits(memory_bytes=None, tick_seconds=2.0)
 
 ONE_BALL = dedent(
@@ -74,6 +78,7 @@ def grade(
     return Grader(limits).grade(slots[0], slots[1], code, check_script)
 
 
+@POSIX_ONLY
 def test_program_that_follows_the_rules_passes(slots):
     assert grade(slots, BALL_PROGRAM) == {
         "verdict": "pass",
@@ -86,6 +91,7 @@ def test_program_that_follows_the_rules_passes(slots):
     }
 
 
+@POSIX_ONLY
 def test_broken_rule_names_the_rule_tick_and_frame(slots):
     two_balls = BALL_PROGRAM.replace(".O..", ".OO.")
     verdict = grade(slots, two_balls)
@@ -97,6 +103,7 @@ def test_broken_rule_names_the_rule_tick_and_frame(slots):
     assert verdict["last_frame"] == "....\n.OO."
 
 
+@POSIX_ONLY
 def test_crash_fails_with_the_traceback(slots):
     verdict = grade(slots, "input()\nraise ValueError('bad paddle')\n")
     assert verdict["reason"] == "crashed"
@@ -104,12 +111,14 @@ def test_crash_fails_with_the_traceback(slots):
     assert verdict["last_frame"] is None
 
 
+@POSIX_ONLY
 def test_infinite_loop_fails_with_a_timeout(slots):
     limits = SandboxLimits(memory_bytes=None, tick_seconds=0.5)
     verdict = grade(slots, "input()\nwhile True:\n    pass\n", limits=limits)
     assert verdict["reason"] == "tick_timeout"
 
 
+@POSIX_ONLY
 def test_check_script_sees_frames_only(slots):
     """The check script can't find the player's code anywhere it looks."""
     snoop = dedent(
@@ -136,6 +145,7 @@ def test_check_script_sees_frames_only(slots):
         PROTOCOL_BREAKER,
     ],
 )
+@POSIX_ONLY
 def test_broken_check_script_is_a_check_error(slots, broken_script: str):
     limits = SandboxLimits(memory_bytes=None, tick_seconds=0.5)
     with pytest.raises(CheckScriptError) as error:
@@ -143,6 +153,7 @@ def test_broken_check_script_is_a_check_error(slots, broken_script: str):
     assert isinstance(error.value.stderr, str)
 
 
+@POSIX_ONLY
 def test_check_script_that_plays_forever_is_stopped(slots, monkeypatch):
     monkeypatch.setattr("src.runner.grading.MAX_TICKS", 3)
     endless = "def check(game):\n    while True:\n        game.tick()\n"

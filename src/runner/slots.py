@@ -4,7 +4,7 @@ Description: Sandbox slots. Each slot is one unprivileged user with its
     own tmpfs folder, so concurrent runs can't see or touch each other.
     A run borrows free slots from the pool (a grade takes two at once:
     one for the player, one for the check script) and returns them.
-Author(s): Richard Hall
+Author(s): Richard Hall, Tyler Black
 """
 
 import logging
@@ -12,11 +12,12 @@ import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import PurePath, PurePosixPath
 
 SLOT_COUNT = 8
 FIRST_SLOT_UID = 10001
-SANDBOX_ROOT = Path("/sandbox")
+FIRST_REAPER_UID = 20001
+SANDBOX_ROOT = PurePosixPath("/sandbox")
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +46,7 @@ class Slot:
     """
 
     uid: int | None
-    directory: Path
+    directory: PurePath
 
 
 class SlotPool:
@@ -55,6 +56,13 @@ class SlotPool:
         """Create a pool holding ``slots``, all free."""
         self._free = list(slots)
         self._changed = threading.Condition()
+        self._retired = 0
+
+    @property
+    def retired(self) -> int:
+        """Return the number of slots retired after cleanup failed."""
+        with self._changed:
+            return self._retired
 
     @contextmanager
     def acquire(self, timeout: float, count: int = 1) -> Iterator[list[Slot]]:
@@ -86,6 +94,8 @@ class SlotPool:
             yield taken
         except SlotCompromisedError:
             retired = True
+            with self._changed:
+                self._retired += len(taken)
             logger.error("retiring %s: they could not be cleaned", taken)
             raise
         finally:

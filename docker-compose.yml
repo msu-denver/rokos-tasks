@@ -50,6 +50,13 @@ services:
     # No environment block on purpose: the runner gets no secrets.
     read_only: true
     init: true
+    ipc: none
+    # The runner keeps a private IPC namespace. Disable System V allocation.
+    sysctls:
+      kernel.shmmax: "0"
+      kernel.shmall: "0"
+      kernel.msgmni: "0"
+      kernel.sem: "0 0 0 0"
     cap_drop:
       - ALL
     # Only so the server can switch each run to its slot user. Player

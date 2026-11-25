@@ -3,7 +3,7 @@ File: test_hostile_code.py
 Description: Hostile-code suite (US6 AC4). Each test plays a program
     that attacks the sandbox in the real runner container and checks that
     the attack is blocked or the program is killed. Never weaken these.
-Author(s): Richard Hall
+Author(s): Richard Hall, Tyler Black
 """
 
 import json
@@ -11,7 +11,7 @@ from textwrap import dedent
 
 from tests.runner.conftest import GradeInSandbox, RunInSandbox
 
-# Counts processes owned by any slot user other than this program itself.
+# Counts live processes belonging to slot users, excluding this program.
 COUNT_SANDBOX_PROCESSES = dedent(
     """
     import os
@@ -21,10 +21,16 @@ COUNT_SANDBOX_PROCESSES = dedent(
         if not name.isdigit() or int(name) == os.getpid():
             continue
         try:
-            owner = os.stat(f"/proc/{name}").st_uid
-        except OSError:
+            with open(f"/proc/{name}/status") as handle:
+                fields = dict(
+                    line.split(":", 1) for line in handle if ":" in line
+                )
+        except (FileNotFoundError, ProcessLookupError):
             continue
-        if 10001 <= owner <= 10008:
+        if fields["State"].split()[0] == "Z":
+            continue
+        real, _effective, saved, _filesystem = map(int, fields["Uid"].split())
+        if any(10001 <= uid <= 10008 for uid in (real, saved)):
             count += 1
     print(count)
     print("---")
@@ -96,6 +102,7 @@ def test_writes_outside_own_folder_fail(run_in_sandbox: RunInSandbox):
         import os
         input()
         targets = ["/app/x", "/etc/x", "/tmp/x", "/sandbox/x", "/x"]
+        targets += ["/dev/shm/x", "/dev/mqueue/x"]
         targets += [f"/sandbox/{slot}/x" for slot in range(8)
                     if f"/sandbox/{slot}" != os.getcwd()]
         wrote = []
@@ -113,6 +120,113 @@ def test_writes_outside_own_folder_fail(run_in_sandbox: RunInSandbox):
         """
     )
     assert run_in_sandbox(code)["frames"] == ["NONE"]
+    probe = (
+        'import os\ninput()\nprint(os.listdir("/dev/mqueue"))\nprint("---")\n'
+    )
+    assert run_in_sandbox(probe)["frames"] == ["[]"]
+
+
+def test_system_v_ipc_allocation_is_disabled(
+    run_in_sandbox: RunInSandbox,
+) -> None:
+    """Check that each System V IPC allocator rejects a private object."""
+    code = dedent(
+        """
+        import ctypes
+        input()
+        libc = ctypes.CDLL(None)
+        private = 0
+        mode = 0o600
+        print(libc.shmget(private, ctypes.c_size_t(1), mode))
+        print(libc.msgget(private, mode))
+        print(libc.semget(private, 1, mode))
+        print("---")
+        """
+    )
+    assert run_in_sandbox(code)["frames"] == ["-1\n-1\n-1"]
+
+
+def test_player_cannot_call_the_runner_api(
+    run_in_sandbox: RunInSandbox,
+) -> None:
+    """The runner drops a player's connection before reading a request."""
+    code = dedent(
+        """
+        import http.client
+        input()
+        connection = http.client.HTTPConnection("127.0.0.1", 9000, timeout=5)
+        try:
+            connection.request("POST", "/run", body=b"{}")
+            print(connection.getresponse().status)
+        except (OSError, http.client.HTTPException):
+            print("dropped")
+        finally:
+            connection.close()
+        print("---")
+        """
+    )
+    assert run_in_sandbox(code)["frames"] == ["dropped"]
+
+
+def test_idle_connection_flood_cannot_starve_the_runner(
+    run_in_sandbox: RunInSandbox, grade_in_sandbox: GradeInSandbox
+) -> None:
+    """Idle connections to the runner can't use up its threads.
+
+    Each player process may hold 64 file descriptors and the slot may own
+    16 processes, so this opens as many idle connections as it can and
+    leaves them behind. Refused connections never get a server thread, so
+    later runs and grades still work and nothing is left running.
+    """
+    code = dedent(
+        """
+        import os, socket, sys
+        input()
+        print("frame")
+        print("---")
+        sys.stdout.flush()
+        held = []
+        for _ in range(8):
+            if os.fork() == 0:
+                break
+        while True:
+            try:
+                held.append(socket.create_connection(("127.0.0.1", 9000)))
+            except OSError:
+                break
+        input()
+        """
+    )
+    assert run_in_sandbox(code)["frames"] == ["frame"]
+    for _ in range(8):
+        assert run_in_sandbox(COUNT_SANDBOX_PROCESSES)["frames"] == ["0"]
+    echo = "import sys\nfor line in sys.stdin:\n    print(line.strip())\n"
+    echo += "    print('---')\n"
+    check = "def check(game):\n    game.check(game.tick('q') == 'q', 'echo')\n"
+    assert grade_in_sandbox(echo, check)["verdict"] == "pass"
+
+
+def test_open_files_are_capped(run_in_sandbox: RunInSandbox) -> None:
+    code = dedent(
+        """
+        import resource
+        input()
+        print(resource.getrlimit(resource.RLIMIT_NOFILE))
+        print("---")
+        """
+    )
+    assert run_in_sandbox(code)["frames"] == ["(64, 64)"]
+
+
+def test_player_has_the_preferred_oom_score(
+    run_in_sandbox: RunInSandbox,
+) -> None:
+    """Check that the score survives the switch to the slot user."""
+    code = (
+        'input()\nwith open("/proc/self/oom_score_adj") as score:\n'
+        '    print(score.read().strip())\nprint("---")\n'
+    )
+    assert run_in_sandbox(code)["frames"] == ["1000"]
 
 
 def test_other_slots_are_unreadable(run_in_sandbox: RunInSandbox):
@@ -161,6 +275,25 @@ def test_slot_folder_is_empty_for_next_run(run_in_sandbox: RunInSandbox):
         assert run_in_sandbox(list_files)["frames"] == ["['main.py']"]
 
 
+def test_slot_folder_modes_are_restored(run_in_sandbox: RunInSandbox) -> None:
+    """Check mode restoration and successful reuse for all eight slots."""
+    probe = (
+        "import os, stat\ninput()\n"
+        'print(os.getcwd(), oct(stat.S_IMODE(os.stat(".").st_mode)))\n'
+        'print("---")\n'
+    )
+    for mode in (0o000, 0o777):
+        chmod = f'import os\ninput()\nos.chmod(".", {mode})\nprint("---")\n'
+        for _ in range(8):
+            assert run_in_sandbox(chmod)["status"] == "completed"
+        frames = set()
+        for _ in range(8):
+            result = run_in_sandbox(probe)
+            assert result["status"] == "completed"
+            frames.add(result["frames"][0])
+        assert frames == {f"/sandbox/{slot} 0o700" for slot in range(8)}
+
+
 def test_fork_bomb_is_stopped_and_cleaned_up(run_in_sandbox: RunInSandbox):
     code = "import os\ninput()\nwhile True:\n    os.fork()\n"
     result = run_in_sandbox(code)
@@ -168,16 +301,55 @@ def test_fork_bomb_is_stopped_and_cleaned_up(run_in_sandbox: RunInSandbox):
     assert run_in_sandbox(COUNT_SANDBOX_PROCESSES)["frames"] == ["0"]
 
 
+def test_sigstop_flood_cannot_freeze_the_reaper(
+    run_in_sandbox: RunInSandbox,
+) -> None:
+    """A leftover process that SIGSTOPs everything can't hang reaping.
+
+    It runs as the slot user and keeps sending SIGSTOP to every process
+    it may signal. The reaper must still kill it, answer the request, and
+    leave every slot usable.
+    """
+    code = dedent(
+        """
+        import os, signal, sys
+        input()
+        print("frame")
+        print("---")
+        sys.stdout.flush()
+        if os.fork() == 0:
+            os.setsid()
+            while True:
+                try:
+                    os.kill(-1, signal.SIGSTOP)
+                except OSError:
+                    pass
+        input()
+        """
+    )
+    result = run_in_sandbox(code)
+    assert result["frames"] == ["frame"]
+    for _ in range(8):
+        assert run_in_sandbox(COUNT_SANDBOX_PROCESSES)["frames"] == ["0"]
+
+
 def test_escaped_child_is_killed_after_run(run_in_sandbox: RunInSandbox):
     code = dedent(
         """
         import os, time
         input()
+        read_end, write_end = os.pipe()
         if os.fork() == 0:
+            os.close(read_end)
             os.setsid()
             if os.fork() == 0:
+                os.write(write_end, b"1")
+                os.close(write_end)
                 time.sleep(60)
             os._exit(0)
+        os.close(write_end)
+        assert os.read(read_end, 1) == b"1"
+        os.close(read_end)
         print("forked")
         print("---")
         """
@@ -208,13 +380,17 @@ def test_huge_stderr_hits_output_limit(run_in_sandbox: RunInSandbox):
 def test_huge_file_is_killed(run_in_sandbox: RunInSandbox):
     code = dedent(
         """
+        import signal
         input()
+        signal.signal(signal.SIGXFSZ, signal.SIG_DFL)
         with open("big.bin", "wb") as handle:
             while True:
                 handle.write(b"x" * 65536)
         """
     )
-    assert run_in_sandbox(code)["status"] == "crashed"
+    result = run_in_sandbox(code)
+    assert result["status"] == "crashed"
+    assert result["exit_code"] in (-25, 153)  # Linux SIGXFSZ
 
 
 def test_infinite_loop_times_out(run_in_sandbox: RunInSandbox):
