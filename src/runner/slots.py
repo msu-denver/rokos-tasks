@@ -15,8 +15,12 @@ from dataclasses import dataclass
 from pathlib import PurePath, PurePosixPath
 
 SLOT_COUNT = 8
-FIRST_SLOT_UID = 10001
-FIRST_REAPER_UID = 20001
+# RLIMIT_NPROC counts processes per kernel uid, across every container on
+# the same Docker host. Low uids like 10001 are common in other images, so
+# their processes would use up a slot's budget. These ranges are unlikely
+# to be taken. The docker-compose.yml tmpfs owners must match.
+FIRST_SLOT_UID = 200001
+FIRST_REAPER_UID = 210001
 SANDBOX_ROOT = PurePosixPath("/sandbox")
 
 logger = logging.getLogger(__name__)

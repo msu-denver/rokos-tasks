@@ -31,7 +31,7 @@ COUNT_SANDBOX_PROCESSES = dedent(
         if fields["State"].split()[0] == "Z":
             continue
         real, _effective, saved, _filesystem = map(int, fields["Uid"].split())
-        if any(10001 <= uid <= 10008 for uid in (real, saved)):
+        if any(200001 <= uid <= 200008 for uid in (real, saved)):
             count += 1
     print(count)
     """
@@ -61,7 +61,7 @@ def test_program_runs_unprivileged(run_in_sandbox: RunInSandbox):
         """
     )
     uid, gid, groups, caps = run_in_sandbox(code)["screens"][0].split()
-    assert 10001 <= int(uid) <= 10008
+    assert 200001 <= int(uid) <= 200008
     assert gid == uid
     assert groups == "[]"
     assert int(caps, 16) == 0
@@ -512,4 +512,4 @@ def test_hostile_check_script_is_contained(grade_in_sandbox: GradeInSandbox):
     player = "while True:\n    print('ok')\n    input()\n"
     report = json.loads(grade_in_sandbox(player, hostile_check)["rule"])
     assert report["found"] == []
-    assert 10001 <= report["uid"] <= 10008
+    assert 200001 <= report["uid"] <= 200008

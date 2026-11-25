@@ -33,7 +33,7 @@ def pipe_with(data: bytes) -> int:
 
 def test_parse_uid():
     assert launcher.parse_uid("-") is None
-    assert launcher.parse_uid("10001") == 10001
+    assert launcher.parse_uid("200001") == 200001
 
 
 def test_drop_privileges_refuses_root():
@@ -50,13 +50,13 @@ def test_drop_privileges_clears_groups_then_switches(
 ):
     setuid.side_effect = [None, PermissionError]
     with (
-        mock.patch.object(launcher.os, "getuid", return_value=10001),
-        mock.patch.object(launcher.os, "geteuid", return_value=10001),
+        mock.patch.object(launcher.os, "getuid", return_value=200001),
+        mock.patch.object(launcher.os, "geteuid", return_value=200001),
     ):
-        launcher.drop_privileges(10001)
+        launcher.drop_privileges(200001)
     setgroups.assert_called_once_with([])
-    setgid.assert_called_once_with(10001)
-    assert setuid.call_args_list == [mock.call(10001), mock.call(0)]
+    setgid.assert_called_once_with(200001)
+    assert setuid.call_args_list == [mock.call(200001), mock.call(0)]
 
 
 @POSIX_ONLY
@@ -66,7 +66,7 @@ def test_drop_privileges_clears_groups_then_switches(
 def test_drop_privileges_detects_failed_switch(setgroups, setgid, setuid):
     with mock.patch.object(launcher.os, "getuid", return_value=0):
         with pytest.raises(LauncherError, match="could not switch"):
-            launcher.drop_privileges(10001)
+            launcher.drop_privileges(200001)
 
 
 @POSIX_ONLY
@@ -75,11 +75,11 @@ def test_drop_privileges_detects_failed_switch(setgroups, setgid, setuid):
 @mock.patch.object(launcher.os, "setgroups")
 def test_drop_privileges_detects_reachable_root(setgroups, setgid, setuid):
     with (
-        mock.patch.object(launcher.os, "getuid", return_value=10001),
-        mock.patch.object(launcher.os, "geteuid", return_value=10001),
+        mock.patch.object(launcher.os, "getuid", return_value=200001),
+        mock.patch.object(launcher.os, "geteuid", return_value=200001),
     ):
         with pytest.raises(LauncherError, match="still reachable"):
-            launcher.drop_privileges(10001)
+            launcher.drop_privileges(200001)
 
 
 @POSIX_ONLY
@@ -188,7 +188,7 @@ def test_prefer_oom_victim_writes_the_score(tmp_path: Path) -> None:
     launcher.prefer_oom_victim(tmp_path / "missing" / "oom_score_adj")
 
 
-@pytest.mark.parametrize("uid", ["10001", "-"])
+@pytest.mark.parametrize("uid", ["200001", "-"])
 def test_start_program_execs_python_isolated(tmp_path: Path, uid: str):
     status_read, status_write = os.pipe()
     waiting_read, waiting_write = os.pipe()
@@ -216,10 +216,10 @@ def test_start_program_execs_python_isolated(tmp_path: Path, uid: str):
     assert os.get_inheritable(waiting_write)
     for fd in (stdin, status_write, status_read, waiting_read, waiting_write):
         os.close(fd)
-    if uid == "10001":
+    if uid == "200001":
         assert setup.mock_calls == [
             mock.call.prefer_oom(),
-            mock.call.drop(10001),
+            mock.call.drop(200001),
         ]
     else:
         assert setup.mock_calls == []
@@ -261,11 +261,12 @@ def test_clear_directory_removes_locked_folders(tmp_path: Path):
 
 def test_reap_refuses_host_mode():
     with pytest.raises(LauncherError, match="needs a sandbox uid"):
-        launcher.reap_slot(["-", "/tmp", "20001"])
+        launcher.reap_slot(["-", "/tmp", "210001"])
 
 
 @pytest.mark.parametrize(
-    ("uid", "reaper_uid"), [("0", "20001"), ("10001", "0"), ("10001", "10001")]
+    ("uid", "reaper_uid"),
+    [("0", "210001"), ("200001", "0"), ("200001", "200001")],
 )
 def test_reap_refuses_unsafe_uid_pairs(uid: str, reaper_uid: str) -> None:
     with pytest.raises(LauncherError, match="distinct non-root"):
@@ -288,10 +289,10 @@ def test_reap_kills_as_the_slot_user(tmp_path: Path, mode: int):
             launcher.os, "kill", side_effect=[None, ProcessLookupError]
         ) as kill,
     ):
-        assert launcher.reap_slot(["10002", str(tmp_path), "20002"]) == 0
+        assert launcher.reap_slot(["200002", str(tmp_path), "210002"]) == 0
     setgroups.assert_called_once_with([])
-    setresgid.assert_called_once_with(20002, 10002, 20002)
-    setresuid.assert_called_once_with(20002, 10002, 20002)
+    setresgid.assert_called_once_with(210002, 200002, 210002)
+    setresuid.assert_called_once_with(210002, 200002, 210002)
     assert kill.call_args_list == [mock.call(-1, launcher.signal.SIGKILL)] * 2
     assert stat.S_IMODE(tmp_path.stat().st_mode) == 0o700
     assert list(tmp_path.iterdir()) == []
@@ -308,26 +309,26 @@ def test_reap_fails_when_processes_survive(tmp_path: Path) -> None:
         mock.patch.object(launcher.time, "sleep"),
         pytest.raises(LauncherError, match="survived reaping"),
     ):
-        launcher.reap_slot(["10002", str(tmp_path), "20002"])
+        launcher.reap_slot(["200002", str(tmp_path), "210002"])
     assert kill.call_count == launcher.REAP_ROUNDS
 
 
 def test_slot_process_scan_checks_real_and_saved_uids(tmp_path: Path) -> None:
     for pid, state, uids in [
         (1, "S", "0 0 0 0"),
-        (2, "Z", "10002 10002 10002 10002"),
-        (3, "S", "20002 10002 20002 10002"),
-        (4, "S", "10002 10002 10002 10002"),
+        (2, "Z", "200002 200002 200002 200002"),
+        (3, "S", "210002 200002 210002 200002"),
+        (4, "S", "200002 200002 200002 200002"),
     ]:
         folder = tmp_path / str(pid)
         folder.mkdir()
         (folder / "status").write_text(f"State:\t{state}\nUid:\t{uids}\n")
     (tmp_path / "5").mkdir()  # Exited before its status could be read.
     (tmp_path / "self").mkdir()
-    assert not launcher.slot_has_processes(tmp_path, 10002, reaper_pid=4)
-    for uids in ("10002 10003 10003 10003", "10003 10003 10002 10003"):
+    assert not launcher.slot_has_processes(tmp_path, 200002, reaper_pid=4)
+    for uids in ("200002 200003 200003 200003", "200003 200003 200002 200003"):
         (tmp_path / "5" / "status").write_text(f"State:\tT\nUid:\t{uids}\n")
-        assert launcher.slot_has_processes(tmp_path, 10002, reaper_pid=4)
+        assert launcher.slot_has_processes(tmp_path, 200002, reaper_pid=4)
 
 
 def test_main_dispatches_and_rejects_bad_usage(capsys):

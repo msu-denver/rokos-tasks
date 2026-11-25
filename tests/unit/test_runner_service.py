@@ -350,13 +350,13 @@ def test_tcp_parser_matches_client_tuple(
         f"0: {host}:2328 {host}:C000 01 0:0 00:0 0 0 0 77\n"
         f"1: {host}:C000 {host}:2329 01 0:0 00:0 0 0 0 78\n"
         f"2: {host}:C000 {host}:2328 06 0:0 00:0 0 0 0 0\n"
-        f"3: {host}:C000 {host}:2328 01 0:0 00:0 0 10001 0 79\n"
+        f"3: {host}:C000 {host}:2328 01 0:0 00:0 0 200001 0 79\n"
     )
     assert (
         runner_server.tcp_peer_uid(
             table, (address, 49152), (address, 9000), ipv6=ipv6
         )
-        == 10001
+        == 200001
     )
     assert (
         runner_server.tcp_peer_uid(
@@ -366,7 +366,7 @@ def test_tcp_parser_matches_client_tuple(
     )
 
 
-@pytest.mark.parametrize(("uid", "allowed"), [(0, True), (10001, False)])
+@pytest.mark.parametrize(("uid", "allowed"), [(0, True), (200001, False)])
 def test_peer_policy_uses_the_tcp_owner(
     tmp_path: Path, uid: int, allowed: bool
 ) -> None:

@@ -40,7 +40,7 @@ def test_limits_serialize_for_the_launcher():
 
 def test_production_slots_match_compose_mounts():
     slots = production_slots()
-    assert [slot.uid for slot in slots] == list(range(10001, 10009))
+    assert [slot.uid for slot in slots] == list(range(200001, 200009))
     assert [str(slot.directory) for slot in slots] == [
         f"/sandbox/{index}" for index in range(8)
     ]

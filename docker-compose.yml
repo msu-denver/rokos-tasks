@@ -71,14 +71,14 @@ services:
     mem_limit: 2560m
     cpus: 2
     tmpfs:
-      - /sandbox/0:uid=10001,gid=10001,mode=0700,size=16m,noexec,nosuid,nodev
-      - /sandbox/1:uid=10002,gid=10002,mode=0700,size=16m,noexec,nosuid,nodev
-      - /sandbox/2:uid=10003,gid=10003,mode=0700,size=16m,noexec,nosuid,nodev
-      - /sandbox/3:uid=10004,gid=10004,mode=0700,size=16m,noexec,nosuid,nodev
-      - /sandbox/4:uid=10005,gid=10005,mode=0700,size=16m,noexec,nosuid,nodev
-      - /sandbox/5:uid=10006,gid=10006,mode=0700,size=16m,noexec,nosuid,nodev
-      - /sandbox/6:uid=10007,gid=10007,mode=0700,size=16m,noexec,nosuid,nodev
-      - /sandbox/7:uid=10008,gid=10008,mode=0700,size=16m,noexec,nosuid,nodev
+      - /sandbox/0:uid=200001,gid=200001,mode=0700,size=16m,noexec,nosuid,nodev
+      - /sandbox/1:uid=200002,gid=200002,mode=0700,size=16m,noexec,nosuid,nodev
+      - /sandbox/2:uid=200003,gid=200003,mode=0700,size=16m,noexec,nosuid,nodev
+      - /sandbox/3:uid=200004,gid=200004,mode=0700,size=16m,noexec,nosuid,nodev
+      - /sandbox/4:uid=200005,gid=200005,mode=0700,size=16m,noexec,nosuid,nodev
+      - /sandbox/5:uid=200006,gid=200006,mode=0700,size=16m,noexec,nosuid,nodev
+      - /sandbox/6:uid=200007,gid=200007,mode=0700,size=16m,noexec,nosuid,nodev
+      - /sandbox/7:uid=200008,gid=200008,mode=0700,size=16m,noexec,nosuid,nodev
     networks:
       - sandbox
     healthcheck:

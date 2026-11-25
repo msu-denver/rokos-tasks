@@ -457,7 +457,7 @@ def test_close_before_start_does_nothing(slot: Slot):
 
 
 def reap_with(tmp_path: Path, reaper: mock.Mock) -> mock.Mock:
-    session = ProgramSession(Slot(10001, tmp_path), HOST_LIMITS)
+    session = ProgramSession(Slot(200001, tmp_path), HOST_LIMITS)
     with mock.patch(
         "src.runner.session.subprocess.Popen", return_value=reaper
     ) as popen:
@@ -471,9 +471,9 @@ def test_reap_in_slot_mode_uses_the_launcher(tmp_path: Path):
     popen = reap_with(tmp_path, reaper)
     assert popen.call_args.args[0][-4:] == [
         "reap",
-        "10001",
+        "200001",
         str(tmp_path),
-        "20001",
+        "210001",
     ]
     reaper.wait.assert_called_once_with(timeout=REAP_TIMEOUT_SECONDS)
 
