@@ -225,54 +225,39 @@ def test_play_returns_404_for_missing_run(player: FlaskClient) -> None:
 def test_play_serializes_only_public_stage_content(
     player: FlaskClient, seeded_beginner: int, db_session: Session
 ) -> None:
-    """Keep private content out of HTML and safely round-trip samples."""
+    """The page shows the prompt; the check script and reference never.
+
+    US4: the page HTML has no check script, so a player can't read the
+    rules' code or the reference program from the browser.
+    """
     campaigns = CampaignRepository(db_session)
     campaign = campaigns.get(seeded_beginner)
     assert campaign is not None
     stage = campaign.stages[0]
-    description = stage.prompt.split("\n\nExample 1 input:", 1)[0].rstrip()
-    public_output = 'value = "</script>"'
-    private_starter = "private_legacy_starter_code"
-    private_input = "private_test_input"
-    private_output = "private_expected_output"
-    private_solution = "private_reference_solution"
-    stage.starter_code = private_starter
-    stage.reference_solution = private_solution
-    sample = next(case for case in stage.test_cases if case.kind == "sample")
-    sample.expected_output = public_output
-    hidden = next(case for case in stage.test_cases if case.kind == "hidden")
-    hidden.input = private_input
-    hidden.expected_output = private_output
+    private_check = 'def check(game):\n    game.fail("private </script>")\n'
+    private_reference = "private_reference_program"
+    stage.check_script = private_check
+    stage.reference_program = private_reference
     campaigns.commit()
 
     start = player.post("/runs", data={"difficulty": "beginner"})
     response = player.get(start.headers["Location"])
     assert response.status_code == 200
     html = response.get_data(as_text=True)
-    assert description in html
-    assert "Example 1 input:" not in html
-    for private in (
-        private_starter,
-        private_input,
-        private_output,
-        private_solution,
-    ):
+    assert "Light exactly one lamp." in html
+    for private in ("private </script>", "def check", private_reference):
         assert private not in html
     payload = re.search(
         r'<script id="stage-data" type="application/json">(.*?)</script>', html
     )
     assert payload is not None
-    assert json.loads(payload[1]) == {
-        "samples": [
-            {"input": "3\n125 250 50", "expected_output": public_output}
-        ],
-    }
+    assert json.loads(payload[1]) == {"stage": 1}
 
 
 def test_play_uses_current_stage_and_remaining_lives(
     player: FlaskClient, seeded_beginner: int, db_session: Session
 ) -> None:
-    """Read the second stage and its ordered samples from the same run."""
+    """Read the second stage's prompt and progress from the same run."""
     start = player.post("/runs", data={"difficulty": "beginner"})
     play_url = start.headers["Location"]
     runs = RunRepository(db_session)
@@ -291,17 +276,12 @@ def test_play_uses_current_stage_and_remaining_lives(
     assert "tier-badge--beginner" in html
     assert 'aria-label="3 of 4 lives"' in html
     assert re.search(r'data-testid="game-timer"[^>]*>\s*00:00\s*<', html)
-    assert "The diners have decided fairness is your problem." in html
+    assert "A light that never changes is a wall." in html
     payload = re.search(
         r'<script id="stage-data" type="application/json">(.*?)</script>', html
     )
     assert payload is not None
-    assert json.loads(payload[1]) == {
-        "samples": [
-            {"input": "3\n125 250 50\n3", "expected_output": "142 142 141"},
-            {"input": "0\n\n2", "expected_output": "0 0"},
-        ],
-    }
+    assert json.loads(payload[1]) == {"stage": 2}
 
 
 @pytest.mark.parametrize("status", ["won", "lost", "abandoned"])

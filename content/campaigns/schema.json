@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "CampaignSchema",
-  "description": "Validation schema for Roko's Tasks campaign definitions.",
+  "description": "Validation schema for Roko's Tasks campaign definitions (game-design §4.7).",
   "type": "object",
   "properties": {
     "title": {
@@ -32,66 +32,28 @@
             "type": "string",
             "minLength": 1
           },
-          "starter_code": {
-            "type": ["string", "null"]
-          },
-          "samples": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "input": {
-                  "type": "string"
-                },
-                "expected_output": {
-                  "type": "string"
-                }
-              },
-              "required": [
-                "input",
-                "expected_output"
-              ],
-              "additionalProperties": false
-            },
-            "minItems": 1
-          },
-          "hidden_tests": {
-            "type": "array",
-            "minItems": 1,
-            "items": {
-              "type": "object",
-              "properties": {
-                "input": {
-                  "type": "string"
-                },
-                "expected_output": {
-                  "type": "string"
-                }
-              },
-              "required": [
-                "input",
-                "expected_output"
-              ],
-              "additionalProperties": false
-            }
-          },
-          "reference_solution": {
-            "type": "string",
-            "minLength": 1
-          },
           "check_script": {
             "type": "string",
             "minLength": 1,
-            "description": "Python that defines check(game) and plays the program (US6). Optional until the old stdin/stdout stages are retired (#15)."
+            "description": "Python that defines check(game) and plays the program. The only thing that grades a stage."
+          },
+          "reference_program": {
+            "type": "string",
+            "minLength": 1,
+            "description": "A program that passes the stage's check script."
+          },
+          "broken_program": {
+            "type": "string",
+            "minLength": 1,
+            "description": "A program that gets the stage's new feature subtly wrong, so the check script must fail it."
           }
         },
         "required": [
           "stage",
           "prompt",
-          "starter_code",
-          "samples",
-          "hidden_tests",
-          "reference_solution"
+          "check_script",
+          "reference_program",
+          "broken_program"
         ],
         "additionalProperties": false
       },

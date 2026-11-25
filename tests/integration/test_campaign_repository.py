@@ -10,7 +10,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from src.business.difficulty import Difficulty
-from src.data.models.campaign import Campaign, Stage, TestCase
+from src.data.models.campaign import Campaign, Stage
 from src.data.repositories.campaign_repository import CampaignRepository
 
 
@@ -34,29 +34,14 @@ def _make_campaign(
         content_hash=content_hash,
     )
     for num in (1, 2):
-        stage = Stage(
-            number=num,
-            prompt=f"Stage {num} prompt.",
-            starter_code="print(1)" if num == 1 else None,
-            reference_solution="print(1)",
-        )
-        stage.test_cases.append(
-            TestCase(
-                kind="sample",
-                position=1,
-                input=str(num),
-                expected_output="1",
+        campaign.stages.append(
+            Stage(
+                number=num,
+                prompt=f"Stage {num} prompt.",
+                reference_program="print(1)",
+                check_script=f"def check(game):\n    game.tick('{num}')\n",
             )
         )
-        stage.test_cases.append(
-            TestCase(
-                kind="hidden",
-                position=2,
-                input=str(num * 10),
-                expected_output="1",
-            )
-        )
-        campaign.stages.append(stage)
     return campaign
 
 
@@ -76,9 +61,7 @@ class TestCampaignRepository:
         assert len(retrieved.stages) == 2
         assert retrieved.stages[0].number == 1
         assert retrieved.stages[1].number == 2
-        assert len(retrieved.stages[0].test_cases) == 2
-        assert retrieved.stages[0].test_cases[0].position == 1
-        assert retrieved.stages[0].test_cases[1].position == 2
+        assert retrieved.stages[1].check_script.endswith("tick('2')\n")
 
     def test_upsert_inserts_new_campaign(self, db_session: Session) -> None:
         """Verify upsert inserts when no campaign with slug exists."""
@@ -213,16 +196,8 @@ class TestCampaignRepository:
         stage3 = Stage(
             number=3,
             prompt="Stage 3 prompt.",
-            starter_code=None,
-            reference_solution="print(3)",
-        )
-        stage3.test_cases.append(
-            TestCase(
-                kind="sample",
-                position=1,
-                input="3",
-                expected_output="3",
-            )
+            reference_program="print(3)",
+            check_script="def check(game):\n    game.tick('3')\n",
         )
         updated.stages.append(stage3)
 
@@ -232,6 +207,7 @@ class TestCampaignRepository:
         assert result.stages[1].id == stage2_id
         assert result.stages[2].number == 3
         assert result.stages[2].id is not None
+        assert result.stages[2].check_script.endswith("tick('3')\n")
 
     def test_validated_for_filters_by_difficulty_and_status(
         self, db_session: Session

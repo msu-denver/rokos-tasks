@@ -1,6 +1,7 @@
 """
 File: seed_loader.py
 Description: Validates and loads seed campaign files into the database.
+    Only trusted seed content may use the local validation player.
 Author(s): Tyler Black
 """
 
@@ -9,8 +10,12 @@ import json
 from pathlib import Path
 from typing import Any
 
+from src.business.campaigns.check_runner import (
+    CheckPlayer,
+    TrustedSeedPlayer,
+)
 from src.business.campaigns.validator import CampaignValidator
-from src.data.models.campaign import Campaign, Stage, TestCase
+from src.data.models.campaign import Campaign, Stage
 from src.data.repositories.campaign_repository import CampaignRepository
 
 
@@ -21,6 +26,10 @@ class CampaignValidationError(Exception):
         """Initialize with validation error messages."""
         super().__init__("; ".join(errors))
         self.errors = errors
+
+
+class UntrustedCampaignError(ValueError):
+    """An untrusted campaign was loaded without a runner-backed player."""
 
 
 class SeedLoader:
@@ -35,6 +44,7 @@ class SeedLoader:
         data: dict[str, Any],
         slug: str,
         source: str = "seed",
+        player: CheckPlayer | None = None,
     ) -> Campaign:
         """Validate and upsert a campaign from a data dictionary.
 
@@ -42,14 +52,24 @@ class SeedLoader:
             data: Parsed campaign dictionary.
             slug: Unique slug identifier for the campaign.
             source: Campaign origin source (default 'seed').
+            player: Plays the campaign's programs during validation.
+                Required for anything but a hand-written seed, because
+                the default player runs programs on this host unsandboxed.
 
         Returns:
             The persisted Campaign instance.
 
         Raises:
+            UntrustedCampaignError: If a non-seed campaign has no player.
             CampaignValidationError: If validation fails.
         """
-        errors = CampaignValidator.validate(data, filename=slug)
+        if player is None:
+            if source != "seed":
+                raise UntrustedCampaignError(
+                    f"a {source} campaign must be validated in the runner"
+                )
+            player = TrustedSeedPlayer()
+        errors = CampaignValidator.validate(data, filename=slug, player=player)
         if errors:
             raise CampaignValidationError(errors)
 
@@ -66,33 +86,14 @@ class SeedLoader:
         )
 
         for stage_data in data["stages"]:
-            stage = Stage(
-                number=stage_data["stage"],
-                prompt=stage_data["prompt"],
-                starter_code=stage_data.get("starter_code"),
-                reference_solution=stage_data["reference_solution"],
-                check_script=stage_data.get("check_script"),
+            campaign.stages.append(
+                Stage(
+                    number=stage_data["stage"],
+                    prompt=stage_data["prompt"],
+                    reference_program=stage_data["reference_program"],
+                    check_script=stage_data["check_script"],
+                )
             )
-            position = 1
-            for sample in stage_data.get("samples", []):
-                test_case = TestCase(
-                    kind="sample",
-                    position=position,
-                    input=sample["input"],
-                    expected_output=sample["expected_output"],
-                )
-                stage.test_cases.append(test_case)
-                position += 1
-            for hidden in stage_data.get("hidden_tests", []):
-                test_case = TestCase(
-                    kind="hidden",
-                    position=position,
-                    input=hidden["input"],
-                    expected_output=hidden["expected_output"],
-                )
-                stage.test_cases.append(test_case)
-                position += 1
-            campaign.stages.append(stage)
 
         return self._repo.upsert(campaign)
 
@@ -100,7 +101,7 @@ class SeedLoader:
         """Load a single campaign JSON file into the database.
 
         The slug is generated as '<tier>/<file stem>'
-        (for example 'beginner/two_sum').
+        (for example 'medium/pong').
 
         Args:
             path: Path to the campaign JSON file.

@@ -4,7 +4,7 @@ Description: US6 tests for the ASCII Pong seed campaign's check scripts:
     every reference passes, each broken program fails with the rule it
     breaks, and programs that differ in speed, start, or serve (AC3) all
     pass. Uses the same Grader the runner container uses.
-Author(s): Richard Hall
+Author(s): Richard Hall, Tyler Black
 """
 
 import json
@@ -12,7 +12,8 @@ from pathlib import Path
 
 import pytest
 
-from src.business.campaigns.check_runner import run_check
+from src.business.campaigns.check_runner import run_check, run_frames
+from src.business.campaigns.validator import frame_program
 
 ROOT = Path(__file__).resolve().parents[2]
 PONG = json.loads(
@@ -26,13 +27,17 @@ def check_script(stage: int) -> str:
 
 
 def grade_fixture(name: str, stage: int) -> dict:
-    code = (PROGRAMS / name).read_text("utf-8")
+    """Grade a fixture program, or the stage's own ``broken_program``."""
+    if name == "broken_program":
+        code = PONG["stages"][stage - 1]["broken_program"]
+    else:
+        code = (PROGRAMS / name).read_text("utf-8")
     return run_check(code, check_script(stage))
 
 
 @pytest.mark.parametrize("stage", [1, 2, 3])
 def test_reference_passes(stage: int):
-    reference = PONG["stages"][stage - 1]["reference_solution"]
+    reference = PONG["stages"][stage - 1]["reference_program"]
     assert run_check(reference, check_script(stage))["verdict"] == "pass"
 
 
@@ -40,12 +45,12 @@ def test_reference_passes(stage: int):
     ("name", "stage", "rule"),
     [
         (
-            "stage1_two_balls.py",
+            "broken_program",
             1,
             "The board must show exactly one ball (O).",
         ),
         (
-            "stage2_wrong_paddle.py",
+            "broken_program",
             2,
             "Pressing q must move only the left paddle up one row.",
         ),
@@ -55,7 +60,7 @@ def test_reference_passes(stage: int):
             "Holding q must move the paddle until it stops at the edge.",
         ),
         (
-            "stage3_ball_through_paddle.py",
+            "broken_program",
             3,
             "The ball must bounce off the right paddle when it covers the "
             "ball's row.",
@@ -87,7 +92,7 @@ def test_broken_program_fails_with_its_rule(name: str, stage: int, rule: str):
 
 def test_two_balls_names_the_rule_at_tick_one():
     """US6 AC2: a frame with two O characters fails on that tick."""
-    verdict = grade_fixture("stage1_two_balls.py", 1)
+    verdict = grade_fixture("broken_program", 1)
     assert verdict["tick"] == 1
     assert verdict["last_frame"].count("O") == 2
 
@@ -106,11 +111,22 @@ def test_random_serve_passes_three_runs():
 def test_tick_limit_fails_with_its_rule():
     """With too few ticks to see every event, the verdict is a fail."""
     rushed = check_script(3).replace("TICK_LIMIT = 400", "TICK_LIMIT = 3")
-    reference = PONG["stages"][2]["reference_solution"]
+    reference = PONG["stages"][2]["reference_program"]
     verdict = run_check(reference, rushed)
     assert verdict["rule"] == (
         "Within 3 ticks the ball must bounce off a wall, bounce off a "
         "paddle, and score a miss."
+    )
+
+
+def test_oversized_score_fails_instead_of_crashing():
+    """A score past int()'s digit cap is a FAIL, not a check_error."""
+    frame = run_frames(PONG["stages"][2]["reference_program"], [""])[0]
+    huge = frame.replace("0 0", f"{'9' * 5000} 0")
+    verdict = run_check(frame_program(huge), check_script(3))
+    assert (verdict["reason"], verdict["rule"]) == (
+        "rule",
+        "The last line must be the score: two whole numbers, like 0 0.",
     )
 
 

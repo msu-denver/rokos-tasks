@@ -197,9 +197,8 @@ def test_game_editor_restores_pending_and_empty_drafts(
     campaign = repository.get(seeded_beginner)
     assert campaign is not None
     stage = campaign.stages[0]
-    stage.prompt = stage.prompt.replace("item count N", "item count `N`")
-    description = stage.prompt.split("\n\nExample 1 input:", 1)[0].rstrip()
-    expected_prompt = description.replace("`", "")
+    stage.prompt = stage.prompt.replace("lamp is (R),", "lamp is `(R)`,")
+    expected_prompt = stage.prompt.replace("`", "")
     repository.commit()
     ready = _start_beginner(browser, live_server, db_session)
     prompt = browser.find_element(*_selector("game-prompt"))
@@ -207,7 +206,7 @@ def test_game_editor_restores_pending_and_empty_drafts(
         lambda driver: prompt.find_element(By.TAG_NAME, "code")
     )
     assert prompt.get_property("textContent") == expected_prompt
-    assert exact_value.text == "N"
+    assert exact_value.text == "(R)"
     stage_readout = browser.find_element(*_selector("game-stage-readout"))
     assert stage_readout.get_attribute("aria-label") == (
         "Beginner, stage 1 of 2"

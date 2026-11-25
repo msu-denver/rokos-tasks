@@ -4,11 +4,9 @@ Description: Starts runs from the validated pool and exposes player progress.
 Author(s): Tyler Black
 """
 
-import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TypedDict
 
 from src.business.campaign_selector import CampaignSelector
 from src.business.difficulty import Difficulty
@@ -37,16 +35,6 @@ class ActiveRunExistsError(Exception):
         self.run_id = run_id
 
 
-class PublicSample(TypedDict):
-    """Input and expected output of a player-visible example."""
-
-    input: str
-    expected_output: str
-
-
-_EXAMPLE_BLOCK = re.compile(r"(?:^|\n)[ \t]*Example \d+ input:")
-
-
 @dataclass(frozen=True)
 class StageView:
     """Player-visible content and progress for an active stage."""
@@ -55,17 +43,6 @@ class StageView:
     number: int
     lives: int
     prompt: str
-    samples: tuple[PublicSample, ...]
-
-    @property
-    def description(self) -> str:
-        """Prompt text shown on the page, without its worked examples.
-
-        How examples appear on the game page is still undecided, so the
-        page hides the prompt's trailing "Example N input:" blocks. The
-        samples still reach the browser through the stage data.
-        """
-        return _EXAMPLE_BLOCK.split(self.prompt, maxsplit=1)[0].rstrip()
 
 
 class GameService:
@@ -146,10 +123,4 @@ class GameService:
             number=run.current_stage,
             lives=run.lives,
             prompt=stage.prompt,
-            samples=tuple(
-                PublicSample(
-                    input=case.input, expected_output=case.expected_output
-                )
-                for case in self._runs.samples_for_stage(stage.id)
-            ),
         )

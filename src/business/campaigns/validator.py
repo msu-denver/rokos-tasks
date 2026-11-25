@@ -1,22 +1,30 @@
 """
 File: validator.py
-Description: Validates campaign definitions against schema and quality rules.
+Description: Validates campaign definitions against the schema and the
+    automated quality checks in game-design §4.4: every stage is graded
+    only by its check script, which must pass the reference program,
+    fail the broken program, the previous stage's reference, an empty
+    program, and (from Stage 2 on) a program that prints one fixed frame.
 Author(s): Tyler Black, Richard Hall
 """
 
 import ast
 import json
+import re
+import time
 from pathlib import Path
 from typing import Any
 
 from jsonschema import Draft202012Validator
 
-from src.business.campaigns.check_runner import CheckRunError, run_check
-from src.business.campaigns.reference_runner import (
-    ReferenceTimeoutError,
-    run_reference,
+from src.business.campaigns.check_runner import (
+    CheckPlayer,
+    CheckRunError,
+    TrustedSeedPlayer,
 )
 from src.business.difficulty import Difficulty
+from src.runner.grading import CHECK_SCRIPT_BYTES
+from src.runner.limits import PRODUCTION_LIMITS
 
 SCHEMA_PATH = (
     Path(__file__).resolve().parents[3]
@@ -25,25 +33,52 @@ SCHEMA_PATH = (
     / "schema.json"
 )
 
-# Two passes catch a check script that depends on luck (a random serve).
-CHECK_PASS_RUNS = 2
+# Three passes catch a check script that depends on luck (a random serve).
+CHECK_PASS_RUNS = 3
+# The reference must finish the checks in under this share of the time
+# limit, so a reasonable program never times out (§4.4).
+TIME_BUDGET_SECONDS = PRODUCTION_LIMITS.run_seconds * 0.10
+# Digits per number in the "huge numbers" probe: past int()'s default
+# 4,300-digit cap, so an unbounded int() in a check script crashes on it.
+HUGE_NUMBER_DIGITS = 5000
 # Tick programs that follow no stage's rules. A check script must fail
 # each one cleanly: if odd frames crash it, a player could print them on
 # purpose to get a check_error instead of losing a life.
 _JUNK_LOOP = "import sys\nfor line in sys.stdin:\n    print({frame})\n"
 _JUNK_LOOP += "    print('---')\n"
 JUNK_PROGRAMS = {
+    "an empty program": "",
     "empty frames": _JUNK_LOOP.format(frame="end=''"),
     "a single ?": _JUNK_LOOP.format(frame="'?'"),
     "echoed input": _JUNK_LOOP.format(frame="line.rstrip()"),
 }
+# Built-ins that reach outside the helper API (files, code, attributes).
+FORBIDDEN_NAMES = frozenset(
+    {
+        "breakpoint",
+        "compile",
+        "delattr",
+        "eval",
+        "exec",
+        "getattr",
+        "globals",
+        "input",
+        "locals",
+        "open",
+        "setattr",
+        "vars",
+    }
+)
+_DIGITS = re.compile(r"\d+")
 
 
 def check_script_problems(source: str) -> list[str]:
     """Return what breaks the check-script rules, or an empty list.
 
-    A check script imports nothing and defines ``check(game)``; it gets
-    everything it needs from ``game`` (game-design §4.4).
+    A check script defines ``check(game)``, stays under the size cap, and
+    uses only the helper API: it imports nothing, calls no built-in that
+    reaches files, code, or attributes, and touches no dunder name
+    (game-design §4.4).
 
     Args:
         source: The check script's Python source.
@@ -51,23 +86,39 @@ def check_script_problems(source: str) -> list[str]:
     Returns:
         One message per problem.
     """
+    if len(source.encode()) > CHECK_SCRIPT_BYTES:
+        return [f"check_script is larger than {CHECK_SCRIPT_BYTES} bytes."]
     try:
         tree = ast.parse(source)
     except SyntaxError as error:
         return [f"check_script has a syntax error on line {error.lineno}."]
     problems = []
-    if any(_is_import(node) for node in ast.walk(tree)):
+    nodes = list(ast.walk(tree))
+    if any(isinstance(node, ast.Import | ast.ImportFrom) for node in nodes):
         problems.append("check_script must not import anything.")
+    names = sorted({name for node in nodes if (name := _forbidden_name(node))})
+    if names:
+        problems.append(
+            "check_script may only use the helper API, not "
+            + ", ".join(names)
+            + "."
+        )
     if not any(_is_check_function(node) for node in tree.body):
         problems.append("check_script must define check(game).")
     return problems
 
 
-def _is_import(node: ast.AST) -> bool:
-    """Return True for an import statement or a use of ``__import__``."""
-    if isinstance(node, ast.Import | ast.ImportFrom):
-        return True
-    return isinstance(node, ast.Name) and node.id == "__import__"
+def _forbidden_name(node: ast.AST) -> str | None:
+    """Return the forbidden name or dunder that ``node`` uses, if any."""
+    if isinstance(node, ast.Name):
+        name = node.id
+    elif isinstance(node, ast.Attribute):
+        name = node.attr
+    else:
+        return None
+    if name in FORBIDDEN_NAMES or name.startswith("__"):
+        return name
+    return None
 
 
 def _is_check_function(node: ast.stmt) -> bool:
@@ -90,26 +141,13 @@ def _describe(verdict: dict) -> str:
     return f"the program {verdict['reason']} at tick {verdict['tick']}"
 
 
-def normalize_output(text: str) -> str:
-    """Normalize program output by stripping trailing whitespace.
-
-    Strips trailing whitespace from each line and strips trailing
-    blank lines.
-
-    Args:
-        text: Raw output string.
-
-    Returns:
-        Normalized output string.
-    """
-    lines = [line.rstrip() for line in text.splitlines()]
-    while lines and not lines[-1]:
-        lines.pop()
-    return "\n".join(lines)
+def frame_program(frame: str) -> str:
+    """Return a tick program that prints ``frame`` on every tick."""
+    return _JUNK_LOOP.format(frame=f"{frame!r}")
 
 
 class CampaignValidator:
-    """Validates campaign structures, difficulty rules, and references."""
+    """Validates campaign structure, tier rules, and check scripts."""
 
     _schema: dict[str, Any] | None = None
 
@@ -126,10 +164,10 @@ class CampaignValidator:
 
     @classmethod
     def validate_file(cls, path: Path | str) -> list[str]:
-        """Validate a campaign JSON file on disk.
+        """Validate a trusted campaign JSON file on disk.
 
         Args:
-            path: Path to the JSON file.
+            path: Path to the JSON file (a hand-written seed).
 
         Returns:
             List of error messages, or an empty list if valid.
@@ -141,333 +179,174 @@ class CampaignValidator:
             data = json.loads(file_path.read_text(encoding="utf-8"))
         except json.JSONDecodeError as exc:
             return [f"[{file_path}] Invalid JSON: {exc}"]
-        return cls.validate(data, filename=str(file_path))
+        return cls.validate(
+            data, filename=str(file_path), player=TrustedSeedPlayer()
+        )
 
     @classmethod
     def validate(
-        cls, data: dict[str, Any], filename: str = "<campaign>"
+        cls,
+        data: dict[str, Any],
+        filename: str = "<campaign>",
+        *,
+        player: CheckPlayer,
     ) -> list[str]:
         """Validate a parsed campaign dictionary against all checks.
 
         Args:
             data: Parsed campaign data dictionary.
             filename: Source filename or identifier for reporting.
+            player: Plays the campaign's programs. Required, so nobody
+                runs an untrusted campaign on the host by accident: only
+                committed seed files may use ``TrustedSeedPlayer``; an
+                LLM-written campaign needs a player backed by the runner.
 
         Returns:
             List of validation error messages, or empty if valid.
         """
-        errors: list[str] = []
-
-        schema = cls._get_schema()
-        schema_validator = Draft202012Validator(schema)
-        schema_errors = sorted(
-            schema_validator.iter_errors(data), key=lambda e: e.path
-        )
-        for s_err in schema_errors:
-            loc = "/".join(str(p) for p in s_err.path) or "root"
-            errors.append(
-                f"[{filename}] Schema error at '{loc}': {s_err.message}"
+        schema_validator = Draft202012Validator(cls._get_schema())
+        errors = [
+            f"[{filename}] Schema error at "
+            f"'{'/'.join(str(p) for p in error.path) or 'root'}': "
+            f"{error.message}"
+            for error in sorted(
+                schema_validator.iter_errors(data), key=lambda e: e.path
             )
-            if s_err.validator == "minItems" and loc.endswith("/samples"):
-                stage_index = int(s_err.path[1]) + 1
-                errors.append(
-                    f"[{filename}] Stage {stage_index}: expected 1-2 samples, "
-                    "found 0."
-                )
+        ]
         if errors:
             return errors
 
-        diff_value = data.get("difficulty")
-        valid_tiers = {d.value for d in Difficulty}
-        if not diff_value or diff_value not in valid_tiers:
-            return errors
-
-        stages = data.get("stages")
-        if not isinstance(stages, list):
-            return errors
-
-        difficulty = Difficulty(diff_value)
+        stages = data["stages"]
+        difficulty = Difficulty(data["difficulty"])
         expected_stages = difficulty.rules.stages
         if len(stages) != expected_stages:
             errors.append(
                 f"[{filename}] Tier '{difficulty.value}' requires "
                 f"{expected_stages} stages, but found {len(stages)}."
             )
-
         for idx, stage in enumerate(stages, start=1):
-            if not isinstance(stage, dict):
-                continue
-            stage_num = stage.get("stage")
-            if stage_num != idx:
+            if stage["stage"] != idx:
                 errors.append(
                     f"[{filename}] Stage index {idx}: expected stage number "
-                    f"{idx}, got {stage_num}."
+                    f"{idx}, got {stage['stage']}."
                 )
 
-        for stage in stages:
-            if not isinstance(stage, dict):
-                continue
-            stage_num = stage.get("stage", "?")
-            samples = stage.get("samples")
-            if not isinstance(samples, list) or not (1 <= len(samples) <= 2):
-                count = len(samples) if isinstance(samples, list) else 0
-                errors.append(
-                    f"[{filename}] Stage {stage_num}: expected 1-2 samples, "
-                    f"found {count}."
-                )
-
-        for stage in stages:
-            if not isinstance(stage, dict):
-                continue
-            stage_num = stage.get("stage", "?")
-            prompt = stage.get("prompt", "")
-            samples = stage.get("samples", [])
-            if not isinstance(samples, list):
-                continue
-            for s_idx, sample in enumerate(samples, start=1):
-                if not isinstance(sample, dict):
-                    continue
-                sample_in = sample.get("input", "")
-                for line in sample_in.splitlines():
-                    stripped = line.strip()
-                    if stripped and stripped not in prompt:
-                        errors.append(
-                            f"[{filename}] Stage {stage_num} sample {s_idx}: "
-                            f"input line '{line}' does not appear in prompt."
-                        )
-                sample_out = sample.get("expected_output", "")
-                for line in sample_out.splitlines():
-                    stripped = line.strip()
-                    if stripped and stripped not in prompt:
-                        errors.append(
-                            f"[{filename}] Stage {stage_num} sample {s_idx}: "
-                            f"expected output line '{line}' does not appear "
-                            f"in prompt."
-                        )
-
-        for stage in stages:
-            if not isinstance(stage, dict):
-                continue
-            # The editor always starts empty: every line is the player's.
-            stage_num = stage.get("stage")
-            starter = stage.get("starter_code")
-            if stage_num is not None and starter is not None:
-                errors.append(
-                    f"[{filename}] Stage {stage_num}: starter_code must "
-                    f"be null, got {starter!r}."
-                )
-
-        for stage in stages:
-            if not isinstance(stage, dict):
-                continue
-            stage_num = stage.get("stage", "?")
-            ref_code = stage.get("reference_solution")
-            if not ref_code or not isinstance(ref_code, str):
-                continue
-
-            cls._validate_stage_tests(
-                stage=stage,
-                stage_num=stage_num,
-                ref_code=ref_code,
-                filename=filename,
-                errors=errors,
-            )
-
-        cls._validate_incremental_contracts(
-            stages=stages,
-            filename=filename,
-            errors=errors,
-        )
-        cls._validate_check_scripts(stages, filename, errors)
-
-        return errors
-
-    @classmethod
-    def _validate_check_scripts(
-        cls, stages: list[Any], filename: str, errors: list[str]
-    ) -> None:
-        """Check each stage's check script and play the references on it."""
         previous_reference = None
         for stage in stages:
-            if not isinstance(stage, dict):
-                continue
-            script = stage.get("check_script")
-            reference = stage.get("reference_solution")
-            if script:
-                prefix = f"[{filename}] Stage {stage.get('stage', '?')}"
-                problems = check_script_problems(script) or cls._play_check(
-                    script, reference, previous_reference
-                )
-                errors.extend(f"{prefix}: {problem}" for problem in problems)
-            previous_reference = reference
+            prefix = f"[{filename}] Stage {stage['stage']}"
+            problems = check_script_problems(stage["check_script"])
+            if not problems:
+                problems = _StageCheck(
+                    player, stage, previous_reference
+                ).problems()
+            errors.extend(f"{prefix}: {problem}" for problem in problems)
+            previous_reference = stage["reference_program"]
+        return errors
 
-    @classmethod
-    def _play_check(
-        cls, script: str, reference: str, previous_reference: str | None
-    ) -> list[str]:
-        """Return problems found by playing the references on ``script``.
 
-        The stage's reference must pass on every run, and the previous
-        stage's reference must fail, or the stage adds nothing new.
-        """
+class _StageCheck:
+    """Plays one stage's programs on its check script (game-design §4.4)."""
+
+    def __init__(
+        self,
+        player: CheckPlayer,
+        stage: dict[str, Any],
+        previous_reference: str | None,
+    ) -> None:
+        """Check ``stage``; ``previous_reference`` is None for Stage 1."""
+        self._player = player
+        self._script = stage["check_script"]
+        self._reference = stage["reference_program"]
+        self._broken = stage["broken_program"]
+        self._previous_reference = previous_reference
+
+    def problems(self) -> list[str]:
+        """Return every problem found, or an empty list."""
         try:
-            for attempt in range(1, CHECK_PASS_RUNS + 1):
-                verdict = run_check(reference, script)
-                if verdict["verdict"] != "pass":
-                    return [
-                        "reference solution failed its check script on "
-                        f"run {attempt} of {CHECK_PASS_RUNS} "
-                        f"({_describe(verdict)})."
-                    ]
-            if previous_reference and (
-                run_check(previous_reference, script)["verdict"] == "pass"
-            ):
+            problems = self._reference_problems()
+            if problems:
+                return problems
+            first_frame = self._player.frames(self._reference, [""])[0]
+        except CheckRunError as error:
+            return [str(error)]
+        return (
+            self._must_fail("broken_program", self._broken)
+            + self._previous_problems()
+            + self._probe_problems(first_frame)
+        )
+
+    def _reference_problems(self) -> list[str]:
+        """The reference passes on every run, well inside the time limit."""
+        fastest = float("inf")
+        for attempt in range(1, CHECK_PASS_RUNS + 1):
+            started = time.monotonic()
+            verdict = self._player.grade(self._reference, self._script)
+            fastest = min(fastest, time.monotonic() - started)
+            if verdict["verdict"] != "pass":
                 return [
-                    "the previous stage's reference solution passes this "
+                    "reference_program failed its check script on run "
+                    f"{attempt} of {CHECK_PASS_RUNS} ({_describe(verdict)})."
+                ]
+        if fastest >= TIME_BUDGET_SECONDS:
+            return [
+                f"reference_program took {fastest:.2f} s, over the "
+                f"{TIME_BUDGET_SECONDS:.2f} s budget (10% of the time "
+                "limit)."
+            ]
+        return []
+
+    def _previous_problems(self) -> list[str]:
+        """Stage N's checks fail the stage N-1 reference."""
+        if self._previous_reference is None:
+            return []
+        try:
+            if self._passes(self._previous_reference):
+                return [
+                    "the previous stage's reference_program passes this "
                     "check script, so the stage adds nothing new."
                 ]
         except CheckRunError as error:
-            return [str(error)]
-        return cls._junk_problems(script)
+            return [
+                "check script broke on the previous stage's "
+                f"reference_program: {error}"
+            ]
+        return []
 
-    @classmethod
-    def _junk_problems(cls, script: str) -> list[str]:
-        """Return problems from playing ``script`` on each junk program."""
+    def _probe_problems(self, first_frame: str) -> list[str]:
+        """Junk programs fail; from Stage 2, so does one fixed frame."""
         problems = []
         for name, program in JUNK_PROGRAMS.items():
-            try:
-                verdict = run_check(program, script)
-            except CheckRunError as error:
-                problems.append(f"check script broke on {name}: {error}")
-                continue
-            if verdict["verdict"] == "pass":
-                problems.append(f"a program printing {name} passes.")
+            problems += self._must_fail(name, program)
+        if self._previous_reference is not None:
+            problems += self._must_fail(
+                "a program printing one fixed frame",
+                frame_program(first_frame),
+            )
+        huge = _DIGITS.sub("9" * HUGE_NUMBER_DIGITS, first_frame)
+        if huge != first_frame:
+            # Passing is fine here; crashing the check script is not.
+            problems += self._crash_problems(
+                "a frame of huge numbers", frame_program(huge)
+            )
         return problems
 
-    @classmethod
-    def _validate_stage_tests(
-        cls,
-        stage: dict[str, Any],
-        stage_num: Any,
-        ref_code: str,
-        filename: str,
-        errors: list[str],
-    ) -> None:
-        """Validate sample and hidden test outputs against reference stdout."""
-        for s_idx, sample in enumerate(stage.get("samples", []), start=1):
-            if not isinstance(sample, dict):
-                continue
-            cls._check_test_case(
-                ref_code=ref_code,
-                test_case=sample,
-                kind="sample",
-                idx=s_idx,
-                stage_num=stage_num,
-                filename=filename,
-                errors=errors,
-            )
-
-        for h_idx, hidden in enumerate(stage.get("hidden_tests", []), start=1):
-            if not isinstance(hidden, dict):
-                continue
-            cls._check_test_case(
-                ref_code=ref_code,
-                test_case=hidden,
-                kind="hidden_test",
-                idx=h_idx,
-                stage_num=stage_num,
-                filename=filename,
-                errors=errors,
-            )
-
-    @classmethod
-    def _check_test_case(
-        cls,
-        ref_code: str,
-        test_case: dict[str, Any],
-        kind: str,
-        idx: int,
-        stage_num: Any,
-        filename: str,
-        errors: list[str],
-    ) -> None:
-        """Check a test case against two runs of the reference solution."""
-        inp = test_case.get("input", "")
-        expected = test_case.get("expected_output", "")
+    def _must_fail(self, name: str, program: str) -> list[str]:
+        """Return a problem unless the check script fails ``program``."""
         try:
-            res = run_reference(ref_code, inp)
-            if not res.success:
-                errors.append(
-                    f"[{filename}] Stage {stage_num} {kind} {idx}: reference "
-                    f"solution exited with code {res.returncode}: "
-                    f"{res.stderr.strip()}"
-                )
-                return
-            repeated = run_reference(ref_code, inp)
-            if not repeated.success or repeated.stdout != res.stdout:
-                errors.append(
-                    f"[{filename}] Stage {stage_num} {kind} {idx}: reference "
-                    "solution is non-deterministic (runs did not agree)."
-                )
-            if normalize_output(res.stdout) != normalize_output(expected):
-                errors.append(
-                    f"[{filename}] Stage {stage_num} {kind} {idx}: "
-                    f"expected output does not match reference stdout."
-                )
-        except ReferenceTimeoutError:
-            errors.append(
-                f"[{filename}] Stage {stage_num} {kind} {idx}: "
-                f"reference solution timed out."
-            )
+            if self._passes(program):
+                return [f"{name} passes the check script."]
+        except CheckRunError as error:
+            return [f"check script broke on {name}: {error}"]
+        return []
 
-    @classmethod
-    def _validate_incremental_contracts(
-        cls,
-        stages: list[Any],
-        filename: str,
-        errors: list[str],
-    ) -> None:
-        """Verify that stage N's hidden tests fail stage N-1's reference."""
-        for idx in range(1, len(stages)):
-            prev_stage = stages[idx - 1]
-            curr_stage = stages[idx]
-            if not isinstance(prev_stage, dict) or not isinstance(
-                curr_stage, dict
-            ):
-                continue
+    def _crash_problems(self, name: str, program: str) -> list[str]:
+        """Return a problem if ``program`` crashes the check script."""
+        try:
+            self._passes(program)
+        except CheckRunError as error:
+            return [f"check script broke on {name}: {error}"]
+        return []
 
-            prev_stage_num = prev_stage.get("stage", idx)
-            curr_stage_num = curr_stage.get("stage", idx + 1)
-            prev_ref = prev_stage.get("reference_solution")
-            curr_hidden = curr_stage.get("hidden_tests", [])
-
-            if (
-                not prev_ref
-                or not isinstance(curr_hidden, list)
-                or not curr_hidden
-            ):
-                continue
-
-            all_passed = True
-            for hidden in curr_hidden:
-                if not isinstance(hidden, dict):
-                    continue
-                inp = hidden.get("input", "")
-                expected = hidden.get("expected_output", "")
-                try:
-                    res = run_reference(prev_ref, inp)
-                    if not res.success or normalize_output(
-                        res.stdout
-                    ) != normalize_output(expected):
-                        all_passed = False
-                        break
-                except ReferenceTimeoutError:
-                    all_passed = False
-                    break
-
-            if all_passed:
-                errors.append(
-                    f"[{filename}] Stage {curr_stage_num}: hidden tests "
-                    f"did not fail stage {prev_stage_num} reference "
-                    f"solution."
-                )
+    def _passes(self, program: str) -> bool:
+        """Return True if the check script passes ``program``."""
+        return self._player.grade(program, self._script)["verdict"] == "pass"

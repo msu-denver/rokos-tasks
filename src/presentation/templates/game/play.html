@@ -71,7 +71,7 @@ Author(s): Tyler Black, Richard Hall
           <ol class="overlord-dialog" data-testid="game-dialog" role="log" aria-label="Overlord dialog"></ol>
         </div>
         <div class="game-feed" data-testid="game-feed" role="log" aria-label="Overlord feed" tabindex="0">
-          <p data-testid="game-prompt">{{ stage.description }}</p>
+          <p data-testid="game-prompt">{{ stage.prompt }}</p>
         </div>
       </section>
       <section class="floating-panel floating-panel--cyan game-editor-panel" aria-label="Code editor">
@@ -93,7 +93,7 @@ Author(s): Tyler Black, Richard Hall
         </section>
       </section>
     </div>
-    <script id="stage-data" type="application/json">{{ {'samples': stage.samples}|tojson }}</script>
+    <script id="stage-data" type="application/json">{{ {'stage': stage.number}|tojson }}</script>
     <script type="module" src="{{ url_for('static', filename='js/game.js') }}"></script>
   {% else %}
     <section class="floating-panel floating-panel--form" aria-labelledby="game-run-over">

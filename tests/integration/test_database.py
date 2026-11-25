@@ -48,6 +48,78 @@ def test_migrations_are_reversible(engine: Engine) -> None:
         command.upgrade(alembic_cfg, "head")
 
 
+def test_check_scripts_only_migration_keeps_gradable_data(
+    engine: Engine,
+) -> None:
+    """0006 deletes ungradable campaigns and their runs, keeps the rest.
+
+    Runs inside one rolled-back transaction, so the shared test schema
+    is left at head with no rows added.
+    """
+    alembic_cfg = Config("alembic.ini")
+    alembic_cfg.set_main_option("sqlalchemy.url", TEST_DATABASE_URL)
+    connection = engine.connect()
+    transaction = connection.begin()
+    try:
+        alembic_cfg.attributes["connection"] = connection
+        command.downgrade(alembic_cfg, "0005_stage_check_script")
+        user = connection.execute(
+            text(
+                "INSERT INTO users (username, password_hash) "
+                "VALUES ('migrator', 'x') RETURNING id"
+            )
+        ).scalar_one()
+        ids = {}
+        for slug, script in (("old", None), ("new", "def check(game): ...")):
+            ids[slug] = connection.execute(
+                text(
+                    "INSERT INTO campaigns (title, difficulty, slug, "
+                    "content_hash) VALUES (:slug, 'beginner', :slug, 'h') "
+                    "RETURNING id"
+                ),
+                {"slug": f"migration/{slug}"},
+            ).scalar_one()
+            connection.execute(
+                text(
+                    "INSERT INTO stages (campaign_id, number, prompt, "
+                    "starter_code, reference_solution, check_script) "
+                    "VALUES (:id, 1, 'p', NULL, 'ref', :script)"
+                ),
+                {"id": ids[slug], "script": script},
+            )
+        connection.execute(
+            text(
+                "INSERT INTO game_runs (user_id, campaign_id, difficulty, "
+                "status, lives, current_stage, score, started_at, "
+                "stage_started_at) VALUES (:user, :campaign, 'beginner', "
+                "'in_progress', 4, 1, 0, now(), now())"
+            ),
+            {"user": user, "campaign": ids["old"]},
+        )
+
+        command.upgrade(alembic_cfg, "head")
+
+        slugs = connection.execute(
+            text("SELECT slug FROM campaigns WHERE slug LIKE 'migration/%'")
+        ).scalars()
+        assert list(slugs) == ["migration/new"]
+        runs = connection.execute(
+            text("SELECT count(*) FROM game_runs WHERE user_id = :user"),
+            {"user": user},
+        ).scalar_one()
+        assert runs == 0
+        reference = connection.execute(
+            text(
+                "SELECT reference_program FROM stages WHERE campaign_id = :id"
+            ),
+            {"id": ids["new"]},
+        ).scalar_one()
+        assert reference == "ref"
+    finally:
+        transaction.rollback()
+        connection.close()
+
+
 def test_alembic_online_without_connection() -> None:
     alembic_cfg = Config("alembic.ini")
     alembic_cfg.set_main_option("sqlalchemy.url", TEST_DATABASE_URL)

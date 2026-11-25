@@ -4,13 +4,12 @@ Description: Persists runs and queries each player's progress and history.
 Author(s): Tyler Black, Richard Hall
 """
 
-from collections.abc import Sequence
 from datetime import datetime
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import load_only
 
-from src.data.models.campaign import Stage, TestCase
+from src.data.models.campaign import Stage
 from src.data.models.game_run import GameRun
 from src.data.models.user import User
 from src.data.repositories.base_repository import BaseRepository
@@ -45,22 +44,13 @@ class RunRepository(BaseRepository[GameRun]):
         )
         return self._session.scalars(query).one()
 
-    def check_script_for(self, run: GameRun) -> str | None:
-        """Return the current stage's check script, or None if it has none."""
+    def check_script_for(self, run: GameRun) -> str:
+        """Return the current stage's check script."""
         query = select(Stage.check_script).where(
             Stage.campaign_id == run.campaign_id,
             Stage.number == run.current_stage,
         )
         return self._session.scalars(query).one()
-
-    def samples_for_stage(self, stage_id: int) -> Sequence[TestCase]:
-        """Retrieve only a stage's public examples in campaign order."""
-        query = (
-            select(TestCase)
-            .where(TestCase.stage_id == stage_id, TestCase.kind == "sample")
-            .order_by(TestCase.position)
-        )
-        return self._session.scalars(query).all()
 
     def active_for(self, user_id: int) -> GameRun | None:
         """Retrieve the player's current in-progress run, if any."""
