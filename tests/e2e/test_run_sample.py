@@ -56,9 +56,7 @@ def _start_run(
             _selector("login-username")
         )
     ).send_keys("SampleRunner")
-    browser.find_element(*_selector("login-password")).send_keys(
-        "password123"
-    )
+    browser.find_element(*_selector("login-password")).send_keys("password123")
     browser.find_element(*_selector("login-submit")).click()
     ready.until(
         expected_conditions.element_to_be_clickable(
@@ -99,18 +97,14 @@ def _wait_for_python(browser: webdriver.Chrome) -> WebElement:
 
 def _run_sample_and_wait(browser: webdriver.Chrome) -> None:
     """Run samples and wait for newly rendered results."""
-    previous = browser.find_elements(
-        *_selector("game-sample-1-result")
-    )
+    previous = browser.find_elements(*_selector("game-sample-1-result"))
 
     _wait_for_python(browser).click()
 
     results = WebDriverWait(browser, RESULT_SECONDS)
 
     if previous:
-        results.until(
-            expected_conditions.staleness_of(previous[0])
-        )
+        results.until(expected_conditions.staleness_of(previous[0]))
 
     results.until(
         expected_conditions.visibility_of_element_located(
@@ -126,9 +120,9 @@ def _run_sample_and_wait(browser: webdriver.Chrome) -> None:
 
 def _lives(browser: webdriver.Chrome) -> str:
     """Return the current lives displayed in the game HUD."""
-    label = browser.find_element(
-        *_selector("game-lives")
-    ).get_dom_attribute("aria-label")
+    label = browser.find_element(*_selector("game-lives")).get_dom_attribute(
+        "aria-label"
+    )
     assert label is not None
     return label
 
@@ -144,9 +138,7 @@ def _wait_for_timeout(browser: webdriver.Chrome) -> None:
     started = monotonic()
     button.click()
 
-    message = WebDriverWait(
-        browser, 8, poll_frequency=0.1
-    ).until(
+    message = WebDriverWait(browser, 8, poll_frequency=0.1).until(
         expected_conditions.visibility_of_element_located(
             _selector("game-run-timeout")
         )
@@ -160,9 +152,7 @@ def _wait_for_timeout(browser: webdriver.Chrome) -> None:
     )
 
 
-def _first_stage(
-    db_session: Session, campaign_id: int
-) -> Stage:
+def _first_stage(db_session: Session, campaign_id: int) -> Stage:
     """Retrieve the first stage of the seeded campaign."""
     campaign = db_session.get(Campaign, campaign_id)
     assert campaign is not None
@@ -170,9 +160,7 @@ def _first_stage(
 
 
 @pytest.fixture
-def two_samples(
-    db_session: Session, seeded_beginner: int
-) -> None:
+def two_samples(db_session: Session, seeded_beginner: int) -> None:
     """Add a second visible sample to the test campaign."""
     stage = _first_stage(db_session, seeded_beginner)
     position = max(case.position for case in stage.test_cases) + 1
@@ -206,9 +194,7 @@ def test_correct_program_passes(
     assert _text(browser, "game-sample-1-status") == "PASS"
     assert _text(browser, "game-sample-1-expected") == "425"
     assert _text(browser, "game-sample-1-actual") == "425"
-    assert _text(browser, "game-sample-summary") == (
-        "1 of 1 samples passed"
-    )
+    assert _text(browser, "game-sample-summary") == ("1 of 1 samples passed")
     assert _lives(browser) == lives_before
 
 
@@ -229,9 +215,7 @@ def test_incorrect_program_fails(
     assert _text(browser, "game-sample-1-status") == "FAIL"
     assert _text(browser, "game-sample-1-expected") == "425"
     assert _text(browser, "game-sample-1-actual") == "400"
-    assert _text(browser, "game-sample-summary") == (
-        "0 of 1 samples passed"
-    )
+    assert _text(browser, "game-sample-summary") == ("0 of 1 samples passed")
     assert _lives(browser) == lives_before
 
 
@@ -257,9 +241,7 @@ def test_python_exception_displays_traceback(
     assert "ValueError: Test error" in error
     assert 'File "<exec>"' not in error
     assert 'File "<string>"' not in error
-    assert _text(browser, "game-sample-summary") == (
-        "0 of 1 samples passed"
-    )
+    assert _text(browser, "game-sample-summary") == ("0 of 1 samples passed")
     assert _lives(browser) == lives_before
 
 
@@ -287,9 +269,7 @@ def test_infinite_loop_times_out_and_recovers(
     _run_sample_and_wait(browser)
 
     assert _text(browser, "game-sample-1-status") == "PASS"
-    assert _text(browser, "game-sample-summary") == (
-        "1 of 1 samples passed"
-    )
+    assert _text(browser, "game-sample-summary") == ("1 of 1 samples passed")
     assert not browser.find_elements(*_selector("game-run-timeout"))
     assert browser.current_url == original_url
     assert _lives(browser) == lives_before
@@ -341,8 +321,7 @@ def test_run_sample_sends_no_server_requests(
     # Confirm that the request recorder is working.
     assert "/login" in requests_received
     assert any(
-        path.endswith("/pyodide_worker.js")
-        for path in requests_received
+        path.endswith("/pyodide_worker.js") for path in requests_received
     )
 
     # Exclude requests made during initial page loading.
@@ -396,9 +375,7 @@ def test_sample_output_normalization(
 ) -> None:
     """US5 AC4: Normalize trailing but preserve meaningful whitespace."""
     stage = _first_stage(db_session, seeded_beginner)
-    sample = next(
-        case for case in stage.test_cases if case.kind == "sample"
-    )
+    sample = next(case for case in stage.test_cases if case.kind == "sample")
     sample.expected_output = expected_output
     db_session.commit()
 
@@ -433,9 +410,7 @@ def test_run_sample_disabled_while_python_loads(
 
         assert worker_requested.wait(timeout=15)
 
-        button = browser.find_element(
-            *_selector("game-run-sample")
-        )
+        button = browser.find_element(*_selector("game-run-sample"))
 
         assert not button.is_enabled()
         assert button.get_property("textContent") == "Loading Python…"
