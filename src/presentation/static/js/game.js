@@ -146,9 +146,9 @@ function start_workers() {
   run_sample_button.disabled = true;
 
   samples.forEach((sample, index) => {
-        const worker = new Worker(
+      const worker = new Worker(
         worker_url,
-      {type: "module"},
+        {type: "module"},
     );
 
     workers.push(worker);
