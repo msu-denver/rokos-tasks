@@ -79,8 +79,12 @@ has none (`tests/runner/` checks `CapEff` is zero).
 ## Known limits (class project, not bank-grade)
 
 - The `sandbox` network is internal, so there is no internet, but a
-  player program can still reach `web:8000` like any anonymous visitor.
-  The `db` container is not on that network.
+  player program can still reach every service on it like any anonymous
+  visitor: `web:8000`, `web-dev:8001` while `make dev` runs (Flask dev
+  server, debugger off, host port bound to 127.0.0.1), and the runner's
+  own API on port 9000 (`runner:9000` or `127.0.0.1:9000`, since player
+  code runs in that container). The `db` container is not on that
+  network.
 - `RLIMIT_NPROC` counts per user, and each slot has its own user, so one
   run can't use up another's process budget. `pids_limit` caps the
   container as a whole.
