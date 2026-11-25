@@ -1,10 +1,11 @@
 """
 File: service.py
 Description: The runner's two operations. `run` plays a program through
-    a fixed list of input lines; `grade` has a stage's check script play
-    it. Both check the request, borrow sandbox slots, and map failures to
-    replies. Used by the HTTP server; has no HTTP code of its own.
-Author(s): Richard Hall
+    a fixed list of input lines, typing each one when the program asks
+    for input; `grade` has a stage's check script play it. Both check
+    the request, borrow sandbox slots, and map failures to replies.
+    Used by the HTTP server; has no HTTP code of its own.
+Author(s): Richard Hall, Tyler Black
 """
 
 import logging
@@ -13,7 +14,7 @@ from dataclasses import dataclass
 from http import HTTPStatus
 
 from src.runner.grading import CHECK_SCRIPT_BYTES, CheckScriptError, Grader
-from src.runner.limits import MAX_INPUT_CHARS, MAX_TICKS, SandboxLimits
+from src.runner.limits import MAX_INPUT_CHARS, MAX_TURNS, SandboxLimits
 from src.runner.session import LaunchError, ProgramError, ProgramSession
 from src.runner.slots import (
     RunnerBusyError,
@@ -22,7 +23,7 @@ from src.runner.slots import (
     SlotPool,
 )
 
-MAX_INPUTS = MAX_TICKS
+MAX_INPUTS = MAX_TURNS
 SLOT_WAIT_SECONDS = 15.0
 COMPLETED = "completed"
 STATUSES_WITH_EXIT_CODE = ("crashed", "exited")
@@ -40,7 +41,7 @@ class RunRequestError(ValueError):
 
 @dataclass(frozen=True)
 class RunRequest:
-    """A checked request: the program and the input line for each tick."""
+    """A checked request: the program and the input lines to type."""
 
     code: str
     inputs: tuple[str, ...]
@@ -128,6 +129,16 @@ class RunnerService:
         self._slot_wait_seconds = slot_wait_seconds
         self._grader = Grader(limits)
 
+    def health(self) -> tuple[HTTPStatus, dict]:
+        """Report whether every sandbox slot is still usable."""
+        retired = self._pool.retired
+        if retired:
+            return HTTPStatus.SERVICE_UNAVAILABLE, {
+                "ok": False,
+                "retired": retired,
+            }
+        return HTTPStatus.OK, {"ok": True}
+
     def run(self, payload: object) -> tuple[HTTPStatus, dict]:
         """Handle one run request.
 
@@ -185,21 +196,27 @@ class RunnerService:
             return RUNNER_ERROR
 
     def _play(self, session: ProgramSession, request: RunRequest) -> dict:
-        """Run every input through ``session`` and describe the result."""
-        frames: list[str] = []
+        """Type every input into ``session`` and describe the result.
+
+        The first screen comes before any input; each input line adds the
+        screen that followed it. Sending a line to a program that already
+        exited ends the run with ``exited``.
+        """
+        screens: list[str] = []
         status = COMPLETED
         with session:
             session.start(request.code)
             try:
+                screens.append(session.first_screen())
                 for line in request.inputs:
-                    frames.append(session.tick(line))
+                    screens.append(session.send(line))
             except ProgramError as failure:
                 status = failure.status
         exit_code = session.exit_code
         return {
             "status": status,
-            "frames": frames,
-            "ticks": len(frames),
+            "screens": screens,
+            "finished": session.finished,
             "stderr": session.stderr,
             "exit_code": (
                 exit_code if status in STATUSES_WITH_EXIT_CODE else None

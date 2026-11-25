@@ -1,6 +1,6 @@
 """
 File: test_scripts.py
-Description: Unit tests for fill_expected, validate_campaigns, seed.
+Description: Unit tests for the validate_campaigns and seed scripts.
 Author(s): Tyler Black
 """
 
@@ -11,7 +11,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from sqlalchemy.exc import SQLAlchemyError
 
-from scripts import fill_expected, seed, validate_campaigns
+from scripts import seed, validate_campaigns
 from src.business.campaigns.seed_loader import CampaignValidationError
 
 FIXTURE_PATH = (
@@ -20,116 +20,6 @@ FIXTURE_PATH = (
     / "campaigns"
     / "valid_beginner.json"
 )
-
-
-class TestFillExpectedScript:
-    """Tests for fill_expected CLI utility."""
-
-    def test_missing_argument(self) -> None:
-        """Verify fill_expected exits non-zero if no argument provided."""
-        assert fill_expected.main(["scripts/fill_expected.py"]) == 1
-
-    def test_nonexistent_file(self) -> None:
-        """Verify fill_expected handles non-existent files gracefully."""
-        res = fill_expected.main(
-            ["scripts/fill_expected.py", "nonexistent.json"]
-        )
-        assert res == 1
-
-    def test_invalid_json(self, tmp_path: Path) -> None:
-        """Verify fill_expected handles malformed JSON files."""
-        bad_json = tmp_path / "bad.json"
-        bad_json.write_text("{broken", encoding="utf-8")
-        res = fill_expected.main(["scripts/fill_expected.py", str(bad_json)])
-        assert res == 1
-
-    def test_missing_reference_solution(self, tmp_path: Path) -> None:
-        """Verify error when a stage lacks reference_solution."""
-        data = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
-        data["stages"][0]["reference_solution"] = ""
-        target = tmp_path / "noref.json"
-        target.write_text(json.dumps(data), encoding="utf-8")
-        assert (
-            fill_expected.main(["scripts/fill_expected.py", str(target)]) == 1
-        )
-
-    def test_sample_execution_failure(self, tmp_path: Path) -> None:
-        """Verify error when reference solution fails on sample."""
-        data = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
-        data["stages"][0]["reference_solution"] = "import sys; sys.exit(1)"
-        target = tmp_path / "fail_sample.json"
-        target.write_text(json.dumps(data), encoding="utf-8")
-        assert (
-            fill_expected.main(["scripts/fill_expected.py", str(target)]) == 1
-        )
-
-    def test_sample_execution_timeout(self, tmp_path: Path) -> None:
-        """Verify error when reference solution times out on sample."""
-        data = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
-        data["stages"][0]["reference_solution"] = "import time; time.sleep(10)"
-        target = tmp_path / "timeout_sample.json"
-        target.write_text(json.dumps(data), encoding="utf-8")
-        patch_target = "src.business.campaigns.reference_runner.run_reference"
-        with patch(patch_target) as mock_run:
-            from src.business.campaigns.reference_runner import (
-                ReferenceTimeoutError,
-            )
-
-            mock_run.side_effect = ReferenceTimeoutError("Timed out")
-            assert (
-                fill_expected.main(["scripts/fill_expected.py", str(target)])
-                == 1
-            )
-
-    def test_hidden_execution_failure(self, tmp_path: Path) -> None:
-        """Verify error when reference solution fails on hidden test."""
-        data = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
-        # Fails when input is 10 (the hidden test input)
-        data["stages"][0]["reference_solution"] = (
-            "num = int(input())\n"
-            "if num == 10:\n    raise RuntimeError('boom')\n"
-            "print(num + 1)\n"
-        )
-        target = tmp_path / "fail_hidden.json"
-        target.write_text(json.dumps(data), encoding="utf-8")
-        assert (
-            fill_expected.main(["scripts/fill_expected.py", str(target)]) == 1
-        )
-
-    def test_hidden_execution_timeout(self, tmp_path: Path) -> None:
-        """Verify error when reference solution times out on hidden test."""
-        data = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
-        target = tmp_path / "timeout_hidden.json"
-        target.write_text(json.dumps(data), encoding="utf-8")
-        with patch("scripts.fill_expected.run_reference") as mock_run:
-            from src.business.campaigns.reference_runner import (
-                ReferenceRunResult,
-                ReferenceTimeoutError,
-            )
-
-            # Let sample succeed, hidden time out
-            mock_run.side_effect = [
-                ReferenceRunResult("6", "", 0),
-                ReferenceTimeoutError("Timed out"),
-            ]
-            assert (
-                fill_expected.main(["scripts/fill_expected.py", str(target)])
-                == 1
-            )
-
-    def test_successful_fill(self, tmp_path: Path) -> None:
-        """Verify successful update of all expected outputs."""
-        data = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
-        data["stages"][0]["samples"][0]["expected_output"] = ""
-        target = tmp_path / "fill_me.json"
-        target.write_text(json.dumps(data), encoding="utf-8")
-
-        ret = fill_expected.main(["scripts/fill_expected.py", str(target)])
-        assert ret == 0
-
-        updated_data = json.loads(target.read_text(encoding="utf-8"))
-        sample_out = updated_data["stages"][0]["samples"][0]["expected_output"]
-        assert sample_out == "6"
 
 
 class TestValidateCampaignsScript:
@@ -148,6 +38,26 @@ class TestValidateCampaignsScript:
             ["scripts/validate_campaigns.py", str(FIXTURE_PATH)]
         )
         assert ret == 0
+
+    def test_validate_notes_skipped_checks_on_windows(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """On Windows, the script says which checks it couldn't run."""
+        with (
+            patch(
+                "scripts.validate_campaigns.host_play_supported",
+                return_value=False,
+            ),
+            patch(
+                "src.business.campaigns.validator.host_play_supported",
+                return_value=False,
+            ),
+        ):
+            ret = validate_campaigns.main(
+                ["scripts/validate_campaigns.py", str(FIXTURE_PATH)]
+            )
+        assert ret == 0
+        assert "CI runs every check" in capsys.readouterr().out
 
     def test_validate_invalid_file(self, tmp_path: Path) -> None:
         """Verify exits 1 when validation fails."""

@@ -12,14 +12,17 @@ import pytest
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from src.business.campaigns.check_runner import TrustedSeedPlayer
 from src.business.campaigns.seed_loader import (
     CampaignValidationError,
     SeedLoader,
+    UntrustedCampaignError,
 )
 from src.business.campaigns.validator import CampaignValidator
 from src.business.difficulty import Difficulty
-from src.data.models.campaign import Campaign, Stage, TestCase
+from src.data.models.campaign import Campaign, Stage
 from src.data.repositories.campaign_repository import CampaignRepository
+from tests.conftest import requires_host_play
 
 FIXTURE_PATH = (
     Path(__file__).resolve().parents[1]
@@ -54,16 +57,13 @@ class TestSeedLoader:
         loader.load_file(FIXTURE_PATH)
         c_count_1 = db_session.scalar(select(func.count(Campaign.id)))
         s_count_1 = db_session.scalar(select(func.count(Stage.id)))
-        t_count_1 = db_session.scalar(select(func.count(TestCase.id)))
 
         loader.load_file(FIXTURE_PATH)
         c_count_2 = db_session.scalar(select(func.count(Campaign.id)))
         s_count_2 = db_session.scalar(select(func.count(Stage.id)))
-        t_count_2 = db_session.scalar(select(func.count(TestCase.id)))
 
         assert c_count_1 == c_count_2
         assert s_count_1 == s_count_2
-        assert t_count_1 == t_count_2
 
     def test_edited_fixture_updates_in_place(
         self, db_session: Session, tmp_path: Path
@@ -78,15 +78,15 @@ class TestSeedLoader:
 
         initial = loader.load_file(temp_file)
         initial_id = initial.id
-        assert initial.title == "Add and Multiply"
+        assert initial.title == "Ball Board"
 
         # Edit title and re-save
-        data["title"] = "Updated Add and Multiply Title"
+        data["title"] = "Updated Ball Board Title"
         temp_file.write_text(json.dumps(data), encoding="utf-8")
 
         updated = loader.load_file(temp_file)
         assert updated.id == initial_id
-        assert updated.title == "Updated Add and Multiply Title"
+        assert updated.title == "Updated Ball Board Title"
 
     def test_reload_unchanged_file_performs_no_update(
         self, db_session: Session
@@ -121,7 +121,7 @@ class TestSeedLoader:
         initial = loader.load_file(temp_file)
         initial_stage_ids = [stage.id for stage in initial.stages]
 
-        new_prompt = "Add one to the input number! Example: `5` prints `6`."
+        new_prompt = "Print the board with one `O` in the middle."
         data["stages"][0]["prompt"] = new_prompt
         temp_file.write_text(json.dumps(data), encoding="utf-8")
 
@@ -130,6 +130,7 @@ class TestSeedLoader:
         assert [stage.id for stage in updated.stages] == initial_stage_ids
         assert updated.stages[0].prompt == new_prompt
 
+    @requires_host_play
     def test_removing_stage_deletes_only_that_one(
         self, db_session: Session, tmp_path: Path
     ) -> None:
@@ -239,28 +240,21 @@ class TestSeedLoader:
             loader.load_file(seed_file)
 
 
-TICK_FIXTURE_PATH = FIXTURE_PATH.with_name("valid_tick_beginner.json")
-
-
 class TestCheckScriptStorage:
-    """The seed loader stores each stage's check script (US6)."""
+    """The seed loader stores each stage's check script and reference."""
 
     def test_check_scripts_are_stored(self, db_session: Session) -> None:
-        """Loading a tick campaign saves every stage's check script."""
-        loader = SeedLoader(CampaignRepository(db_session))
-        campaign = loader.load_file(TICK_FIXTURE_PATH)
-        data = json.loads(TICK_FIXTURE_PATH.read_text(encoding="utf-8"))
-        assert [stage.check_script for stage in campaign.stages] == [
-            stage["check_script"] for stage in data["stages"]
-        ]
-
-    def test_old_stages_have_no_check_script(
-        self, db_session: Session
-    ) -> None:
-        """Stages graded the old way store a null check script."""
+        """Loading a campaign saves every stage's check script."""
         loader = SeedLoader(CampaignRepository(db_session))
         campaign = loader.load_file(FIXTURE_PATH)
-        assert all(stage.check_script is None for stage in campaign.stages)
+        data = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
+        assert [
+            (stage.check_script, stage.reference_program)
+            for stage in campaign.stages
+        ] == [
+            (stage["check_script"], stage["reference_program"])
+            for stage in data["stages"]
+        ]
 
     def test_edited_check_script_updates_in_place(
         self, db_session: Session
@@ -268,10 +262,91 @@ class TestCheckScriptStorage:
         """Reloading an edited check script updates the same stage row."""
         repo = CampaignRepository(db_session)
         loader = SeedLoader(repo)
-        data = json.loads(TICK_FIXTURE_PATH.read_text(encoding="utf-8"))
-        first = loader.load_campaign_data(data, slug="beginner/tick")
+        data = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
+        first = loader.load_campaign_data(data, slug="beginner/ball")
         stage_id = first.stages[0].id
-        data["stages"][0]["check_script"] += "    game.tick('go')\n"
-        second = loader.load_campaign_data(data, slug="beginner/tick")
+        data["stages"][0]["check_script"] += "    game.screen()\n"
+        second = loader.load_campaign_data(data, slug="beginner/ball")
         assert second.stages[0].id == stage_id
-        assert second.stages[0].check_script.endswith("game.tick('go')\n")
+        assert second.stages[0].check_script.endswith("game.screen()\n")
+
+
+class TestUntrustedCampaigns:
+    """Only hand-written seeds may be validated on the host (#36)."""
+
+    def test_untrusted_campaign_needs_a_player(
+        self, db_session: Session
+    ) -> None:
+        """An LLM campaign without a runner player is refused unplayed."""
+        loader = SeedLoader(CampaignRepository(db_session))
+        data = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
+        with (
+            patch.object(CampaignValidator, "validate") as validate,
+            pytest.raises(UntrustedCampaignError, match="in the runner"),
+        ):
+            loader.load_campaign_data(data, slug="beginner/x", source="llm")
+        validate.assert_not_called()
+
+    @requires_host_play
+    def test_untrusted_campaign_uses_the_given_player(
+        self, db_session: Session
+    ) -> None:
+        """With a player, validation plays everything through it."""
+        loader = SeedLoader(CampaignRepository(db_session))
+        data = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
+        player = TrustedSeedPlayer()
+        with patch.object(player, "grade", wraps=player.grade) as grade:
+            campaign = loader.load_campaign_data(
+                data, slug="beginner/x", source="llm", player=player
+            )
+        assert campaign.source == "llm"
+        assert grade.called
+
+
+class TestWithoutHostPlay:
+    """Windows can't play programs, so seeds load after the other checks."""
+
+    def test_seed_loads_without_playing(self, db_session: Session) -> None:
+        """A seed is structure-checked, stored, and the skip is logged."""
+        loader = SeedLoader(CampaignRepository(db_session))
+        with (
+            patch(
+                "src.business.campaigns.seed_loader.host_play_supported",
+                return_value=False,
+            ),
+            patch.object(TrustedSeedPlayer, "grade") as grade,
+            patch("src.business.campaigns.seed_loader.logger") as logger,
+        ):
+            campaign = loader.load_file(FIXTURE_PATH)
+        grade.assert_not_called()
+        assert len(campaign.stages) == 2
+        assert "CI runs the rest" in logger.warning.call_args.args[0]
+
+    def test_broken_seed_is_still_rejected(self, db_session: Session) -> None:
+        """Structure problems still stop a seed from loading."""
+        loader = SeedLoader(CampaignRepository(db_session))
+        data = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
+        data["stages"][0]["check_script"] = "import os\n"
+        with (
+            patch(
+                "src.business.campaigns.seed_loader.host_play_supported",
+                return_value=False,
+            ),
+            pytest.raises(CampaignValidationError, match="must not import"),
+        ):
+            loader.load_campaign_data(data, slug="beginner/broken")
+
+    def test_untrusted_campaign_is_still_refused(
+        self, db_session: Session
+    ) -> None:
+        """The Windows fallback is only for seeds, never LLM campaigns."""
+        loader = SeedLoader(CampaignRepository(db_session))
+        data = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
+        with (
+            patch(
+                "src.business.campaigns.seed_loader.host_play_supported",
+                return_value=False,
+            ),
+            pytest.raises(UntrustedCampaignError),
+        ):
+            loader.load_campaign_data(data, slug="beginner/x", source="llm")

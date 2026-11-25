@@ -1,0 +1,20 @@
+{
+  "title": "Traffic Light",
+  "difficulty": "beginner",
+  "stages": [
+    {
+      "stage": 1,
+      "prompt": "Your species stops and goes when a box of lamps tells it to. Build me that box. Print the three lamps, one per line: red on top, then yellow, then green. A lit lamp is (R), (Y), or (G); a dark lamp is ( ). Light exactly one lamp.",
+      "check_script": "LAMPS = [(\"(R)\", \"red\"), (\"(Y)\", \"yellow\"), (\"(G)\", \"green\")]\nDARK = \"( )\"\n\n\ndef lit_lamp(game, screen):\n    rows = screen.rows\n    game.check(len(rows) == 3, \"The light must be exactly 3 lamp lines.\")\n    lit = []\n    for row, (on, name) in zip(rows, LAMPS):\n        game.check(\n            row in (on, DARK), f\"The {name} lamp line must be {on} or ( ).\"\n        )\n        if row == on:\n            lit.append(name)\n    game.check(len(lit) == 1, \"Exactly one lamp must be lit.\")\n    return lit[0]\n\n\ndef check(game):\n    lit_lamp(game, game.screen())\n    game.check(\n        game.finished, \"Print the light, then end. This stage reads no input.\"\n    )\n",
+      "reference_program": "print(\"(R)\")\nprint(\"( )\")\nprint(\"( )\")\n",
+      "broken_program": "print(\"(R)\")\nprint(\"(Y)\")\nprint(\"( )\")\n"
+    },
+    {
+      "stage": 2,
+      "prompt": "A light that never changes is a wall. Make it cycle: red 3 times, then green 3 times, then yellow once, then red again, forever. Print the light as before, starting with red. Then, over and over: read a line with input() and print the light's next state. What the line says changes nothing; it only tells you time has passed.",
+      "check_script": "LAMPS = [(\"(R)\", \"red\"), (\"(Y)\", \"yellow\"), (\"(G)\", \"green\")]\nDARK = \"( )\"\n\n\ndef lit_lamp(game, screen):\n    rows = screen.rows\n    game.check(len(rows) == 3, \"The light must be exactly 3 lamp lines.\")\n    lit = []\n    for row, (on, name) in zip(rows, LAMPS):\n        game.check(\n            row in (on, DARK), f\"The {name} lamp line must be {on} or ( ).\"\n        )\n        if row == on:\n            lit.append(name)\n    game.check(len(lit) == 1, \"Exactly one lamp must be lit.\")\n    return lit[0]\n\n\nCYCLE = [\"red\"] * 3 + [\"green\"] * 3 + [\"yellow\"]\nLINES = [\"\", \"go\", \"stop\"]\n\n\ndef check(game):\n    game.check(\n        lit_lamp(game, game.screen()) == \"red\", \"The light must start red.\"\n    )\n    for turn in range(1, len(CYCLE) * 3):\n        lamp = lit_lamp(game, game.send(LINES[turn % len(LINES)]))\n        game.check(\n            lamp == CYCLE[turn % len(CYCLE)],\n            \"The light must show red 3 times, then green 3 times, then \"\n            \"yellow once, then repeat.\",\n        )\n",
+      "reference_program": "CYCLE = [\"red\"] * 3 + [\"green\"] * 3 + [\"yellow\"]\nLAMPS = [(\"red\", \"(R)\"), (\"yellow\", \"(Y)\"), (\"green\", \"(G)\")]\n\n\ndef show(color):\n    for name, lit in LAMPS:\n        print(lit if name == color else \"( )\")\n\n\nturn = 0\nwhile True:\n    show(CYCLE[turn % len(CYCLE)])\n    input()\n    turn += 1\n",
+      "broken_program": "CYCLE = [\"red\"] * 3 + [\"green\"] * 3 + [\"yellow\"] * 2\nLAMPS = [(\"red\", \"(R)\"), (\"yellow\", \"(Y)\"), (\"green\", \"(G)\")]\n\n\ndef show(color):\n    for name, lit in LAMPS:\n        print(lit if name == color else \"( )\")\n\n\nturn = 0\nwhile True:\n    show(CYCLE[turn % len(CYCLE)])\n    input()\n    turn += 1\n"
+    }
+  ]
+}

@@ -7,7 +7,7 @@
 PYTHON ?= python3
 LINT_PATHS = src tests scripts
 
-.PHONY: setup lint fmt test coverage check dev up down db runner migrate seed validate-campaigns fill-expected
+.PHONY: setup lint fmt test coverage check dev up down db runner migrate seed validate-campaigns
 
 ## Install pinned dependencies.
 setup:
@@ -60,14 +60,6 @@ seed: db
 ## Validate all seed campaign JSON files.
 validate-campaigns:
 	$(PYTHON) scripts/validate_campaigns.py
-
-## Fill expected_output in a campaign JSON file using its reference solution.
-fill-expected:
-	@if [ -z "$(FILE)" ]; then \
-		echo "Usage: make fill-expected FILE=path/to/campaign.json"; \
-		exit 1; \
-	fi
-	$(PYTHON) scripts/fill_expected.py $(FILE)
 
 ## What CI runs: lint, campaign validation, and coverage.
 check: lint validate-campaigns coverage

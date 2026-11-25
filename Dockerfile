@@ -19,7 +19,8 @@ RUN chmod +x docker/entrypoint.sh
 EXPOSE 8000
 
 ENTRYPOINT ["docker/entrypoint.sh"]
-# Submit waits on the runner for up to ~30 s, so one request must not
-# block the site: threaded workers, and a timeout above RunnerClient's.
+# Submit waits on the runner for up to RunnerClient's timeout (~42 s),
+# so one request must not block the site: threaded workers, and a
+# gunicorn timeout above it (tests/integration/test_runner_client.py).
 CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "2", \
     "--threads", "8", "--timeout", "60", "src.app:create_app()"]

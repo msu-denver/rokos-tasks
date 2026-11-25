@@ -8,6 +8,7 @@ Description: Shared pytest fixtures: the Flask app and test client, a
 Author(s): Tyler Black, Richard Hall
 """
 
+import json
 import os
 import threading
 from collections.abc import Iterator
@@ -24,6 +25,10 @@ from sqlalchemy.orm import Session
 from werkzeug.serving import make_server
 
 from src.app import create_app
+from src.business.campaigns.check_runner import (
+    TrustedSeedPlayer,
+    host_play_supported,
+)
 from src.business.campaigns.seed_loader import SeedLoader
 from src.data.database import db
 from src.data.repositories.campaign_repository import CampaignRepository
@@ -109,7 +114,8 @@ def local_runner(tmp_path_factory: pytest.TempPathFactory) -> Iterator[str]:
     ]
     # macOS rejects the address-space limit, so host mode leaves it unset.
     service = RunnerService(SlotPool(slots), SandboxLimits(memory_bytes=None))
-    server = RunnerHTTPServer(("127.0.0.1", 0), service)
+    # Host mode has no player programs to keep out, and no /proc/net.
+    server = RunnerHTTPServer(("127.0.0.1", 0), service, check_peers=False)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     yield f"http://127.0.0.1:{server.server_address[1]}"
@@ -136,32 +142,84 @@ def client(app: Flask) -> FlaskClient:
     return app.test_client()
 
 
+class MemoSeedPlayer(TrustedSeedPlayer):
+    """A trusted seed player that plays each program only once per session.
+
+    Loading a seed validates it, which plays every program on its check
+    script. Route and UI tests load the same seeds many times, so they
+    share one of these. The seed validation tests use the real player.
+    """
+
+    def __init__(self) -> None:
+        """Start with nothing played."""
+        self._grades: dict[tuple[str, str], dict] = {}
+        self._screens: dict[tuple[str, tuple[str, ...]], list[str]] = {}
+
+    def grade(self, code: str, check_script: str) -> dict:
+        """Return the verdict, playing it the first time only."""
+        key = (code, check_script)
+        if key not in self._grades:
+            self._grades[key] = super().grade(code, check_script)
+        return self._grades[key]
+
+    def screens(self, code: str, inputs: list[str]) -> list[str]:
+        """Return the screens, playing them the first time only."""
+        key = (code, tuple(inputs))
+        if key not in self._screens:
+            self._screens[key] = super().screens(code, inputs)
+        return self._screens[key]
+
+
+# Skips a test on Windows, which can't play programs on the host (no
+# pass_fds, no waiting on pipes). Linux CI runs every one of these.
+requires_host_play = pytest.mark.skipif(
+    not host_play_supported(),
+    reason="plays programs on this machine, which needs Linux or macOS; "
+    "CI runs it",
+)
+
+
+@pytest.fixture(scope="session")
+def seed_player() -> MemoSeedPlayer | None:
+    """Return the session's shared seed player.
+
+    None on Windows: seeds are then structure-checked only (see
+    ``SeedLoader``), so route and UI tests still get campaigns.
+    """
+    return MemoSeedPlayer() if host_play_supported() else None
+
+
+def _load_seed(
+    db_session: Session, player: MemoSeedPlayer | None, relative: str
+) -> int:
+    """Load one shipped seed file and return its campaign id."""
+    seed_file = (
+        Path(__file__).resolve().parents[1] / "content/campaigns/seed"
+    ) / relative
+    data = json.loads(seed_file.read_text(encoding="utf-8"))
+    repository = CampaignRepository(db_session)
+    campaign = SeedLoader(repository).load_campaign_data(
+        data, slug=relative.removesuffix(".json"), player=player
+    )
+    campaign_id = campaign.id
+    repository.commit()
+    return campaign_id
+
+
 @pytest.fixture
-def seeded_beginner(db_session: Session) -> int:
+def seeded_beginner(
+    db_session: Session, seed_player: MemoSeedPlayer | None
+) -> int:
     """Make the shipped Beginner campaign available to route and UI tests."""
-    seed_file = (
-        Path(__file__).resolve().parents[1]
-        / "content/campaigns/seed/beginner/cafe_tab_splitter.json"
-    )
-    repository = CampaignRepository(db_session)
-    campaign = SeedLoader(repository).load_file(seed_file)
-    campaign_id = campaign.id
-    repository.commit()
-    return campaign_id
+    return _load_seed(db_session, seed_player, "beginner/traffic_light.json")
 
 
 @pytest.fixture
-def seeded_pong(db_session: Session) -> int:
-    """Make the shipped Pong campaign (graded by check scripts) available."""
-    seed_file = (
-        Path(__file__).resolve().parents[1]
-        / "content/campaigns/seed/medium/pong.json"
-    )
-    repository = CampaignRepository(db_session)
-    campaign = SeedLoader(repository).load_file(seed_file)
-    campaign_id = campaign.id
-    repository.commit()
-    return campaign_id
+def seeded_pong(
+    db_session: Session, seed_player: MemoSeedPlayer | None
+) -> int:
+    """Make the shipped Pong campaign available."""
+    return _load_seed(db_session, seed_player, "medium/pong.json")
 
 
 @pytest.fixture

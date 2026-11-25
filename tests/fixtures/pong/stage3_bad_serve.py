@@ -2,10 +2,8 @@
 File: stage3_bad_serve.py
 Description: Broken Pong stage 3 program: serves the ball from right next to
     a paddle.
-Author(s): Richard Hall
+Author(s): Richard Hall, Tyler Black
 """
-
-import sys
 
 PADDLE = 3
 left = 8
@@ -16,8 +14,24 @@ step_row = 1
 step_col = 1
 scores = [0, 0]
 
-for line in sys.stdin:
-    keys = line.strip()
+
+def draw() -> None:
+    """Print the board and the score line."""
+    for row in range(20):
+        cells = ["."] * 20
+        if left <= row < left + PADDLE:
+            cells[0] = "|"
+        if right <= row < right + PADDLE:
+            cells[19] = "|"
+        if row == ball_row:
+            cells[ball_col] = "O"
+        print("".join(cells))
+    print(scores[0], scores[1])
+
+
+draw()
+while True:
+    keys = input()
     if "q" in keys:
         left = max(0, left - 1)
     if "a" in keys:
@@ -41,15 +55,4 @@ for line in sys.stdin:
             ball_row, next_col = 9, 1
             step_col = -step_col
     ball_col = next_col
-
-    for row in range(20):
-        cells = ["."] * 20
-        if left <= row < left + PADDLE:
-            cells[0] = "|"
-        if right <= row < right + PADDLE:
-            cells[19] = "|"
-        if row == ball_row:
-            cells[ball_col] = "O"
-        print("".join(cells))
-    print(scores[0], scores[1])
-    print("---")
+    draw()
