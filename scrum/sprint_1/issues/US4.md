@@ -1,4 +1,4 @@
-**Value** 3 · **Points** 3 · **Priority** 1.00 · **Depends on** US3 · **Type** Required · **Sprint** 1
+**Value** 3 · **Points** 3 · **Priority** 1.00 · **Depends on** US3 · **Type** Required · **Sprint** 1 · **Label** P0
 
 As a player, I want to read the Overlord's text prompt and write code in an editor so that I can know exactly what to build.
 
