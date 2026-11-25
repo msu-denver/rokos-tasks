@@ -10,41 +10,74 @@ is security-sensitive and needs review from the Runner/Security Owner.
 | :--- | :--- |
 | `server.py` | Standard-library HTTP front end: `POST /run`, `POST /grade`, `GET /health` on port 9000 |
 | `service.py` | Checks a request, borrows slots, runs or grades, and maps failures to replies |
-| `grading.py` | `Grader`: runs the player's program and the check script in two slots and relays ticks between them |
-| `harness.py` | Runs inside the check slot: the `game` object (`tick`, `check`, `fail`) and the line protocol. Standard library only |
-| `session.py` | One run: starts the launcher, sends a line per tick, reads one frame per tick under the deadlines, reaps |
-| `launcher.py` | Runs in the child: drops to the slot user, sets rlimits, receives the code, execs `python -I -u main.py`. Also the `reap` mode |
-| `slots.py` | Eight slots, each a uid (10001 to 10008) with its own tmpfs at `/sandbox/N`. A grade takes two at once |
+| `grading.py` | `Grader`: runs the player's program and the check script in two slots and relays turns between them |
+| `harness.py` | Runs inside the check slot: the `game` object (`screen`, `send`, `finished`, `check`, `fail`), the `Screen` helpers, and the line protocol. Standard library only |
+| `session.py` | One run: starts the launcher, reads one screen each time the program asks for input or exits, sends input only when it asks, enforces the deadlines, reaps |
+| `launcher.py` | Runs in the child: drops to the slot user, sets rlimits, receives the code, and execs `python -I -u -c BOOTSTRAP <fd>`, which runs `main.py` like `python main.py`. Also the `reap` mode |
+| `slots.py` | Eight slots, each a user ID (200001 to 200008) with its own tmpfs at `/sandbox/N`, plus a reaper user ID per slot (210001 to 210008). A grade takes two at once |
 | `limits.py` | `SandboxLimits` and the production values |
 
 ## API (T15's `RunnerClient` is the only caller)
 
 `POST /run` with `{"code": str, "inputs": [str, ...]}` returns
-`{"status", "frames", "ticks", "stderr", "exit_code"}`. Statuses:
-`completed`, `crashed`, `exited`, `tick_timeout`, `run_timeout`,
-`output_limit`. `400` means a bad request, `503` means every slot is busy,
+`{"status", "screens", "finished", "stderr", "exit_code"}`. The first
+screen is what the program printed before it asked for input (or
+exited), and each input adds the screen that followed it. `finished` is
+true once the program has exited. Statuses: `completed`, `crashed`,
+`exited`, `turn_timeout`, `run_timeout`, `output_limit`. `400` means a bad request, `503` means every slot is busy,
 and `500 {"status": "runner_error"}` means the sandbox failed. A
 `runner_error` is never the player's fault, so it must never cost a life.
 
 `POST /grade` with `{"code": str, "check_script": str}` returns the verdict:
-`{"verdict": "pass"|"fail", "reason", "rule", "tick", "inputs",
-"last_frame", "traceback"}`. `reason` is `null` on a pass, `rule` when the
-check script failed the program (`rule` holds its text), or one of the
-`/run` failure statuses. `500 {"status": "check_error"}` means the check
+`{"verdict": "pass"|"fail", "reason", "rule", "turn", "inputs",
+"last_screen", "traceback"}`. `reason` is `null` on a pass, `rule` when
+the check script failed the program (`rule` holds its text), or one of
+the `/run` failure statuses. `turn` is how many inputs were sent. The
+web app's `Verdict` also has `kind` (the same value as `reason`) for
+US7 and US10. `500 {"status": "check_error"}` means the check
 script itself crashed, hung, or broke the protocol. That is a campaign
 bug, so it must never cost a life either.
 
+`GET /health` answers `200 {"ok": true}`, or `503 {"ok": false,
+"retired": n}` once any slot is retired.
+
 ## How grading works
+
+A stage program is a normal Python script, run like `python main.py`.
+It reads input only when the stage's prompt says so, with plain
+`input()`. A **screen** is everything it printed since it last asked for
+input, or before it exited. Exiting after printing is a normal finish.
+
+To see when the program asks for input, the launcher starts Python with
+a small bootstrap (`python -I -u -c BOOTSTRAP <fd>`). The bootstrap wraps
+`sys.stdin`, so every read (including `input()`) first writes one byte to
+an inherited "waiting" pipe. Then it runs `main.py` with `runpy` as
+`__main__`. Tracebacks hide the bootstrap's frames. Hiding this input
+plumbing is the only abstraction.
 
 The player's program and the check script each run as a sandboxed
 program in their own slot. The check script's `main.py` is `harness.py`
-plus `run(<script>)`. Each `game.tick(line)` prints `{"tick": line}` as
-one JSON line followed by `---`; the server plays that line on the
-player's program and answers with `{"frame": ...}` on one line. When the
-script returns or calls `game.fail(rule)`, the harness sends
-`{"done": true, "rule": ...}`. The two sides never share a process, a
-folder, or a user, so neither can read the other's code. Check scripts
-run sandboxed because US11 has an LLM write them.
+plus `run(<script>)`. The script defines `check(game)`:
+
+- `game.screen()` returns the current screen.
+- `game.send(line)` types one input line and returns the next screen.
+- `game.finished` is true once the program has exited.
+- `game.check(condition, rule)` and `game.fail(rule)` fail with a rule.
+- `Screen.rows` and `Screen.find(char)` are helpers.
+
+The harness and the server talk in JSON lines. The server first sends
+the program's first screen. Each `game.send(line)` sends `{"send": line}`,
+and the server types that line into the player's program and answers
+with `{"screen": ..., "finished": bool}`. When the script returns or
+calls `game.fail(rule)`, the harness sends `{"done": true, "rule": ...}`.
+The two sides never share a process, a folder, or a user, so neither can
+read the other's code. Check scripts run sandboxed because US11 has an
+LLM write them.
+
+A **turn** runs from one input request (or the start) to the next input
+request or exit. Each turn gets about 1 second (`turn_timeout`), and the
+whole run about 10 seconds (`run_timeout`). An input line is at most 64
+characters, and a run takes at most 2000 inputs.
 
 The check script's run clock gets a 2 s margin over the player's, so when
 time runs out the player's program is the one that times out.
@@ -76,6 +109,11 @@ and the launcher switches each run to its slot user before any player
 code runs. A non-root user has no capabilities, so the player program
 has none (`tests/runner/` checks `CapEff` is zero).
 
+The same two capabilities let the reaper switch to the slot's reaper
+user ID. It kills with `setresuid(reaper, slot, reaper)`, so slot
+processes can't signal it, and it loops until `/proc` shows no live slot
+process. The slot folder goes back to mode `0700` before it's cleared.
+
 ## Known limits (class project, not bank-grade)
 
 - The `sandbox` network is internal, so there is no internet, but a
@@ -83,6 +121,16 @@ has none (`tests/runner/` checks `CapEff` is zero).
   The `db` container is not on that network.
 - `RLIMIT_NPROC` counts per user, and each slot has its own user, so one
   run can't use up another's process budget. `pids_limit` caps the
-  container as a whole.
-- An output cap of 64 KB applies to each frame (stdout waiting to be
+  container as a whole. It counts per user ID across the whole Docker
+  VM, which is why the slot and reaper user IDs use a high range.
+- An output cap of 64 KB applies to each screen (stdout waiting to be
   read) and to stderr for the whole run.
+- Local non-root connections to the runner (player code) are dropped in
+  the accept loop before they get a thread. Idle connections time out
+  after 10 s.
+- Each sandboxed program may hold 64 open files (`RLIMIT_NOFILE`).
+- No IPC between runs: `ipc: none`, zeroed System V IPC sysctls, and
+  `RLIMIT_MSGQUEUE=0`, so there is no `/dev/shm`, no message queue, and
+  no System V IPC.
+- Player processes are preferred OOM victims, but only as a best
+  effort.

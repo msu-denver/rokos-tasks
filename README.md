@@ -159,13 +159,16 @@ As a player, I want to read the Overlord's text prompt and write code in an edit
 
 ### US5: Play My Program
 
-As a player, I want to run my program in the browser and control it with my keyboard as often as I like so that I can see my game working before the Overlord judges it.
+As a player, I want to run my program in the browser as often as I like, and type to it or play it with my keyboard, so that I can see it working before the Overlord judges it.
 
 **Acceptance Criteria**
 
-1. **Given that** there is code in the editor, **when** I click Run, **then** my program runs in the browser, the keys I press are sent to it each tick, I see every frame it prints, and I lose no lives.
-2. **Given that** my program crashes, **when** the error happens, **then** it stops and I see the traceback.
-3. **Given that** my program takes longer than 1 second to answer a single tick, **when** that happens, **then** it is stopped and I see a friendly timeout message.
+1. **Given that** there is code in the editor, **when** I click Run, **then** my program runs in the browser like `python main.py`, everything it prints appears in the console panel, and I lose no lives.
+2. **Given that** the stage reads typed lines, **when** my program calls `input()`, **then** the console waits for me to type a line and press Enter, and my program continues with that line.
+3. **Given that** the stage is a real-time game, **when** my program calls `input()`, **then** it gets the keys I pressed since its last call (or an empty line) at the turn rate, and the console shows its latest screen.
+4. **Given that** my program exits, **when** it finishes, **then** the run ends normally, and I can run it again right away. Stop ends a run at any time.
+5. **Given that** my program crashes, **when** the error happens, **then** it stops and I see the traceback.
+6. **Given that** my program goes more than 1 second without asking for input or finishing, **when** that happens, **then** it is stopped and I see a friendly timeout message.
 
 ### US6: The Overlord Plays My Program
 
@@ -173,7 +176,7 @@ As a player, I want the Overlord to play my program and check it against the sta
 
 **Acceptance Criteria**
 
-1. **Given that** there is code in the editor, **when** I click Submit, **then** my program runs in the server sandbox, the stage's check script plays it (sending keys and reading frames, never reading my code), and I receive a pass or fail verdict within about 10 seconds.
+1. **Given that** there is code in the editor, **when** I click Submit, **then** my program runs in the server sandbox, the stage's check script plays it (reading the screens it prints and typing input when the stage uses input, never reading my code), and I receive a pass or fail verdict within about 10 seconds.
 2. **Given that** my program breaks a rule of the stage, crashes, or times out, **when** grading finishes, **then** the verdict is fail and names what went wrong (the broken rule, the error, or the timeout).
 3. **Given that** two programs follow the stage's rules but differ in details the rules don't fix (speed, starting position, a random serve), **when** each is submitted, **then** both pass.
 
@@ -213,7 +216,7 @@ As a player, I want the AI Overlord to react to what happens and show me why I f
 **Acceptance Criteria**
 
 1. **Given that** a game event occurs (stage start, under 60 seconds left, fail, pass, victory, defeat), **when** it happens, **then** the Overlord adds a matching line from the dialogue file to its scrolling feed and does not repeat the line it just used.
-2. **Given that** I fail a stage on Beginner, Easy, or Medium, **when** the verdict appears, **then** I see the rule I broke, the tick it broke on, the keys the Overlord had pressed, and the frame my program printed. On Hard and above I see only the rule, plus the traceback if my code crashed.
+2. **Given that** I fail a stage on Beginner, Easy, or Medium, **when** the verdict appears, **then** I see the rule I broke, the turn it broke on, the input the Overlord had given my program, and the last screen my program printed. On Hard and above I see only the rule, plus the traceback if my code crashed.
 3. **Given that** the stage timer runs down, **when** it crosses the pressure and critical thresholds, **then** the Overlord's messages and the screen escalate in tone and color, starting sooner on harder tiers ([design.md §6](docs/design.md#6-overlord-feed-and-escalation)).
 
 ### US11: AI-Generated Campaigns
@@ -266,7 +269,7 @@ Removed by team decision (#25). Failure feedback (US10) and campaign validation 
 
 ### US17: Playable Finale (Merged into US5)
 
-Every program is now a playable loop, and US5 lets the player play it at any stage, so this story no longer exists on its own.
+US5 lets the player run and play their program at any stage, including a finished game like Pong, so this story no longer exists on its own.
 
 ## Product Backlog
 
@@ -378,7 +381,7 @@ _Added after the first Sprint 1 daily scrum._
 
 ### White-Box Test: Grading Verdict Logic
 
-- **Tests:** `GradingService` verdict logic, designed from its branches (pass, broken rule, crash with traceback, per-tick timeout, whole-run timeout, broken check script, runner unavailable, stop at first failure).
+- **Tests:** `GradingService` verdict logic, designed from its branches (pass, broken rule, crash with traceback, per-turn timeout, whole-run timeout, broken check script, runner unavailable, stop at first failure).
 - **Location:** `tests/unit/test_grading_service.py` (`@pytest.mark.whitebox`)
 - **Outcome:** _TBD_
 

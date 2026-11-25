@@ -77,9 +77,9 @@ One finding per comment, inline on the line when possible:
 
 ```
 **[HIGH]** `src/business/grading_service.py:42`: A program that crashes
-on its first tick is reported as a pass, because the verdict only looks
+on its first turn is reported as a pass, because the verdict only looks
 for a broken rule.
-**Fix:** treat an exit before the last tick as a fail with the traceback.
+**Fix:** treat a crash on any turn as a fail with the traceback.
 ```
 
 Put this summary at the top of the review body:

@@ -26,7 +26,7 @@ The full story issues are one file each, ready to post with `--body-file`. They 
 | US2: Log In and Log Out | [issues/US2.md](issues/US2.md) | 2 | P0 | None |
 | US3: Choose a Difficulty and Start a Run | [issues/US3.md](issues/US3.md) | 3 | P0 | Seed count for `v1`; resume vs. block an active run |
 | US4: View the Stage and Write Code | [issues/US4.md](issues/US4.md) | 3 | P0 | None |
-| US5: Play My Program | [issues/US5.md](issues/US5.md) | 8 | P1 | Tick rate |
+| US5: Play My Program | [issues/US5.md](issues/US5.md) | 8 | P1 | Input-style names and turn rate (to confirm in US6.5, #36) |
 
 ---
 
@@ -100,10 +100,10 @@ Every task also inherits the team gates: `make check` green, self-review, Manual
 - **[MED]** Layout follows `docs/design.md` (design 6) and uses only design tokens (T3).
 
 ### T10: US5: Run the program in the browser with Pyodide
-`task` · Sub-issue of US5 · Needs T9
-- **[HIGH]** Follows [issues/US5.md](issues/US5.md): `pyodide_worker.js` runs the program as a live loop in a Web Worker, sends the keys pressed each tick, and draws every frame it prints.
-- **[HIGH]** A tick that takes longer than 1 s stops the program and shows a friendly timeout message (US5 AC3).
-- **[HIGH]** Selenium tests cover a frame drawn from key input, an error traceback, and the infinite-loop timeout.
+`task` · Sub-issue of US5 · Needs T9 and US6.5 (#36) merged into `dev`
+- **[HIGH]** Follows [issues/US5.md](issues/US5.md): `pyodide_worker.js` runs the program like `python main.py` in a Web Worker, and everything it prints appears in US6.5's console panel. It reads input only when the prompt says so, with `input()`, which blocks the worker until the page hands it a typed line (`lines`) or the keys pressed since the last call (`keys`).
+- **[HIGH]** A program that exits ends the run normally. A program that goes more than 1 s without asking for input or finishing is stopped and shows a friendly timeout message (US5 AC6).
+- **[HIGH]** Selenium tests follow the US5 Test Plan: a printed board, a typed line, keys, a normal exit, an error traceback, and the infinite-loop timeout.
 - **[MED]** The Pyodide version is pinned and runs Python 3.13.
 
 ### T11: Scrum: Sprint 0 and 1 notes, board, and burndown
