@@ -76,24 +76,21 @@ finally:
   }
 }
 
+
 self.addEventListener("message", (event) => {
-  const {type, code, samples} = event.data;
+  const {type, code, sample} = event.data;
 
   if (type !== "run" || !pyodide) return;
 
   try {
-    const results = samples.map((sample) => {
-      const result = run_sample(code, sample.input);
-
-      return {
-        expected_output: sample.expected_output,
-        ...result,
-      };
-    });
+    const result = run_sample(code, sample.input);
 
     self.postMessage({
-      type: "results",
-      results,
+      type: "result",
+      result: {
+        expected_output: sample.expected_output,
+        ...result,
+      },
     });
   } catch (error) {
     self.postMessage({

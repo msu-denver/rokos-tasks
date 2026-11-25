@@ -30,6 +30,16 @@ export function sample_passed(result) {
   );
 }
 
+const MAX_DISPLAY_LENGTH = 10000;
+
+function truncate_output(output) {
+  if (output.length <= MAX_DISPLAY_LENGTH) {
+    return output;
+  }
+
+  return output.slice(0, MAX_DISPLAY_LENGTH) +
+    "\n… output truncated.";
+}
 
 function create_element(tag, test_id, text) {
   const element = document.createElement(tag);
@@ -56,7 +66,7 @@ function render_sample(result, index) {
     create_element("h4", `${prefix}-expected-label`, "Expected output"),
     create_element("pre", `${prefix}-expected`, result.expected_output),
     create_element("h4", `${prefix}-actual-label`, "Actual output"),
-    create_element("pre", `${prefix}-actual`, result.output),
+    create_element("pre", `${prefix}-actual`, truncate_output(result.output)),
   );
 
   const error = [result.stderr, result.error].filter(Boolean).join("\n");
@@ -64,7 +74,7 @@ function render_sample(result, index) {
   if (error) {
     container.append(
       create_element("h4", `${prefix}-error-label`, "Error"),
-      create_element("pre", `${prefix}-error`, error),
+      create_element("pre", `${prefix}-error`, truncate_output(error)),
     );
   }
 
@@ -96,4 +106,5 @@ export function render_results(container, results) {
     `${passed_count} of ${results.length} samples passed`;
 
   container.hidden = false;
+  container.scrollTop = 0;
 }
