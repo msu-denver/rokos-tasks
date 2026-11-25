@@ -1,4 +1,3 @@
-
 """
 File: test_run_sample.py
 Description: Selenium coverage for Run Sample (US5), including sample
@@ -282,7 +281,7 @@ def test_infinite_loop_times_out_and_recovers(
     assert _lives(browser) == lives_before
 
     button = _wait_for_python(browser)
-    assert button.text == "Run Sample"
+    assert button.get_property("textContent") == "Run Sample"
 
     _write_code(browser, ready, CORRECT_CODE)
     _run_sample_and_wait(browser)
@@ -439,14 +438,14 @@ def test_run_sample_disabled_while_python_loads(
         )
 
         assert not button.is_enabled()
-        assert button.text == "Loading Python…"
+        assert button.get_property("textContent") == "Loading Python…"
     finally:
         release_worker.set()
 
     button = _wait_for_python(browser)
 
     assert button.is_enabled()
-    assert button.text == "Run Sample"
+    assert button.get_property("textContent") == "Run Sample"
 
 
 @pytest.mark.e2e
