@@ -22,6 +22,7 @@ from src.business.campaigns.validator import (
 )
 from src.business.difficulty import Difficulty
 from src.data.repositories.campaign_repository import CampaignRepository
+from tests.conftest import requires_host_play
 
 SEED_DIR = Path(__file__).resolve().parents[2] / "content/campaigns/seed"
 SEED_FILES = sorted(SEED_DIR.rglob("*.json"))
@@ -70,6 +71,7 @@ def test_seed_file_is_valid(path: Path) -> None:
     assert CampaignValidator.validate_file(path) == []
 
 
+@requires_host_play
 @pytest.mark.parametrize(
     ("name", "index", "stages"),
     STAGES,

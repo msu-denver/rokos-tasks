@@ -26,6 +26,7 @@ from src.business.campaigns.validator import (
     screen_program,
 )
 from src.runner.grading import CHECK_SCRIPT_BYTES
+from tests.conftest import requires_host_play
 
 FIXTURE_PATH = (
     Path(__file__).resolve().parents[1]
@@ -76,6 +77,7 @@ def test_player_is_required(campaign: dict) -> None:
 class TestSchemaAndTiers:
     """Structure checks that run before any program is played."""
 
+    @requires_host_play
     def test_valid_fixture_passes(self, campaign: dict) -> None:
         """The two-stage fixture passes every check."""
         assert errors_for(campaign) == []
@@ -122,6 +124,7 @@ class TestSchemaAndTiers:
         assert len(errors) == 2
         assert all("Schema error" in error for error in errors)
 
+    @requires_host_play
     def test_wrong_stage_count(self, campaign: dict) -> None:
         """A tier's stage count is enforced."""
         campaign["stages"].append(copy.deepcopy(campaign["stages"][1]))
@@ -131,6 +134,7 @@ class TestSchemaAndTiers:
             in errors_for(campaign)
         )
 
+    @requires_host_play
     def test_stage_numbers_out_of_order(self, campaign: dict) -> None:
         """Stages are numbered 1, 2, 3, ... in order."""
         campaign["stages"][1]["stage"] = 5
@@ -239,6 +243,7 @@ class TestCheckScriptRules:
 class TestQualityChecks:
     """The game-design §4.4 checks, played with real programs."""
 
+    @requires_host_play
     def test_reference_must_pass(self, campaign: dict) -> None:
         """A reference that fails its check is reported."""
         stage = campaign["stages"][0]
@@ -248,6 +253,7 @@ class TestQualityChecks:
             "run 1 of 3 (rule: The board must show exactly one O.)."
         )
 
+    @requires_host_play
     def test_reference_crash_is_described(self, campaign: dict) -> None:
         """A crashing reference says how it failed."""
         campaign["stages"][0]["reference_program"] = "1 / 0\n"
@@ -255,6 +261,7 @@ class TestQualityChecks:
             "(the program crashed at turn 0)."
         )
 
+    @requires_host_play
     @pytest.mark.parametrize("failing_run", [2, 3])
     def test_flaky_check_is_caught_on_any_run(
         self, campaign: dict, failing_run: int
@@ -267,6 +274,7 @@ class TestQualityChecks:
             f"run {failing_run} of 3"
         )
 
+    @requires_host_play
     def test_reference_must_finish_inside_the_time_budget(
         self, campaign: dict
     ) -> None:
@@ -278,6 +286,7 @@ class TestQualityChecks:
         assert len(errors) == 2
         assert "over the 0.00 s budget (10% of the time limit)" in errors[0]
 
+    @requires_host_play
     def test_broken_program_must_fail(self, campaign: dict) -> None:
         """Checks too weak to catch the broken program are reported."""
         stage = campaign["stages"][1]
@@ -286,6 +295,7 @@ class TestQualityChecks:
             "[t] Stage 2: broken_program passes the check script."
         ]
 
+    @requires_host_play
     def test_stage_must_add_something(self, campaign: dict) -> None:
         """Stage N's checks must fail the stage N-1 reference."""
         stages = campaign["stages"]
@@ -297,6 +307,7 @@ class TestQualityChecks:
             "this check script, so the stage adds nothing new."
         ) in errors
 
+    @requires_host_play
     def test_empty_program_must_fail(self, campaign: dict) -> None:
         """A check that passes an empty program is reported."""
         campaign["stages"][0]["check_script"] = "def check(game):\n    pass\n"
@@ -305,6 +316,7 @@ class TestQualityChecks:
             errors
         )
 
+    @requires_host_play
     def test_fixed_screen_must_fail_from_stage_two(
         self, campaign: dict
     ) -> None:
@@ -324,6 +336,7 @@ class TestQualityChecks:
             "check script."
         ]
 
+    @requires_host_play
     def test_stage_one_may_be_static(self, campaign: dict) -> None:
         """Stage 1's check passes a fixed screen and that is allowed."""
         screen = TrustedSeedPlayer().screens(
@@ -335,6 +348,7 @@ class TestQualityChecks:
         assert verdict["verdict"] == "pass"
         assert errors_for(campaign) == []
 
+    @requires_host_play
     def test_huge_numbers_must_not_crash_the_check(
         self, campaign: dict
     ) -> None:
@@ -370,6 +384,7 @@ class TestQualityChecks:
         assert len(huge_number_screens(many)) == MAX_HUGE_NUMBER_PROBES
         assert huge_number_screens("no digits") == []
 
+    @requires_host_play
     def test_huge_numbers_reach_a_static_check(self, campaign: dict) -> None:
         """A check that demands an exit first still gets the huge probe."""
         stage = campaign["stages"][0]
@@ -389,6 +404,7 @@ class TestQualityChecks:
             for error in errors
         ), errors
 
+    @requires_host_play
     def test_crashing_check_script_is_reported(self, campaign: dict) -> None:
         """A check script that crashes is a campaign bug."""
         campaign["stages"][0]["check_script"] = (
@@ -397,6 +413,7 @@ class TestQualityChecks:
         (first, *_rest) = errors_for(campaign)
         assert first.startswith("[t] Stage 1: check script failed")
 
+    @requires_host_play
     def test_check_script_must_fail_junk_cleanly(self, campaign: dict) -> None:
         """A script that crashes on odd screens gives players an escape."""
         campaign["stages"][0]["check_script"] = (
@@ -413,6 +430,7 @@ class TestQualityChecks:
             for error in errors
         ), errors
 
+    @requires_host_play
     def test_first_screen_failure_is_reported(self, campaign: dict) -> None:
         """If the reference's first screen can't be read, say so."""
         player = TrustedSeedPlayer()
@@ -421,3 +439,41 @@ class TestQualityChecks:
         ):
             errors = errors_for(campaign, player=player)
         assert errors == ["[t] Stage 1: no screen", "[t] Stage 2: no screen"]
+
+
+class TestWithoutHostPlay:
+    """Windows can't play programs, so seeds get the checks that don't."""
+
+    def test_structure_checks_play_nothing(self, campaign: dict) -> None:
+        """A valid campaign passes, and no program is ever played."""
+        with patch.object(TrustedSeedPlayer, "grade") as grade:
+            assert CampaignValidator.validate_structure(campaign) == []
+        grade.assert_not_called()
+
+    def test_structure_checks_still_catch_problems(
+        self, campaign: dict
+    ) -> None:
+        """Schema, tier, and check-script problems are all still found."""
+        assert CampaignValidator.validate_structure({}, "t") == [
+            "[t] Schema error at 'root': 'title' is a required property",
+            "[t] Schema error at 'root': 'difficulty' is a required property",
+            "[t] Schema error at 'root': 'stages' is a required property",
+        ]
+        campaign["stages"][1]["stage"] = 5
+        campaign["stages"][0]["check_script"] = "import os\n" + PASS_ANYTHING
+        assert CampaignValidator.validate_structure(campaign, "t") == [
+            "[t] Stage index 2: expected stage number 2, got 5.",
+            "[t] Stage 1: check_script must not import anything.",
+        ]
+
+    def test_validate_file_falls_back_on_windows(self) -> None:
+        """On Windows, a seed file is structure-checked, not played."""
+        with (
+            patch(
+                "src.business.campaigns.validator.host_play_supported",
+                return_value=False,
+            ),
+            patch.object(TrustedSeedPlayer, "grade") as grade,
+        ):
+            assert CampaignValidator.validate_file(FIXTURE_PATH) == []
+        grade.assert_not_called()

@@ -25,7 +25,10 @@ from sqlalchemy.orm import Session
 from werkzeug.serving import make_server
 
 from src.app import create_app
-from src.business.campaigns.check_runner import TrustedSeedPlayer
+from src.business.campaigns.check_runner import (
+    TrustedSeedPlayer,
+    host_play_supported,
+)
 from src.business.campaigns.seed_loader import SeedLoader
 from src.data.database import db
 from src.data.repositories.campaign_repository import CampaignRepository
@@ -167,14 +170,27 @@ class MemoSeedPlayer(TrustedSeedPlayer):
         return self._screens[key]
 
 
+# Skips a test on Windows, which can't play programs on the host (no
+# pass_fds, no waiting on pipes). Linux CI runs every one of these.
+requires_host_play = pytest.mark.skipif(
+    not host_play_supported(),
+    reason="plays programs on this machine, which needs Linux or macOS; "
+    "CI runs it",
+)
+
+
 @pytest.fixture(scope="session")
-def seed_player() -> MemoSeedPlayer:
-    """Return the session's shared seed player."""
-    return MemoSeedPlayer()
+def seed_player() -> MemoSeedPlayer | None:
+    """Return the session's shared seed player.
+
+    None on Windows: seeds are then structure-checked only (see
+    ``SeedLoader``), so route and UI tests still get campaigns.
+    """
+    return MemoSeedPlayer() if host_play_supported() else None
 
 
 def _load_seed(
-    db_session: Session, player: MemoSeedPlayer, relative: str
+    db_session: Session, player: MemoSeedPlayer | None, relative: str
 ) -> int:
     """Load one shipped seed file and return its campaign id."""
     seed_file = (
@@ -191,13 +207,17 @@ def _load_seed(
 
 
 @pytest.fixture
-def seeded_beginner(db_session: Session, seed_player: MemoSeedPlayer) -> int:
+def seeded_beginner(
+    db_session: Session, seed_player: MemoSeedPlayer | None
+) -> int:
     """Make the shipped Beginner campaign available to route and UI tests."""
     return _load_seed(db_session, seed_player, "beginner/traffic_light.json")
 
 
 @pytest.fixture
-def seeded_pong(db_session: Session, seed_player: MemoSeedPlayer) -> int:
+def seeded_pong(
+    db_session: Session, seed_player: MemoSeedPlayer | None
+) -> int:
     """Make the shipped Pong campaign available."""
     return _load_seed(db_session, seed_player, "medium/pong.json")
 

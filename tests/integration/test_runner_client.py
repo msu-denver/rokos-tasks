@@ -29,6 +29,7 @@ from src.runner.server import RunnerHTTPServer
 from src.runner.service import SLOT_WAIT_SECONDS, RunnerService
 from src.runner.session import REAP_TIMEOUT_SECONDS
 from src.runner.slots import SlotPool
+from tests.conftest import requires_host_play
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -38,6 +39,7 @@ ECHO_CHECK = (
 )
 
 
+@requires_host_play
 def test_pass_and_fail_verdicts(local_runner: str):
     client = RunnerClient(local_runner)
     assert client.grade(ECHO, ECHO_CHECK)["verdict"] == "pass"
@@ -45,6 +47,7 @@ def test_pass_and_fail_verdicts(local_runner: str):
     assert (failing["verdict"], failing["rule"]) == ("fail", "echo")
 
 
+@requires_host_play
 def test_broken_check_script(local_runner: str):
     with pytest.raises(CheckScriptBrokenError):
         RunnerClient(local_runner).grade(ECHO, "def check(game):\n    1 / 0\n")

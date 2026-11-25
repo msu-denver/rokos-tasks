@@ -15,6 +15,7 @@ from selenium.webdriver.support import expected_conditions
 from selenium.webdriver.support.ui import WebDriverWait
 from sqlalchemy.orm import Session
 
+from tests.conftest import requires_host_play
 from tests.e2e.support import selector, start_run, write_code
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -44,6 +45,7 @@ def _submit_and_wait(browser: webdriver.Chrome) -> None:
     )
 
 
+@requires_host_play
 @pytest.mark.e2e
 def test_reference_program_passes(
     browser: webdriver.Chrome,
@@ -59,6 +61,7 @@ def test_reference_program_passes(
     assert heading.text == "PASS"
 
 
+@requires_host_play
 @pytest.mark.e2e
 def test_broken_rule_is_named(
     browser: webdriver.Chrome,
@@ -80,6 +83,7 @@ def test_broken_rule_is_named(
     assert frame.get_attribute("textContent").count("O") == 2
 
 
+@requires_host_play
 @pytest.mark.e2e
 def test_submit_is_busy_until_the_verdict(
     browser: webdriver.Chrome,
@@ -103,6 +107,7 @@ def test_submit_is_busy_until_the_verdict(
     assert button.get_attribute("textContent") == "Submit"
 
 
+@requires_host_play
 @pytest.mark.e2e
 def test_beginner_stage_gets_a_verdict(
     browser: webdriver.Chrome,

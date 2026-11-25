@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 from src.business.grading_service import MAX_CODE_BYTES
 from src.data.models.campaign import Stage
 from src.data.models.game_run import GameRun
+from tests.conftest import requires_host_play
 
 ROOT = Path(__file__).resolve().parents[2]
 PONG = json.loads(
@@ -56,6 +57,7 @@ def submit(player: FlaskClient, run_id: object, code: object):
     return player.post("/game/submit", json={"run_id": run_id, "code": code})
 
 
+@requires_host_play
 def test_reference_passes(player: FlaskClient, seeded_pong: int):
     """US6 AC1: the Pong stage 1 reference gets a pass."""
     response = submit(player, start_run(player, "medium"), STAGE_1)
@@ -65,6 +67,7 @@ def test_reference_passes(player: FlaskClient, seeded_pong: int):
     assert verdict["reason"] is None
 
 
+@requires_host_play
 def test_broken_rule_is_named(player: FlaskClient, seeded_pong: int):
     """US6 AC2: a board with two O characters fails with the rule."""
     verdict = submit(
@@ -75,6 +78,7 @@ def test_broken_rule_is_named(player: FlaskClient, seeded_pong: int):
     assert verdict["last_screen"].count("O") == 2
 
 
+@requires_host_play
 def test_crash_shows_the_traceback(player: FlaskClient, seeded_pong: int):
     """US6 AC2: a crash fails with a traceback that names main.py."""
     code = "print('thinking')\nraise ValueError('no ball')\n"
@@ -98,6 +102,7 @@ def test_lives_do_not_change(
     assert (run.lives, run.current_stage) == (3, 1)
 
 
+@requires_host_play
 def test_beginner_stage_is_graded(player: FlaskClient, seeded_beginner: int):
     """#19 AC1: Beginner stages are graded by check scripts too."""
     reference = TRAFFIC["stages"][0]["reference_program"]

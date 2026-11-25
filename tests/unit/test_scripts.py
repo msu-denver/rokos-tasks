@@ -39,6 +39,26 @@ class TestValidateCampaignsScript:
         )
         assert ret == 0
 
+    def test_validate_notes_skipped_checks_on_windows(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """On Windows, the script says which checks it couldn't run."""
+        with (
+            patch(
+                "scripts.validate_campaigns.host_play_supported",
+                return_value=False,
+            ),
+            patch(
+                "src.business.campaigns.validator.host_play_supported",
+                return_value=False,
+            ),
+        ):
+            ret = validate_campaigns.main(
+                ["scripts/validate_campaigns.py", str(FIXTURE_PATH)]
+            )
+        assert ret == 0
+        assert "CI runs every check" in capsys.readouterr().out
+
     def test_validate_invalid_file(self, tmp_path: Path) -> None:
         """Verify exits 1 when validation fails."""
         data = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))

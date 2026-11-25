@@ -14,6 +14,7 @@ import pytest
 
 from src.business.campaigns.check_runner import run_check, run_screens
 from src.business.campaigns.validator import screen_program
+from tests.conftest import requires_host_play
 
 ROOT = Path(__file__).resolve().parents[2]
 PONG = json.loads(
@@ -35,12 +36,14 @@ def grade_fixture(name: str, stage: int) -> dict:
     return run_check(code, check_script(stage))
 
 
+@requires_host_play
 @pytest.mark.parametrize("stage", [1, 2, 3])
 def test_reference_passes(stage: int):
     reference = PONG["stages"][stage - 1]["reference_program"]
     assert run_check(reference, check_script(stage))["verdict"] == "pass"
 
 
+@requires_host_play
 @pytest.mark.parametrize(
     ("name", "stage", "rule"),
     [
@@ -90,6 +93,7 @@ def test_broken_program_fails_with_its_rule(name: str, stage: int, rule: str):
     assert verdict["last_screen"] is not None
 
 
+@requires_host_play
 def test_two_balls_names_the_rule_on_the_first_screen():
     """US6 AC2: a board with two O characters fails before any input."""
     verdict = grade_fixture("broken_program", 1)
@@ -97,6 +101,7 @@ def test_two_balls_names_the_rule_on_the_first_screen():
     assert verdict["last_screen"].count("O") == 2
 
 
+@requires_host_play
 def test_stage_one_is_a_plain_script():
     """Stage 1's reference prints the board and exits, asking nothing."""
     reference = PONG["stages"][0]["reference_program"]
@@ -106,6 +111,7 @@ def test_stage_one_is_a_plain_script():
     assert verdict["inputs"] == []
 
 
+@requires_host_play
 def test_main_function_script_passes_stage_one():
     """A normal `if __name__ == "__main__": main()` script passes."""
     reference = PONG["stages"][0]["reference_program"]
@@ -114,6 +120,7 @@ def test_main_function_script_passes_stage_one():
     assert run_check(code, check_script(1))["verdict"] == "pass"
 
 
+@requires_host_play
 def test_stage_one_board_that_waits_for_input_fails():
     """Stage 1 reads no input, so a program that asks for some fails."""
     reference = PONG["stages"][0]["reference_program"]
@@ -124,6 +131,7 @@ def test_stage_one_board_that_waits_for_input_fails():
     )
 
 
+@requires_host_play
 def test_stage_one_program_fails_stage_two():
     """Printing once and exiting can't satisfy a stage that reads keys."""
     stage_one = PONG["stages"][0]["reference_program"]
@@ -131,17 +139,20 @@ def test_stage_one_program_fails_stage_two():
     assert verdict["verdict"] == "fail"
 
 
+@requires_host_play
 def test_different_speed_start_and_paddles_pass():
     """US6 AC3: 3 columns per turn from a corner passes like the reference."""
     assert grade_fixture("stage3_fast_from_corner.py", 3)["verdict"] == "pass"
 
 
+@requires_host_play
 def test_random_serve_passes_three_runs():
     """US6 AC3: a random start and serve passes on 3 separate runs."""
     verdicts = [grade_fixture("stage3_random_serve.py", 3) for _ in range(3)]
     assert [verdict["verdict"] for verdict in verdicts] == ["pass"] * 3
 
 
+@requires_host_play
 def test_turn_limit_fails_with_its_rule():
     """With too few turns to see every event, the verdict is a fail."""
     rushed = check_script(3).replace("TURN_LIMIT = 400", "TURN_LIMIT = 3")
@@ -153,6 +164,7 @@ def test_turn_limit_fails_with_its_rule():
     )
 
 
+@requires_host_play
 def test_oversized_score_fails_instead_of_crashing():
     """A score past int()'s digit cap is a FAIL, not a check_error."""
     screen = run_screens(PONG["stages"][2]["reference_program"], [])[0]
@@ -164,6 +176,7 @@ def test_oversized_score_fails_instead_of_crashing():
     )
 
 
+@requires_host_play
 def test_crash_is_reported_with_traceback():
     """US6 AC2: a crash fails with the player's traceback."""
     verdict = run_check("raise ValueError('no ball')\n", check_script(1))

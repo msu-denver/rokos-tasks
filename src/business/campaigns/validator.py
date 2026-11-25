@@ -22,6 +22,7 @@ from src.business.campaigns.check_runner import (
     CheckPlayer,
     CheckRunError,
     TrustedSeedPlayer,
+    host_play_supported,
 )
 from src.business.difficulty import Difficulty
 from src.runner.grading import CHECK_SCRIPT_BYTES
@@ -186,6 +187,9 @@ class CampaignValidator:
     def validate_file(cls, path: Path | str) -> list[str]:
         """Validate a trusted campaign JSON file on disk.
 
+        On a machine that can't play programs (Windows), only the checks
+        that don't play anything run; Linux CI runs the rest.
+
         Args:
             path: Path to the JSON file (a hand-written seed).
 
@@ -199,9 +203,40 @@ class CampaignValidator:
             data = json.loads(file_path.read_text(encoding="utf-8"))
         except json.JSONDecodeError as exc:
             return [f"[{file_path}] Invalid JSON: {exc}"]
+        if not host_play_supported():
+            return cls.validate_structure(data, filename=str(file_path))
         return cls.validate(
             data, filename=str(file_path), player=TrustedSeedPlayer()
         )
+
+    @classmethod
+    def validate_structure(
+        cls, data: dict[str, Any], filename: str = "<campaign>"
+    ) -> list[str]:
+        """Run every check that doesn't play a program.
+
+        That's the schema, the tier rules, and the check-script rules.
+        It's for trusted seed files on a machine that can't play programs
+        (Windows); ``validate`` runs these plus the §4.4 play checks.
+
+        Args:
+            data: Parsed campaign data dictionary.
+            filename: Source filename or identifier for reporting.
+
+        Returns:
+            List of validation error messages, or empty if valid.
+        """
+        errors = cls._schema_errors(data, filename)
+        if errors:
+            return errors
+        errors = cls._tier_errors(data, filename)
+        for stage in data["stages"]:
+            prefix = f"[{filename}] Stage {stage['stage']}"
+            errors.extend(
+                f"{prefix}: {problem}"
+                for problem in check_script_problems(stage["check_script"])
+            )
+        return errors
 
     @classmethod
     def validate(
@@ -224,8 +259,27 @@ class CampaignValidator:
         Returns:
             List of validation error messages, or empty if valid.
         """
+        errors = cls._schema_errors(data, filename)
+        if errors:
+            return errors
+        errors = cls._tier_errors(data, filename)
+        previous_reference = None
+        for stage in data["stages"]:
+            prefix = f"[{filename}] Stage {stage['stage']}"
+            problems = check_script_problems(stage["check_script"])
+            if not problems:
+                problems = _StageCheck(
+                    player, stage, previous_reference
+                ).problems()
+            errors.extend(f"{prefix}: {problem}" for problem in problems)
+            previous_reference = stage["reference_program"]
+        return errors
+
+    @classmethod
+    def _schema_errors(cls, data: Any, filename: str) -> list[str]:
+        """Return one message per JSON Schema error."""
         schema_validator = Draft202012Validator(cls._get_schema())
-        errors = [
+        return [
             f"[{filename}] Schema error at "
             f"'{'/'.join(str(p) for p in error.path) or 'root'}': "
             f"{error.message}"
@@ -233,9 +287,11 @@ class CampaignValidator:
                 schema_validator.iter_errors(data), key=lambda e: e.path
             )
         ]
-        if errors:
-            return errors
 
+    @staticmethod
+    def _tier_errors(data: dict[str, Any], filename: str) -> list[str]:
+        """Return problems with the tier's stage count and stage numbers."""
+        errors = []
         stages = data["stages"]
         difficulty = Difficulty(data["difficulty"])
         expected_stages = difficulty.rules.stages
@@ -250,17 +306,6 @@ class CampaignValidator:
                     f"[{filename}] Stage index {idx}: expected stage number "
                     f"{idx}, got {stage['stage']}."
                 )
-
-        previous_reference = None
-        for stage in stages:
-            prefix = f"[{filename}] Stage {stage['stage']}"
-            problems = check_script_problems(stage["check_script"])
-            if not problems:
-                problems = _StageCheck(
-                    player, stage, previous_reference
-                ).problems()
-            errors.extend(f"{prefix}: {problem}" for problem in problems)
-            previous_reference = stage["reference_program"]
         return errors
 
 

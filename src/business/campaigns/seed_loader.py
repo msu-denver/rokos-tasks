@@ -7,16 +7,20 @@ Author(s): Tyler Black
 
 import hashlib
 import json
+import logging
 from pathlib import Path
 from typing import Any
 
 from src.business.campaigns.check_runner import (
     CheckPlayer,
     TrustedSeedPlayer,
+    host_play_supported,
 )
 from src.business.campaigns.validator import CampaignValidator
 from src.data.models.campaign import Campaign, Stage
 from src.data.repositories.campaign_repository import CampaignRepository
+
+logger = logging.getLogger(__name__)
 
 
 class CampaignValidationError(Exception):
@@ -68,8 +72,21 @@ class SeedLoader:
                 raise UntrustedCampaignError(
                     f"a {source} campaign must be validated in the runner"
                 )
-            player = TrustedSeedPlayer()
-        errors = CampaignValidator.validate(data, filename=slug, player=player)
+            if host_play_supported():
+                player = TrustedSeedPlayer()
+        if player is None:
+            # Windows can't play programs locally, and seeds are committed
+            # files that Linux CI plays in full on every PR.
+            logger.warning(
+                "%s: this machine can't play programs, so only the checks "
+                "that don't play one ran; CI runs the rest",
+                slug,
+            )
+            errors = CampaignValidator.validate_structure(data, filename=slug)
+        else:
+            errors = CampaignValidator.validate(
+                data, filename=slug, player=player
+            )
         if errors:
             raise CampaignValidationError(errors)
 

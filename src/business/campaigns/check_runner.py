@@ -10,6 +10,7 @@ Description: Plays trusted seed programs locally for offline campaign
 Author(s): Richard Hall, Tyler Black
 """
 
+import sys
 import tempfile
 from pathlib import Path
 from typing import Protocol
@@ -21,6 +22,16 @@ from src.runner.slots import Slot, SlotCompromisedError
 
 # macOS rejects the address-space limit, and only trusted code runs here.
 LOCAL_LIMITS = SandboxLimits(memory_bytes=None)
+
+
+def host_play_supported() -> bool:
+    """Return True if this machine can play programs locally.
+
+    The local player reuses the runner's code, which needs POSIX features
+    (``pass_fds``, waiting on pipes, rlimits), so it can't run on Windows.
+    There, seeds are only structure-checked; Linux CI plays them all.
+    """
+    return sys.platform != "win32"
 
 
 class CheckRunError(Exception):

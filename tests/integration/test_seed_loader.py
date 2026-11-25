@@ -22,6 +22,7 @@ from src.business.campaigns.validator import CampaignValidator
 from src.business.difficulty import Difficulty
 from src.data.models.campaign import Campaign, Stage
 from src.data.repositories.campaign_repository import CampaignRepository
+from tests.conftest import requires_host_play
 
 FIXTURE_PATH = (
     Path(__file__).resolve().parents[1]
@@ -129,6 +130,7 @@ class TestSeedLoader:
         assert [stage.id for stage in updated.stages] == initial_stage_ids
         assert updated.stages[0].prompt == new_prompt
 
+    @requires_host_play
     def test_removing_stage_deletes_only_that_one(
         self, db_session: Session, tmp_path: Path
     ) -> None:
@@ -285,6 +287,7 @@ class TestUntrustedCampaigns:
             loader.load_campaign_data(data, slug="beginner/x", source="llm")
         validate.assert_not_called()
 
+    @requires_host_play
     def test_untrusted_campaign_uses_the_given_player(
         self, db_session: Session
     ) -> None:
@@ -298,3 +301,52 @@ class TestUntrustedCampaigns:
             )
         assert campaign.source == "llm"
         assert grade.called
+
+
+class TestWithoutHostPlay:
+    """Windows can't play programs, so seeds load after the other checks."""
+
+    def test_seed_loads_without_playing(self, db_session: Session) -> None:
+        """A seed is structure-checked, stored, and the skip is logged."""
+        loader = SeedLoader(CampaignRepository(db_session))
+        with (
+            patch(
+                "src.business.campaigns.seed_loader.host_play_supported",
+                return_value=False,
+            ),
+            patch.object(TrustedSeedPlayer, "grade") as grade,
+            patch("src.business.campaigns.seed_loader.logger") as logger,
+        ):
+            campaign = loader.load_file(FIXTURE_PATH)
+        grade.assert_not_called()
+        assert len(campaign.stages) == 2
+        assert "CI runs the rest" in logger.warning.call_args.args[0]
+
+    def test_broken_seed_is_still_rejected(self, db_session: Session) -> None:
+        """Structure problems still stop a seed from loading."""
+        loader = SeedLoader(CampaignRepository(db_session))
+        data = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
+        data["stages"][0]["check_script"] = "import os\n"
+        with (
+            patch(
+                "src.business.campaigns.seed_loader.host_play_supported",
+                return_value=False,
+            ),
+            pytest.raises(CampaignValidationError, match="must not import"),
+        ):
+            loader.load_campaign_data(data, slug="beginner/broken")
+
+    def test_untrusted_campaign_is_still_refused(
+        self, db_session: Session
+    ) -> None:
+        """The Windows fallback is only for seeds, never LLM campaigns."""
+        loader = SeedLoader(CampaignRepository(db_session))
+        data = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
+        with (
+            patch(
+                "src.business.campaigns.seed_loader.host_play_supported",
+                return_value=False,
+            ),
+            pytest.raises(UntrustedCampaignError),
+        ):
+            loader.load_campaign_data(data, slug="beginner/x", source="llm")
