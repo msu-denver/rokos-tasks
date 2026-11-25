@@ -19,6 +19,7 @@ from src.business.campaigns.check_runner import (
 )
 from src.business.campaigns.validator import (
     HUGE_NUMBER_DIGITS,
+    MAX_HUGE_NUMBER_PROBES,
     CampaignValidator,
     check_script_problems,
     huge_number_screens,
@@ -363,7 +364,10 @@ class TestQualityChecks:
             f"a {huge} b 22\nc 3 d 4",
             f"a 1 b {huge}\nc 3 d 4",
             f"a 1 b 22\nc {huge} d 4",
+            f"a 1 b 22\nc 3 d {huge}",
         ]
+        many = " ".join(str(number) for number in range(10))
+        assert len(huge_number_screens(many)) == MAX_HUGE_NUMBER_PROBES
         assert huge_number_screens("no digits") == []
 
     def test_huge_numbers_reach_a_static_check(self, campaign: dict) -> None:

@@ -93,6 +93,9 @@ def hide_plumbing(error, seen):
         for trace, after in zip(kept, kept[1:] + [None]):
             trace.tb_next = after
         error.__traceback__ = kept[0] if kept else None
+        if isinstance(error, BaseExceptionGroup):
+            for member in error.exceptions:
+                hide_plumbing(member, seen)
         hide_plumbing(error.__cause__, seen)
         error = error.__context__
 

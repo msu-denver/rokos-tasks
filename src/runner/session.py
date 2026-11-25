@@ -221,11 +221,15 @@ class ProgramSession:
         Raises:
             LaunchError: If the launcher reported a failure or hung.
         """
-        with selectors.DefaultSelector() as status_selector:
-            status_selector.register(status_read, selectors.EVENT_READ)
-            ready = status_selector.select(self._remaining())
         try:
+            with selectors.DefaultSelector() as status_selector:
+                status_selector.register(status_read, selectors.EVENT_READ)
+                ready = status_selector.select(self._remaining())
             message = os.read(status_read, 500) if ready else None
+        except OSError as error:
+            raise LaunchError(
+                f"could not wait for the launch: {error}"
+            ) from error
         finally:
             os.close(status_read)
         if message is None:
@@ -396,6 +400,11 @@ class ProgramSession:
             self._pump(min(remaining, EXIT_POLL_SECONDS))
         returncode = self._process.returncode
         self._drain_stdout()
+        if self._stdout_open:
+            # A child left behind holds stdout; its later output isn't
+            # part of this screen.
+            self._selector.unregister(self._process.stdout)
+            self._stdout_open = False
         self._drain_stderr()
         if returncode != 0:
             raise ProgramCrashedError(f"the program exited with {returncode}")

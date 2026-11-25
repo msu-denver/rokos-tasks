@@ -7,6 +7,8 @@ Author(s): Richard Hall, Tyler Black
 """
 
 import json
+import time
+from concurrent.futures import ThreadPoolExecutor
 from textwrap import dedent
 
 from tests.runner.conftest import GradeInSandbox, RunInSandbox
@@ -159,9 +161,9 @@ def test_idle_connection_flood_cannot_starve_the_runner(
 
     Each player process may hold 64 file descriptors and the slot may own
     16 processes, so nine children open as many idle connections as they
-    can and leave them behind while the program waits for input. Refused
-    connections never get a server thread, so later runs and grades still
-    work and nothing is left running.
+    can and hold them for a whole turn. Refused connections never get a
+    server thread, so another run works while they are held, later runs
+    and grades still work, and nothing is left running.
     """
     code = dedent(
         """
@@ -180,15 +182,23 @@ def test_idle_connection_flood_cannot_starve_the_runner(
                         held.append(socket.create_connection(connection))
                     except OSError:
                         break
+                    if len(held) == 1:
+                        sys.stderr.write("connected\\n")
+                        sys.stderr.flush()
                 time.sleep(60)
         os.write(go_write, b"1" * 9)
         input()
         time.sleep(60)  # The flood runs for the whole next turn.
         """
     )
-    result = run_in_sandbox(code, [""])
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        flood = pool.submit(run_in_sandbox, code, [""])
+        time.sleep(0.6)  # The children are holding their connections.
+        assert run_in_sandbox("print('alive')")["screens"] == ["alive"]
+        result = flood.result()
     assert result["screens"] == ["ready"], result["stderr"]
     assert result["status"] == "turn_timeout"
+    assert "connected" in result["stderr"]
     for _ in range(8):
         assert run_in_sandbox(COUNT_SANDBOX_PROCESSES)["screens"] == ["0"]
     echo = "while True:\n    print(input())\n"
@@ -315,11 +325,16 @@ def test_sigstop_flood_cannot_freeze_the_reaper(
             os.setsid()
             os.read(go_read, 1)
             time.sleep(0.1)  # Let the parent ask for input first.
+            stopping = False
             while True:
                 try:
                     os.kill(-1, signal.SIGSTOP)
                 except OSError:
-                    pass
+                    continue
+                if not stopping:
+                    stopping = True
+                    sys.stderr.write("stopping\\n")
+                    sys.stderr.flush()
         os.write(go_write, b"1")
         input()
         time.sleep(60)
@@ -330,6 +345,7 @@ def test_sigstop_flood_cannot_freeze_the_reaper(
     result = run_in_sandbox(code, [""])
     assert result["screens"] == ["ready"], result["stderr"]
     assert result["status"] == "turn_timeout"
+    assert "stopping" in result["stderr"]
     for _ in range(8):
         assert run_in_sandbox(COUNT_SANDBOX_PROCESSES)["screens"] == ["0"]
 

@@ -166,6 +166,28 @@ def test_failed_stdin_read_hides_the_bootstrap(slot: Slot):
 
 
 @POSIX_ONLY
+def test_exception_group_members_hide_the_bootstrap(slot: Slot):
+    code = dedent(
+        """
+        import sys
+        sys.stdin.close()
+        try:
+            sys.stdin.readline()
+        except ValueError as error:
+            raise ExceptionGroup("reads", [error])
+        """
+    )
+    with ProgramSession(slot, HOST_LIMITS) as session:
+        session.start(code)
+        with pytest.raises(ProgramCrashedError):
+            session.first_screen()
+            session.send("")
+    assert "ExceptionGroup: reads" in session.stderr
+    assert "ValueError" in session.stderr
+    assert "<string>" not in session.stderr
+
+
+@POSIX_ONLY
 def test_chained_exceptions_hide_the_bootstrap(slot: Slot):
     code = dedent(
         """
@@ -247,6 +269,27 @@ def test_exit_is_seen_while_a_child_holds_stdout(slot: Slot):
     assert screens == ["done"]
     assert session.finished
     assert time.monotonic() - started < 2.0
+
+
+@POSIX_ONLY
+def test_output_from_a_child_after_the_exit_is_not_on_the_screen(
+    slot: Slot,
+):
+    import resource  # POSIX only, like the test.
+
+    code = dedent(
+        """
+        import subprocess, sys
+        late = "import time; time.sleep(0.3); print('late', flush=True)"
+        subprocess.Popen([sys.executable, "-c", late])
+        print("done")
+        """
+    )
+    processes = resource.getrlimit(resource.RLIMIT_NPROC)[0]
+    limits = SandboxLimits(memory_bytes=None, process_count=processes)
+    screens, session = play(slot, code, [], limits)
+    assert screens == ["done"]
+    assert session.finished
 
 
 @POSIX_ONLY
@@ -548,3 +591,21 @@ def test_pipe_failure_is_a_launch_error_without_leaks(
     for fd in made:
         with pytest.raises(OSError):
             os.fstat(fd)
+
+
+def test_status_wait_failure_is_a_launch_error_and_closes_the_pipe(
+    slot: Slot,
+):
+    session = ProgramSession(slot, HOST_LIMITS)
+    read_end, write_end = os.pipe()
+    try:
+        with mock.patch(
+            "src.runner.session.selectors.DefaultSelector",
+            side_effect=OSError(24, "Too many open files"),
+        ):
+            with pytest.raises(LaunchError, match="wait for the launch"):
+                session._wait_for_launch(read_end)
+        with pytest.raises(OSError):
+            os.fstat(read_end)
+    finally:
+        os.close(write_end)

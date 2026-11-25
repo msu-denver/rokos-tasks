@@ -45,7 +45,7 @@ HUGE_NUMBER_DIGITS = 5000
 # The probe makes one number huge at a time, for at most this many numbers
 # on the reference's first screen, so a check that bounds the first number
 # still has to bound the next.
-MAX_HUGE_NUMBER_PROBES = 3
+MAX_HUGE_NUMBER_PROBES = 6
 # Programs that follow no stage's rules. A check script must fail each
 # one cleanly: if odd screens crash it, a player could print them on
 # purpose to get a check_error instead of losing a life.
