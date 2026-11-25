@@ -4,17 +4,23 @@ Description: The only code that talks to the sandbox runner container.
     Sends a player's program and a stage's check script to the runner's
     POST /grade and returns its verdict, or raises an error that is never
     the player's fault.
-Author(s): Richard Hall
+Author(s): Richard Hall, Tyler Black
 """
 
+import http.client
 import json
 import logging
 import urllib.error
 import urllib.request
 from http import HTTPStatus
 
-# The runner waits up to 15 s for free slots, then grades for up to 12 s.
-DEFAULT_TIMEOUT_SECONDS = 30.0
+# The runner's worst case: up to 15 s waiting for two free slots, up to
+# 12 s on the check script's clock, then reaping both slots (up to 5 s
+# each). A margin on top keeps a slow verdict from showing as a 503.
+# A unit test pins this to the runner's own constants; the web
+# container's gunicorn timeout (Dockerfile) must stay above it.
+WORST_CASE_SECONDS = 15.0 + 12.0 + 2 * 5.0
+DEFAULT_TIMEOUT_SECONDS = WORST_CASE_SECONDS + 5.0
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +71,14 @@ class RunnerClient:
                 return json.loads(response.read())
         except urllib.error.HTTPError as error:
             raise self._error_for(error) from error
-        except (urllib.error.URLError, TimeoutError) as error:
+        except (
+            urllib.error.URLError,
+            TimeoutError,
+            ConnectionError,
+            http.client.HTTPException,
+        ) as error:
+            # Includes a dropped connection (RemoteDisconnected,
+            # ConnectionResetError, IncompleteRead): never the player's.
             raise RunnerUnavailableError(str(error)) from error
         except json.JSONDecodeError as error:
             raise RunnerUnavailableError("the runner sent bad JSON") from error

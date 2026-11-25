@@ -4,7 +4,7 @@ Description: Grades a Submit (US6): checks the player's run, sends the
     code and the current stage's check script to the runner, and turns
     the runner's reply into a Verdict for the page. Lives, checkpoints,
     and score are not changed here (US7).
-Author(s): Richard Hall
+Author(s): Richard Hall, Tyler Black
 """
 
 import re
@@ -26,28 +26,36 @@ REASON_TEXT = {
     "exited": "Exited before the check finished.",
 }
 UNKNOWN_REASON = "Failed."
-# The runner's slot folder means nothing to the player; their file is main.py.
-_SANDBOX_PATH = re.compile(r'"[^"\n]*/main\.py"')
+# The runner's slot folder means nothing to the player; their file is
+# main.py. Only traceback location lines are rewritten, never the
+# player's own messages.
+_SANDBOX_PATH = re.compile(r'^(\s*File )"[^"\n]*/main\.py"', re.MULTILINE)
 
 
 class RunFinishedError(Exception):
     """The run is no longer in progress, so it can't be submitted."""
 
 
-class StageNotGradableError(Exception):
-    """The stage has no check script yet (old seeds, until #15)."""
+class InvalidCodeError(ValueError):
+    """The submitted program can't be sent to the runner."""
 
 
-class CodeTooLargeError(ValueError):
+class CodeTooLargeError(InvalidCodeError):
     """The submitted program is larger than the runner accepts."""
 
 
 @dataclass(frozen=True)
 class Verdict:
-    """What the page shows after a Submit."""
+    """What the page shows after a Submit.
+
+    ``kind`` is how the program failed, for US7 and US10: ``rule``,
+    ``crashed``, ``exited``, ``tick_timeout``, ``run_timeout``, or
+    ``output_limit``; None on a pass.
+    """
 
     passed: bool
     heading: str
+    kind: str | None
     reason: str | None
     tick: int
     inputs: tuple[str, ...]
@@ -59,6 +67,7 @@ class Verdict:
         return {
             "passed": self.passed,
             "heading": self.heading,
+            "kind": self.kind,
             "reason": self.reason,
             "tick": self.tick,
             "inputs": list(self.inputs),
@@ -69,7 +78,7 @@ class Verdict:
 
 def clean_traceback(traceback: str) -> str:
     """Show the player's file as ``main.py`` instead of its sandbox path."""
-    return _SANDBOX_PATH.sub('"main.py"', traceback)
+    return _SANDBOX_PATH.sub(r'\1"main.py"', traceback)
 
 
 def to_verdict(reply: dict) -> Verdict:
@@ -93,6 +102,7 @@ def to_verdict(reply: dict) -> Verdict:
     return Verdict(
         passed=passed,
         heading=PASS if passed else FAIL,
+        kind=None if passed else reason,
         reason=reason_text,
         tick=reply.get("tick", 0),
         inputs=tuple(reply.get("inputs", ())),
@@ -123,8 +133,8 @@ class GradingService:
         Raises:
             RunNotFoundError: If the run is missing or someone else's.
             RunFinishedError: If the run is over.
-            CodeTooLargeError: If the code is over the size limit.
-            StageNotGradableError: If the stage has no check script.
+            InvalidCodeError: If the code is over the size limit or
+                isn't valid text (a lone surrogate).
             RunnerUnavailableError: If the runner couldn't grade.
             CheckScriptBrokenError: If the check script failed.
         """
@@ -133,9 +143,11 @@ class GradingService:
             raise RunNotFoundError(run_id)
         if run.status != "in_progress":
             raise RunFinishedError(run_id)
-        if len(code.encode()) > MAX_CODE_BYTES:
+        try:
+            size = len(code.encode())
+        except UnicodeEncodeError as error:
+            raise InvalidCodeError("the program isn't valid text") from error
+        if size > MAX_CODE_BYTES:
             raise CodeTooLargeError("the program is larger than 64 KB")
         check_script = self._runs.check_script_for(run)
-        if not check_script:
-            raise StageNotGradableError(run.current_stage)
         return to_verdict(self._runner.grade(code, check_script))

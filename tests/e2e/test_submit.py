@@ -3,7 +3,7 @@ File: test_submit.py
 Description: Selenium coverage for Submit (US6): a passing program, a
     broken rule named in the verdict, the busy Submit button while the
     Overlord plays, and a stage that can't be graded yet.
-Author(s): Richard Hall
+Author(s): Richard Hall, Tyler Black
 """
 
 import json
@@ -23,8 +23,13 @@ ROOT = Path(__file__).resolve().parents[2]
 PONG = json.loads(
     (ROOT / "content/campaigns/seed/medium/pong.json").read_text("utf-8")
 )
-STAGE_1 = PONG["stages"][0]["reference_solution"]
-TWO_BALLS = (ROOT / "tests/fixtures/pong/stage1_two_balls.py").read_text()
+STAGE_1 = PONG["stages"][0]["reference_program"]
+TWO_BALLS = PONG["stages"][0]["broken_program"]
+TRAFFIC_STAGE_1 = json.loads(
+    (ROOT / "content/campaigns/seed/beginner/traffic_light.json").read_text(
+        "utf-8"
+    )
+)["stages"][0]["reference_program"]
 # Answers every tick in 0.6 s, inside the 1 s limit, so grading is slow
 # enough to see the busy button.
 SLOW_STAGE_1 = STAGE_1.replace(
@@ -153,17 +158,15 @@ def test_submit_is_busy_until_the_verdict(
 
 
 @pytest.mark.e2e
-def test_stage_without_check_script_says_so(
+def test_beginner_stage_gets_a_verdict(
     browser: webdriver.Chrome,
     live_server: str,
     db_session: Session,
     seeded_beginner: int,
 ) -> None:
-    """Beginner has no check scripts yet (#15): Submit says so."""
+    """#19 AC1: Beginner is graded by its check script like Medium."""
     ready = _start_run(browser, live_server, db_session, "beginner")
-    _write_code(browser, ready, "print(1)")
+    _write_code(browser, ready, TRAFFIC_STAGE_1)
     _submit_and_wait(browser)
-    reason = browser.find_element(*_selector("game-verdict-reason"))
-    assert reason.text == "This stage can't be graded yet."
     heading = browser.find_element(*_selector("game-verdict-heading"))
-    assert not heading.is_displayed()
+    assert heading.text == "PASS"
