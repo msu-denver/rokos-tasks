@@ -812,6 +812,8 @@ a:hover {
 }
 
 .game-editor-panel {
+  --console-min-size: var(--grid-size);
+  --editor-min-size: calc(var(--grid-size) * 2);
   grid-template-rows: auto auto auto auto;
   gap: var(--space-3);
   padding: var(--space-4);
@@ -828,15 +830,97 @@ a:hover {
   filter: saturate(0.5);
 }
 
-/* Verdict: scrolls inside the editor window, never the page */
+/*
+Console: an IDE-style panel under the editor. Its top edge is a drag
+handle, the bar collapses it, and its body scrolls inside the editor
+window, never the page. console.js sets --console-size when the player
+resizes it.
+*/
+.game-console {
+  display: grid;
+  border-block-start: var(--border-1) solid var(--line);
+}
+
+/* The handle straddles the console's top line, which lights up cyan */
+.game-console-handle {
+  position: relative;
+  block-size: var(--space-2);
+  margin-block: calc(var(--space-1) * -1);
+  cursor: row-resize;
+  touch-action: none;
+}
+
+.game-console-handle::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  inset-block-start: calc(var(--space-1) - var(--border-1));
+  block-size: var(--border-2);
+}
+
+.game-console-handle:hover::after,
+.game-console-handle:focus-visible::after,
+.game-console--resizing .game-console-handle::after {
+  background: var(--cyan);
+}
+
+/* The bar reads like the editor's file tab, not a button */
+.game-console-toggle {
+  justify-content: flex-start;
+  gap: var(--space-2);
+  justify-self: start;
+  padding: var(--space-2) 0;
+  background: none;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: normal;
+  clip-path: none;
+}
+
+.game-console-toggle:hover {
+  color: var(--ink);
+}
+
+.game-console-chevron {
+  inline-size: var(--space-3);
+  block-size: var(--space-3);
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: var(--border-2);
+  transform: rotate(-90deg);
+}
+
+.game-console-toggle[aria-expanded="true"] .game-console-chevron {
+  transform: none;
+}
+
+.game-console-body {
+  block-size: var(--console-size, calc(var(--grid-size) * 3));
+  min-block-size: var(--console-min-size);
+  max-block-size: max(var(--console-min-size), 60svh);
+  overflow: auto;
+  background: var(--surface);
+}
+
+/* Resizing: no text selection, and the row cursor everywhere */
+.game-console--resizing,
+.game-console--resizing * {
+  cursor: row-resize;
+  user-select: none;
+}
+
+.game-console-handle[hidden],
+.game-console-body[hidden] {
+  display: none;
+}
+
 .game-verdict {
   display: grid;
   gap: var(--space-2);
-  max-block-size: calc(var(--grid-size) * 3);
-  overflow: auto;
   padding: var(--space-3);
-  background: var(--surface);
-  border-block-start: var(--border-1) solid var(--line);
 }
 
 .game-verdict[hidden],
@@ -1108,12 +1192,18 @@ its space, while the Overlord's stage gives way first.
     block-size: auto;
   }
 
+  /* console.js keeps the console small enough for the editor's minimum */
   .game-editor-panel {
-    grid-template-rows: auto minmax(0, 1fr) auto auto;
+    grid-template-rows: auto minmax(var(--editor-min-size), 1fr) auto auto;
   }
 
   .game-editor {
     block-size: auto;
+    min-block-size: var(--editor-min-size);
+  }
+
+  .game-console-body {
+    max-block-size: none;
   }
 }
 

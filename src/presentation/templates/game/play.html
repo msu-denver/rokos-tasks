@@ -85,12 +85,27 @@ Author(s): Tyler Black, Richard Hall
                   data-submit-url="{{ url_for('game.submit') }}" data-run="{{ run_id }}"
                   data-csrf-token="{{ csrf_token() }}">Submit</button>
         </div>
-        <section class="game-verdict" data-testid="game-verdict" aria-live="polite" aria-label="Verdict" hidden>
-          <h2 class="game-verdict-heading" data-testid="game-verdict-heading"></h2>
-          <p class="game-verdict-reason" data-testid="game-verdict-reason"></p>
-          <pre class="game-verdict-code" data-testid="game-verdict-traceback" hidden></pre>
-          <pre class="game-verdict-code" data-testid="game-verdict-frame" hidden></pre>
-        </section>
+        {# Collapsed until the first verdict or the saved layout opens it. #}
+        <div class="game-console" data-testid="game-console">
+          <div class="game-console-handle" data-testid="game-console-handle" role="separator"
+               tabindex="0" aria-orientation="horizontal" aria-label="Resize console"
+               aria-controls="game-console-body" hidden></div>
+          <button type="button" class="game-console-toggle" data-testid="game-console-toggle"
+                  aria-expanded="false" aria-controls="game-console-body">
+            <svg class="game-console-chevron" viewBox="0 0 12 12" aria-hidden="true" focusable="false">
+              <polyline points="2,4 6,8 10,4"/>
+            </svg>
+            Console
+          </button>
+          <div class="game-console-body" id="game-console-body" data-testid="game-console-body" hidden>
+            <section class="game-verdict" data-testid="game-verdict" aria-live="polite" aria-label="Verdict" hidden>
+              <h2 class="game-verdict-heading" data-testid="game-verdict-heading"></h2>
+              <p class="game-verdict-reason" data-testid="game-verdict-reason"></p>
+              <pre class="game-verdict-code" data-testid="game-verdict-traceback" hidden></pre>
+              <pre class="game-verdict-code" data-testid="game-verdict-frame" hidden></pre>
+            </section>
+          </div>
+        </div>
       </section>
     </div>
     <script id="stage-data" type="application/json">{{ {'stage': stage.number}|tojson }}</script>
