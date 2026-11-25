@@ -90,15 +90,18 @@ Author(s): Tyler Black, Richard Hall
           <div class="game-console-handle" data-testid="game-console-handle" role="separator"
                tabindex="0" aria-orientation="horizontal" aria-label="Resize console"
                aria-controls="game-console-body" hidden></div>
-          <button type="button" class="game-console-toggle" data-testid="game-console-toggle"
-                  aria-expanded="false" aria-controls="game-console-body">
+          <button type="button" class="game-console-toggle" id="game-console-toggle"
+                  data-testid="game-console-toggle" aria-expanded="false" aria-controls="game-console-body">
             <svg class="game-console-chevron" viewBox="0 0 12 12" aria-hidden="true" focusable="false">
               <polyline points="2,4 6,8 10,4"/>
             </svg>
             Console
           </button>
-          <div class="game-console-body" id="game-console-body" data-testid="game-console-body" hidden>
-            <section class="game-verdict" data-testid="game-verdict" aria-live="polite" aria-label="Verdict" hidden>
+          {# Always in the accessibility tree, so a verdict that opens a collapsed console is announced. #}
+          <p class="visually-hidden" data-testid="game-console-status" role="status"></p>
+          <div class="game-console-body" id="game-console-body" data-testid="game-console-body"
+               role="region" aria-labelledby="game-console-toggle" tabindex="0" hidden>
+            <section class="game-verdict" data-testid="game-verdict" aria-label="Verdict" hidden>
               <h2 class="game-verdict-heading" data-testid="game-verdict-heading"></h2>
               <p class="game-verdict-reason" data-testid="game-verdict-reason"></p>
               <pre class="game-verdict-code" data-testid="game-verdict-traceback" hidden></pre>

@@ -2,8 +2,8 @@
 File: console.js
 Description: The console under the editor, like an IDE's terminal panel:
     its top edge resizes it against the editor (mouse or arrow keys), its
-    bar collapses and expands it, new output opens it, and its height and
-    open state are remembered across reloads.
+    bar collapses and expands it, new output opens it and is announced,
+    and its height and open state are remembered across reloads.
 Author(s): Tyler Black
 */
 
@@ -45,19 +45,24 @@ function overflow({panel, root}) {
   return Math.max(0, root.getBoundingClientRect().bottom - content_bottom);
 }
 
-// Desktop: the console and editor share the window's height, so the
-// console may grow until the editor reaches its minimum. Stacked layout:
-// the page scrolls and the CSS max-block-size caps the console.
+// The console and editor share a fixed height in both layouts (see
+// components.css), so the console may grow until the editor reaches its
+// minimum.
 function size_limits(parts) {
   const {editor, body} = parts;
-  const body_style = getComputedStyle(body);
-  const min = parseFloat(body_style.minBlockSize);
-  let max = parseFloat(body_style.maxBlockSize);
-  if (Number.isNaN(max)) {
-    const shared = editor.offsetHeight + body.offsetHeight - overflow(parts);
-    max = shared - parseFloat(getComputedStyle(editor).minBlockSize);
-  }
+  const min = parseFloat(getComputedStyle(body).minBlockSize);
+  const shared = editor.offsetHeight + body.offsetHeight - overflow(parts);
+  const max = shared - parseFloat(getComputedStyle(editor).minBlockSize);
   return {min, max: Math.max(min, max)};
+}
+
+// The verdict's heading and reason, read as one line.
+function summary(root) {
+  const parts = ["game-verdict-heading", "game-verdict-reason"]
+    .map((test_id) => root.querySelector(`[data-testid="${test_id}"]`))
+    .filter((element) => !element.hidden && element.textContent)
+    .map((element) => element.textContent);
+  return parts.join(". ");
 }
 
 export function init_console(root, editor) {
@@ -69,17 +74,19 @@ export function init_console(root, editor) {
   };
   const handle = root.querySelector('[data-testid="game-console-handle"]');
   const toggle = root.querySelector('[data-testid="game-console-toggle"]');
+  const status = root.querySelector('[data-testid="game-console-status"]');
   const layout = load_layout();
+  let drag = null;
 
   // Shows the preferred size, clamped to the space there is right now.
   function apply_size() {
     if (!layout.expanded) return;
-    const {body} = parts;
-    if (layout.size === null) body.style.removeProperty("--console-size");
+    const {panel, body} = parts;
+    if (layout.size === null) panel.style.removeProperty("--console-size");
     const wanted = layout.size ?? body.offsetHeight;
     const {min, max} = size_limits(parts);
     const size = Math.round(Math.min(Math.max(wanted, min), max));
-    body.style.setProperty("--console-size", `${size}px`);
+    panel.style.setProperty("--console-size", `${size}px`);
     handle.setAttribute("aria-valuemin", Math.round(min));
     handle.setAttribute("aria-valuemax", Math.round(max));
     handle.setAttribute("aria-valuenow", size);
@@ -96,6 +103,8 @@ export function init_console(root, editor) {
     toggle.setAttribute("aria-expanded", String(expanded));
     parts.body.hidden = !expanded;
     handle.hidden = !expanded;
+    // Closed, the console gives all of its height back to the editor.
+    if (!expanded) parts.panel.style.removeProperty("--console-size");
     apply_size();
   }
 
@@ -122,35 +131,45 @@ export function init_console(root, editor) {
     save_layout(layout);
   });
 
+  // One pointer drives a drag; a second finger is ignored. Capture ends
+  // on pointerup and pointercancel too, so lostpointercapture ends it.
   handle.addEventListener("pointerdown", (event) => {
-    if (event.button !== 0) return;
+    if (drag || event.button !== 0) return;
     event.preventDefault();
-    handle.setPointerCapture(event.pointerId);
-    const start_y = event.clientY;
-    const start_size = parts.body.offsetHeight;
-    root.classList.add("game-console--resizing");
-
-    const move = (moved) => resize(start_size + start_y - moved.clientY);
-    const stop = () => {
-      handle.removeEventListener("pointermove", move);
-      handle.removeEventListener("pointerup", stop);
-      handle.removeEventListener("pointercancel", stop);
-      root.classList.remove("game-console--resizing");
-      save_layout(layout);
+    drag = {
+      pointer: event.pointerId,
+      start_y: event.clientY,
+      start_size: parts.body.offsetHeight,
     };
-    handle.addEventListener("pointermove", move);
-    handle.addEventListener("pointerup", stop);
-    handle.addEventListener("pointercancel", stop);
+    handle.setPointerCapture(event.pointerId);
+    root.classList.add("game-console--resizing");
+  });
+
+  handle.addEventListener("pointermove", (event) => {
+    if (drag?.pointer !== event.pointerId) return;
+    resize(drag.start_size + drag.start_y - event.clientY);
+  });
+
+  handle.addEventListener("lostpointercapture", (event) => {
+    if (drag?.pointer !== event.pointerId) return;
+    drag = null;
+    root.classList.remove("game-console--resizing");
+    save_layout(layout);
   });
 
   window.addEventListener("resize", apply_size);
   set_expanded(layout.expanded);
 
-  // Called before new output is shown, so the live region is visible
-  // when its text changes and screen readers announce it.
+  // Called after new output is shown: opens a collapsed console and
+  // announces the verdict. Clearing first lets a repeat verdict announce.
   return () => {
-    if (layout.expanded) return;
-    set_expanded(true);
-    save_layout(layout);
+    if (!layout.expanded) {
+      set_expanded(true);
+      save_layout(layout);
+    }
+    status.textContent = "";
+    requestAnimationFrame(() => {
+      status.textContent = summary(root);
+    });
   };
 }

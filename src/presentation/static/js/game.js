@@ -12,7 +12,7 @@ import {init_submit} from "./submit.js";
 init_feed(document.querySelector(".game-feed"));
 const editor = document.querySelector(".game-editor");
 const get_code = init_editor(editor);
-const open_console = init_console(
+const show_console = init_console(
   document.querySelector('[data-testid="game-console"]'),
   editor,
 );
@@ -20,5 +20,5 @@ init_submit(
   document.querySelector('[data-testid="game-submit"]'),
   document.querySelector('[data-testid="game-verdict"]'),
   get_code,
-  open_console,
+  show_console,
 );

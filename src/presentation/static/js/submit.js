@@ -47,9 +47,9 @@ async function post_code(button, code) {
   return {ok: response.ok, body};
 }
 
-// open_console runs before any output is shown, so a collapsed console
-// opens to show it.
-export function init_submit(button, panel, get_code, open_console) {
+// show_console runs after every verdict or message is shown: it opens a
+// collapsed console and announces what's new.
+export function init_submit(button, panel, get_code, show_console) {
   const idle_label = button.textContent;
 
   button.addEventListener("click", async () => {
@@ -57,18 +57,17 @@ export function init_submit(button, panel, get_code, open_console) {
     button.textContent = BUSY_LABEL;
     try {
       const {ok, body} = await post_code(button, get_code());
-      open_console();
       if (ok) {
         show_verdict(panel, body.verdict);
       } else {
         show_message(panel, body.message ?? FAILED_REQUEST);
       }
     } catch {
-      open_console();
       show_message(panel, FAILED_REQUEST);
     } finally {
       button.disabled = false;
       button.textContent = idle_label;
+      show_console();
     }
   });
 }
