@@ -39,6 +39,20 @@ make dev                      # http://localhost:8001 (starts db + runner)
 
 Full stack in Docker (web + db): see [Deployment](#deployment).
 
+### Browser-Based Python Execution (US5)
+
+Run Sample executes Python directly in the browser using Pyodide
+inside Web Workers.
+
+- **Pyodide version:** 0.28.3 (pinned)
+- **Python runtime:** 3.13.2
+- **CDN:** https://cdn.jsdelivr.net/pyodide/v0.28.3/full/
+- **Execution timeout:** 5 seconds per Run Sample click.
+
+Each sample runs in a fresh Python interpreter. Sample execution
+does not send requests to the application server or deduct lives.
+An internet connection is required for the initial CDN download.
+
 ## Test It
 
 | Command | What it does |

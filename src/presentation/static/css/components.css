@@ -2,7 +2,7 @@
 File: components.css
 Description: Shared design system components including layout, typography,
     buttons, panels, forms, and accessibility rules.
-Author(s): Tyler Black, Richard Hall
+Author(s): Tyler Black, Richard Hall, Steph Rivera
 */
 
 *,
@@ -828,6 +828,30 @@ a:hover {
   filter: saturate(0.5);
 }
 
+
+/* Sample console: scrolls independently of the editor. */
+.game-console {
+  min-block-size: 0;
+  min-inline-size: 0;
+  max-block-size: 40svh;
+  overflow: auto;
+  padding: var(--space-3);
+  background: var(--surface);
+  border-block-start: var(--border-1) solid var(--line);
+}
+
+.game-console[hidden] {
+  display: none;
+}
+
+.game-console pre {
+  font-family: var(--font-mono);
+  font-size: var(--text-14);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+
 /* Verdict: scrolls inside the editor window, never the page */
 .game-verdict {
   display: grid;
@@ -1110,6 +1134,16 @@ its space, while the Overlord's stage gives way first.
 
   .game-editor-panel {
     grid-template-rows: auto minmax(0, 1fr) auto auto;
+  }
+
+
+  .game-editor-panel:has(.game-console:not([hidden])) {
+    grid-template-rows:
+      auto minmax(0, 1fr) auto minmax(0, 1fr) auto;
+  }
+
+  .game-editor-panel .game-console {
+    max-block-size: none;
   }
 
   .game-editor {

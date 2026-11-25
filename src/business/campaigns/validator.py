@@ -1,7 +1,7 @@
 """
 File: validator.py
 Description: Validates campaign definitions against schema and quality rules.
-Author(s): Tyler Black, Richard Hall
+Author(s): Tyler Black, Richard Hall, Steph Rivera
 """
 
 import ast
@@ -17,6 +17,7 @@ from src.business.campaigns.reference_runner import (
     run_reference,
 )
 from src.business.difficulty import Difficulty
+from src.business.output_normalizer import OutputNormalizer
 
 SCHEMA_PATH = (
     Path(__file__).resolve().parents[3]
@@ -91,21 +92,8 @@ def _describe(verdict: dict) -> str:
 
 
 def normalize_output(text: str) -> str:
-    """Normalize program output by stripping trailing whitespace.
-
-    Strips trailing whitespace from each line and strips trailing
-    blank lines.
-
-    Args:
-        text: Raw output string.
-
-    Returns:
-        Normalized output string.
-    """
-    lines = [line.rstrip() for line in text.splitlines()]
-    while lines and not lines[-1]:
-        lines.pop()
-    return "\n".join(lines)
+    """Normalize program output for consistent comparison."""
+    return OutputNormalizer.normalize(text)
 
 
 class CampaignValidator:
