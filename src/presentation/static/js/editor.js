@@ -1,7 +1,7 @@
 /*
 File: editor.js
 Description: Loads the Python editor and saves drafts for both editor modes.
-Author(s): Tyler Black, Richard Hall
+Author(s): Tyler Black, Richard Hall, Steph Rivera
 */
 
 const MONACO_BASE = "https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/";

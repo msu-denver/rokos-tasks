@@ -76,4 +76,31 @@ finally:
   }
 }
 
+self.addEventListener("message", (event) => {
+  const {type, code, samples} = event.data;
+
+  if (type !== "run" || !pyodide) return;
+
+  try {
+    const results = samples.map((sample) => {
+      const result = run_sample(code, sample.input);
+
+      return {
+        expected_output: sample.expected_output,
+        ...result,
+      };
+    });
+
+    self.postMessage({
+      type: "results",
+      results,
+    });
+  } catch (error) {
+    self.postMessage({
+      type: "run_error",
+      error: error.message,
+    });
+  }
+});
+
 init_python();
