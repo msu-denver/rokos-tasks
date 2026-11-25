@@ -1,0 +1,74 @@
+{#
+File: register.html
+Description: Player account registration form with CSRF token and field
+    validation error indicators.
+Author(s): Tyler Black
+#}
+{% extends "base.html" %}
+
+{% block title %}Register - Roko's Tasks{% endblock %}
+
+{% block content %}
+<div class="floating-panel floating-panel--form">
+  <h1 data-testid="register-title">Register</h1>
+  <form method="post" action="{{ url_for('auth.register') }}" novalidate>
+    {{ form.hidden_tag() }}
+
+    <div class="form-group">
+      <label for="username" class="form-label">Username</label>
+      <input
+        type="text"
+        id="username"
+        name="username"
+        value="{{ form.username.data or '' }}"
+        class="form-input"
+        data-testid="register-username"
+        autocomplete="username"
+      >
+      {% if errors.get('username') %}
+        <span class="field-error" data-testid="register-error">{{ errors['username'] }}</span>
+      {% endif %}
+    </div>
+
+    <div class="form-group">
+      <label for="password" class="form-label">Password</label>
+      <input
+        type="password"
+        id="password"
+        name="password"
+        value=""
+        class="form-input"
+        data-testid="register-password"
+        autocomplete="new-password"
+      >
+      {% if errors.get('password') %}
+        <span class="field-error" data-testid="register-error">{{ errors['password'] }}</span>
+      {% endif %}
+    </div>
+
+    <div class="form-group">
+      <label for="confirm" class="form-label">Confirm Password</label>
+      <input
+        type="password"
+        id="confirm"
+        name="confirm"
+        value=""
+        class="form-input"
+        data-testid="register-confirm"
+        autocomplete="new-password"
+      >
+      {% if errors.get('confirm') %}
+        <span class="field-error" data-testid="register-error">{{ errors['confirm'] }}</span>
+      {% endif %}
+    </div>
+
+    <button type="submit" class="btn btn-primary" data-testid="register-submit">
+      Register
+    </button>
+  </form>
+
+  <p>
+    <a href="/login" data-testid="register-login-link">Already have an account? Log in</a>
+  </p>
+</div>
+{% endblock %}

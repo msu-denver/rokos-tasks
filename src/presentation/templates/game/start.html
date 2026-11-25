@@ -1,0 +1,65 @@
+{#
+File: start.html
+Description: Campaign start screen with tier choices and run confirmation.
+Author(s): Tyler Black
+#}
+{% extends "base.html" %}
+
+{% block title %}Start a run - Roko's Tasks{% endblock %}
+
+{% block content %}
+{% if active_run_id is defined %}
+<section class="floating-panel floating-panel--form" aria-labelledby="start-confirm-title" aria-describedby="start-confirm-warning" data-testid="start-confirm-abandon" tabindex="-1" autofocus>
+  <h1 id="start-confirm-title">Start a new run?</h1>
+  <p id="start-confirm-warning">Starting a new run will abandon your current run with a score of 0.</p>
+  <form class="confirm-actions" method="post" action="{{ url_for('game.create_run') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="difficulty" value="{{ replacement_difficulty.value }}">
+    <input type="hidden" name="replace_active" value="yes">
+    <input type="hidden" name="active_run_id" value="{{ active_run_id }}">
+    <a class="btn btn-secondary" href="{{ url_for('game.start') }}" data-testid="start-confirm-abandon-cancel">Cancel</a>
+    <button type="submit" class="btn btn-primary" data-testid="start-confirm-abandon-submit">Confirm</button>
+  </form>
+</section>
+{% else %}
+<div class="floating-panel start-panel">
+  <div class="start-heading">
+    <h1 data-testid="start-title">Start a run</h1>
+    {% if resume_run_id %}
+      <a class="btn btn-secondary" href="{{ url_for('game.play', run_id=resume_run_id) }}" data-testid="start-resume-run">Resume run</a>
+    {% endif %}
+  </div>
+  {% if error %}
+    <p class="start-error" role="alert" data-testid="start-error">{{ error }}</p>
+  {% endif %}
+  <div class="tier-grid">
+    {% for tier in tiers %}
+      {% set difficulty = tier.difficulty %}
+      {% set test_id = 'start-tier-' ~ difficulty.value %}
+      <section class="tier-card" aria-labelledby="{{ test_id }}-title" data-testid="{{ test_id }}">
+        <h2 id="{{ test_id }}-title">{{ difficulty.label }}</h2>
+        <dl class="tier-rules">
+          <dt>Stages</dt>
+          <dd data-testid="{{ test_id }}-stages">{{ difficulty.stages }}</dd>
+          <dt>Time per stage</dt>
+          <dd data-testid="{{ test_id }}-time">{{ difficulty.minutes_per_stage }} min</dd>
+          <dt>Starting lives</dt>
+          <dd data-testid="{{ test_id }}-lives">{{ difficulty.starting_lives }}</dd>
+          <dt>Score multiplier</dt>
+          <dd data-testid="{{ test_id }}-multiplier">{{ difficulty.multiplier }}x</dd>
+        </dl>
+        {% if tier.available %}
+          <form method="post" action="{{ url_for('game.create_run') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="difficulty" value="{{ difficulty.value }}">
+            <button type="submit" class="btn btn-primary" aria-label="Start {{ difficulty.label }}" data-testid="{{ test_id }}-button">Start</button>
+          </form>
+        {% else %}
+          <p class="tier-coming-soon" data-testid="{{ test_id }}-coming-soon">Coming soon</p>
+        {% endif %}
+      </section>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+{% endblock %}

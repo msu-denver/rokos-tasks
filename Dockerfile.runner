@@ -1,0 +1,25 @@
+# File: Dockerfile.runner
+# Description: Image for the sandbox runner. Holds only the standard
+#     library runner code. docker-compose.yml supplies the isolation
+#     (read-only root, internal network, dropped capabilities, tmpfs
+#     slots); see src/runner/AGENTS.md.
+# Author(s): Richard Hall
+
+FROM python:3.13-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+COPY src/__init__.py src/__init__.py
+COPY src/runner/ src/runner/
+
+# Mount points for the per-slot tmpfs folders. The root stays read-only.
+RUN mkdir -p /sandbox/0 /sandbox/1 /sandbox/2 /sandbox/3 \
+    /sandbox/4 /sandbox/5 /sandbox/6 /sandbox/7 \
+    && chmod 0755 /sandbox
+
+EXPOSE 9000
+
+CMD ["python", "-m", "src.runner.server"]

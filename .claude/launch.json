@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "web",
+      "runtimeExecutable": ".venv/bin/python",
+      "runtimeArgs": ["-m", "flask", "--app", "src.app:create_dev_app", "run", "--port", "8001"],
+      "port": 8001
+    }
+  ]
+}

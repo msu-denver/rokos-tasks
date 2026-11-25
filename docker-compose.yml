@@ -1,0 +1,120 @@
+# File: docker-compose.yml
+# Description: Multi-container setup (web + db + runner, plus web-dev
+#     for `make dev`). The runner sits alone on an internal-only network
+#     that the web apps join; it has no internet, no secrets, and no
+#     published ports.
+# Author(s): Tyler Black, Richard Hall
+
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-rokos}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rokos}
+      POSTGRES_DB: ${POSTGRES_DB:-rokos_tasks}
+    ports:
+      - "${DB_HOST_PORT:-5433}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/db/init-test-db.sql:/docker-entrypoint-initdb.d/init-test-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-rokos} -d ${POSTGRES_DB:-rokos_tasks}"]
+      interval: 3s
+      timeout: 3s
+      retries: 5
+      start_period: 3s
+
+  web:
+    build: .
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      runner:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://rokos:rokos@db:5432/rokos_tasks}
+      SECRET_KEY: ${SECRET_KEY:-change-me-locally}
+      LLM_MODE: ${LLM_MODE:-fake}
+      RUNNER_URL: ${RUNNER_URL:-http://runner:9000}
+    networks:
+      - default
+      - sandbox
+
+  # `make dev`: Flask with auto-reload. It joins the sandbox network like
+  # `web` so Submit can grade. Only started with `--profile dev`.
+  web-dev:
+    profiles: ["dev"]
+    build: .
+    # The debugger stays off: player programs can reach this service over
+    # the sandbox network, and the debugger runs any Python it is sent.
+    command: ["flask", "--app", "src.app:create_dev_app", "run",
+              "--debug", "--no-debugger", "--host", "0.0.0.0",
+              "--port", "8001"]
+    ports:
+      - "127.0.0.1:8001:8001"
+    # Source is mounted so code changes reload without a rebuild.
+    volumes:
+      - ./src:/app/src
+      - ./content:/app/content:ro
+    depends_on:
+      db:
+        condition: service_healthy
+      runner:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://rokos:rokos@db:5432/rokos_tasks}
+      SECRET_KEY: ${SECRET_KEY:-change-me-locally}
+      LLM_MODE: ${LLM_MODE:-fake}
+      RUNNER_URL: ${RUNNER_URL:-http://runner:9000}
+    networks:
+      - default
+      - sandbox
+
+  # Runs untrusted player code. Every setting here is part of the sandbox;
+  # read src/runner/AGENTS.md before changing any of them.
+  runner:
+    build:
+      context: .
+      dockerfile: Dockerfile.runner
+    # No environment block on purpose: the runner gets no secrets.
+    read_only: true
+    init: true
+    cap_drop:
+      - ALL
+    # Only so the server can switch each run to its slot user. Player
+    # programs run as those users and end up with no capabilities.
+    cap_add:
+      - SETUID
+      - SETGID
+    security_opt:
+      - no-new-privileges:true
+    # 8 slots x 16 processes, plus the server. Memory: 8 x 256 MB.
+    pids_limit: 192
+    mem_limit: 2560m
+    cpus: 2
+    tmpfs:
+      - /sandbox/0:uid=10001,gid=10001,mode=0700,size=16m,noexec,nosuid,nodev
+      - /sandbox/1:uid=10002,gid=10002,mode=0700,size=16m,noexec,nosuid,nodev
+      - /sandbox/2:uid=10003,gid=10003,mode=0700,size=16m,noexec,nosuid,nodev
+      - /sandbox/3:uid=10004,gid=10004,mode=0700,size=16m,noexec,nosuid,nodev
+      - /sandbox/4:uid=10005,gid=10005,mode=0700,size=16m,noexec,nosuid,nodev
+      - /sandbox/5:uid=10006,gid=10006,mode=0700,size=16m,noexec,nosuid,nodev
+      - /sandbox/6:uid=10007,gid=10007,mode=0700,size=16m,noexec,nosuid,nodev
+      - /sandbox/7:uid=10008,gid=10008,mode=0700,size=16m,noexec,nosuid,nodev
+    networks:
+      - sandbox
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9000/health', timeout=2)"]
+      interval: 3s
+      timeout: 3s
+      retries: 5
+      start_period: 3s
+
+networks:
+  sandbox:
+    internal: true
+
+volumes:
+  postgres_data:
