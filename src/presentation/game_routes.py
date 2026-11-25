@@ -12,6 +12,7 @@ from flask import (
     abort,
     current_app,
     jsonify,
+    make_response,
     redirect,
     render_template,
     request,
@@ -101,14 +102,20 @@ def create_run() -> Response | str:
 
 @game_blueprint.get("/play/<int:run_id>")
 @login_required
-def play(run_id: int) -> str:
+def play(run_id: int) -> Response:
     """Show the current stage and lives for one of the player's runs."""
     try:
         stage = build_game_service().get_stage_view(current_user.id, run_id)
     except RunNotFoundError:
         abort(404)
-    return render_template("game/play.html", stage=stage, run_id=run_id)
 
+    response = make_response(
+        render_template("game/play.html", stage=stage, run_id=run_id)
+    )
+    response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
+    response.headers["Cross-Origin-Embedder-Policy"] = "require-corp"
+
+    return response
 
 def _message(status: HTTPStatus, message: str) -> tuple[Response, int]:
     return jsonify(message=message), status

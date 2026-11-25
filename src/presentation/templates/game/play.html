@@ -1,7 +1,7 @@
 {#
 File: play.html
 Description: Displays a run's current stage, the Overlord, and the editor.
-Author(s): Tyler Black, Richard Hall
+Author(s): Tyler Black, Richard Hall, Steph rivera
 #}
 {% extends "base.html" %}
 
@@ -81,10 +81,22 @@ Author(s): Tyler Black, Richard Hall
           <div hidden></div>
         </div>
         <div class="game-actions">
+          <button type="button" class="btn btn-secondary"
+                  data-testid="game-run" disabled>Loading Python…</button>
+          <button type="button" class="btn btn-secondary"
+                  data-testid="game-stop" disabled>Stop</button>
           <button type="button" class="btn btn-primary" data-testid="game-submit"
                   data-submit-url="{{ url_for('game.submit') }}" data-run="{{ run_id }}"
                   data-csrf-token="{{ csrf_token() }}">Submit</button>
         </div>
+        <section class="game-live-panel" aria-label="Program execution" hidden>
+          <pre class="game-screen" data-testid="game-screen"
+              tabindex="0" aria-label="Game screen"></pre>
+          <pre class="game-error" data-testid="game-error"
+              role="alert" hidden></pre>
+          <p data-testid="game-run-timeout"
+            role="alert" hidden></p>
+        </section>
         <section class="game-verdict" data-testid="game-verdict" aria-live="polite" aria-label="Verdict" hidden>
           <h2 class="game-verdict-heading" data-testid="game-verdict-heading"></h2>
           <p class="game-verdict-reason" data-testid="game-verdict-reason"></p>

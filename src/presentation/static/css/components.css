@@ -2,7 +2,7 @@
 File: components.css
 Description: Shared design system components including layout, typography,
     buttons, panels, forms, and accessibility rules.
-Author(s): Tyler Black, Richard Hall
+Author(s): Tyler Black, Richard Hall, Steph Rivera
 */
 
 *,
@@ -826,6 +826,36 @@ a:hover {
 .game-actions .btn:disabled {
   cursor: progress;
   filter: saturate(0.5);
+}
+
+/* Live program execution (US5). */
+.game-live-panel {
+  min-block-size: 0;
+  min-inline-size: 0;
+  max-block-size: 40svh;
+  overflow: auto;
+  padding: var(--space-3);
+  background: var(--surface);
+  border-block-start: var(--border-1) solid var(--line);
+}
+
+.game-live-panel[hidden] {
+  display: none;
+}
+
+.game-screen {
+  min-block-size: 4rem;
+  font-family: var(--font-mono);
+  font-size: var(--text-14);
+  white-space: pre;
+  overflow: auto;
+}
+
+.game-error {
+  font-family: var(--font-mono);
+  font-size: var(--text-14);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 /* Verdict: scrolls inside the editor window, never the page */
