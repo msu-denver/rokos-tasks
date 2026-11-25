@@ -25,7 +25,7 @@ function show_verdict(panel, verdict) {
   heading.hidden = !verdict.heading;
   part(panel, "game-verdict-reason").textContent = verdict.reason ?? "";
   show_code(part(panel, "game-verdict-traceback"), verdict.traceback);
-  show_code(part(panel, "game-verdict-frame"), verdict.last_frame);
+  show_code(part(panel, "game-verdict-frame"), verdict.last_screen);
   panel.hidden = false;
 }
 
