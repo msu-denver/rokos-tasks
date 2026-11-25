@@ -6,7 +6,7 @@ description: Run every pre-PR gate for Roko's Tasks (make check, self-review, ma
 # Open a PR
 
 Don't skip steps. If a step fails, fix the problem and start that step
-again. If a step can't run yet (Sprint 0 has no `make check`), write
+again. If a step's `make` target doesn't exist yet, write
 "not available yet" in the checklist. Never claim it passed.
 
 ## 1. Preflight
@@ -26,8 +26,9 @@ at least 90%. Paste nothing from it into the PR. Just tick the box.
 
 Run [team-review](../team-review/SKILL.md) on your own diff, unless you
 already did and haven't changed anything since. Every finding must be
-fixed or deferred to a linked tech-debt issue. HIGHs must be fixed.
-Rerun `make check` after fixing.
+fixed. If a fix is out of scope or touches files you may not edit, ask
+your human. Never open a tech-debt issue for your own code. Rerun
+`make check` after fixing.
 
 ## 4. Gate 3: manual test
 

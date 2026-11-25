@@ -1,6 +1,6 @@
 # Sprint 1 Issues: Draft for Critique
 
-**Sprint 1:** 11/18–11/22 · **Goal:** a player can register, log in, start a run, see a stage, and run sample tests in the browser. · **Release:** `v1` on 11/22.
+**Sprint 1:** 11/18–11/22 · **Goal:** a player can register, log in, start a run, see a stage, and play their program in the browser. · **Release:** `v1` on 11/22.
 
 **How to read this:**
 - There are 5 **story** issues (US1–US5), one file each in [issues/](issues/). Each one has the story points.
@@ -26,7 +26,7 @@ The full story issues are one file each, ready to post with `--body-file`. They 
 | US2: Log In and Log Out | [issues/US2.md](issues/US2.md) | 2 | P0 | None |
 | US3: Choose a Difficulty and Start a Run | [issues/US3.md](issues/US3.md) | 3 | P0 | Seed count for `v1`; resume vs. block an active run |
 | US4: View the Stage and Write Code | [issues/US4.md](issues/US4.md) | 3 | P0 | None |
-| US5: Run Sample Tests | [issues/US5.md](issues/US5.md) | 5 | P1 | 5 s timeout per click or per sample |
+| US5: Play My Program | [issues/US5.md](issues/US5.md) | 8 | P1 | Tick rate |
 
 ---
 
@@ -99,12 +99,12 @@ Every task also inherits the team gates: `make check` green, self-review, Manual
 - **[HIGH]** In-progress code survives a refresh (US4 AC3), and a Selenium test proves it.
 - **[MED]** Layout follows `docs/design.md` (design 6) and uses only design tokens (T3).
 
-### T10: US5: Run Sample in the browser with Pyodide
+### T10: US5: Run the program in the browser with Pyodide
 `task` · Sub-issue of US5 · Needs T9
-- **[HIGH]** `pyodide_worker.js` runs the code in a Web Worker against each sample, feeding stdin and capturing stdout/stderr. Results show pass/fail with the expected vs. actual output.
-- **[HIGH]** After 5 s, the worker is terminated and restarted, and a friendly timeout message appears (US5 AC2).
-- **[HIGH]** Selenium tests cover a passing sample, a failing sample, an error traceback, and the infinite-loop timeout.
-- **[MED]** The Pyodide version is pinned and its Python version is recorded in the README (US5 AC3).
+- **[HIGH]** Follows [issues/US5.md](issues/US5.md): `pyodide_worker.js` runs the program as a live loop in a Web Worker, sends the keys pressed each tick, and draws every frame it prints.
+- **[HIGH]** A tick that takes longer than 1 s stops the program and shows a friendly timeout message (US5 AC3).
+- **[HIGH]** Selenium tests cover a frame drawn from key input, an error traceback, and the infinite-loop timeout.
+- **[MED]** The Pyodide version is pinned and runs Python 3.13.
 
 ### T11: Scrum: Sprint 0 and 1 notes, board, and burndown
 `task` · No story (process)

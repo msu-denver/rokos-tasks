@@ -100,7 +100,7 @@ The look is "vintage 3D": hard offset shadows, bevels, and a perspective floor, 
 
 **The feed** is one scrolling text box. It's how the Overlord talks.
 - **Layout (decided 2026-11-18):** the Overlord window has two parts. The Overlord's stage is on top, with room beside him for his follow-up lines (US10). The prompt is pinned below and is always visible; when space runs short, the stage shrinks first, then the prompt scrolls.
-- The **first message is the stage prompt**: plain sentences that state exactly what to read and what to print. How worked examples appear on the game page is undecided; for now the page hides the prompt's trailing `Example N` blocks. Exact values (`0–9`, `w`, `4` then `w` prints `3`) are set in mono cyan.
+- The **first message is the stage prompt**: plain sentences that state the feature, the controls, the characters on screen, and the rules the Overlord will check. Exact values (`q`, `a`, `O`, `20x20`) are set in mono cyan.
 - New messages are added at the bottom. Older ones scroll up and fade out at the top edge.
 - No sender names, timestamps, or avatars on messages. It's obviously the Overlord.
 
@@ -133,7 +133,7 @@ What the Overlord *says* at each level comes from the dialogue file (US10).
 | **Top bar** (decided 2026-11-18) | Wordmark with the **difficulty badge** beside it: a neon parallelogram in the tier's `--tier-*` color; Impossible's rim cycles every tier color. Center: the timer (a static `00:00` until US8), with lives beside it as glowing diamonds (dim outline when lost). The **stage bar** runs along the bottom edge, one cell per stage: done is dim cyan, current is bright cyan, upcoming is dark. No `02/04` text; the bar's `aria-label` carries it. The heat bar (US8) drains the current stage's cell. |
 | **Feed** | See §6. A floating window with a magenta shadow. |
 | **Editor** | A floating window with a cyan shadow. The tab shows only the file name. The current line gets a 2 px cyan left edge. |
-| **Console** | One row per example: `PASS`/`FAIL`, the example number, the output. Tracebacks in full on failure. Nothing else. |
+| **Console** | Shows each frame the program prints while it runs (US5). Tracebacks in full on a crash. Nothing else. |
 | **Buttons** | Run (secondary) and Submit (primary), bottom right. Restore checkpoint is an icon button, bottom left, with `aria-label`. |
 
 ## 9. Never

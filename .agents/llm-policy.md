@@ -35,6 +35,13 @@ agent is separate and isn't covered here.
 Stop. Tell your human what you need and why, and give them the command.
 Don't look for another way to make the call.
 
+## The running app
+
+US11's background job refills the campaign pool by calling the LLM
+itself. That's allowed only on a server where a human has set the key
+and `LLM_MODE=live`, with the budget cap on. Agents never set either,
+and the default stays `fake`.
+
 ## For the human LLM owner
 
 - The only real protection is that agents never see the key. Keep it out

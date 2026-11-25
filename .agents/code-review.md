@@ -20,7 +20,8 @@ a PR, whether a human or an agent is reviewing.
   under 90%.
 - Breaking any non-negotiable in [AGENTS.md](../AGENTS.md): a live LLM
   call, secrets, a layer violation, a missing header comment, a weakened
-  runner sandbox, a hand-edited `htmlcov/` or `expected_output`.
+  runner sandbox, a hand-edited `htmlcov/`, a check script loosened to make a
+  program pass.
 - Security problems: injection, missing auth check, CSRF disabled,
   player code escaping the sandbox.
 - Data loss or a migration that can't be rolled back.
@@ -54,6 +55,10 @@ Otherwise, **approve**, and the reviewer opens a `tech-debt` issue for it
 ([tickets.md](tickets.md)) and links it in the review. Development keeps
 moving, and nothing gets lost.
 
+**Open tech-debt issues only when you approve.** In a "Request changes"
+review, every finding stays on the PR for the author to fix. Don't
+defer anything to tech debt until you're ready to approve.
+
 ## Ending the ping-pong
 
 - **The first review raises everything at once.** Don't save findings
@@ -71,9 +76,10 @@ moving, and nothing gets lost.
 One finding per comment, inline on the line when possible:
 
 ```
-**[HIGH]** `src/business/grading_service.py:42`: Trailing blank lines
-aren't stripped, so correct output fails the hidden tests.
-**Fix:** normalize with `rstrip("\n")` on both sides before comparing.
+**[HIGH]** `src/business/grading_service.py:42`: A program that crashes
+on its first tick is reported as a pass, because the verdict only looks
+for a broken rule.
+**Fix:** treat an exit before the last tick as a fail with the traceback.
 ```
 
 Put this summary at the top of the review body:

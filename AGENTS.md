@@ -11,18 +11,16 @@ Read this whole file at the start of every session. Then read the
 ## What we're building
 
 A comedic coding game: an AI Overlord gives timed, incremental feature
-requests and the human player writes Python to satisfy hidden
-stdin/stdout tests. Flask + Jinja (three layers), PostgreSQL, a sandboxed
+requests, the human player writes a Python program for each one, and
+the Overlord grades it by playing the program. Flask + Jinja (three layers), PostgreSQL, a sandboxed
 `runner` container, Docker Compose. Game design: [docs/game-design.md](docs/game-design.md).
 Build plan, stack, and layout: [docs/roadmap.md](docs/roadmap.md). User
 stories: [README.md](README.md#user-stories).
 
-**Current phase: Sprint 0.** Planning and environment setup only, with no
-feature code. `make setup`, `lint`, `fmt`, `test`, `coverage`, `check`,
-and `dev` work now (Python 3.13: `make check PYTHON=.venv/bin/python` if
-your `python3` is a different version). The Docker and campaign targets
-come later. Until a target exists, say "not available yet" for that gate.
-Don't pretend it passed.
+**Current phase:** see the open sprint's issues (`gh issue list`).
+Use Python 3.13 (`make check PYTHON=.venv/bin/python` if your `python3`
+is a different version). If a gate's `make` target doesn't exist yet,
+say "not available yet" for that gate. Don't pretend it passed.
 
 ## Commands
 
@@ -49,8 +47,9 @@ Breaking any of these is a **HIGH** review finding and blocks merge.
    1. `make check` is green: lint, tests (Selenium included), and
       **≥ 90% coverage**.
    2. **At least one self-review round** using the team rubric, with
-      **every finding addressed** (fixed, or for non-HIGH, moved to a
-      linked tech-debt issue). HIGHs are always fixed.
+      **every finding fixed**. If a fix is out of scope or touches
+      files you may not edit, ask your human. Never open a tech-debt
+      issue for your own code; only a reviewer of someone else's PR does.
    3. **Manual test done**, with one sentence describing it and
       **one screenshot** saved.
    4. The PR uses the standard format, including `## Manual Testing`.
@@ -70,8 +69,8 @@ Breaking any of these is a **HIGH** review finding and blocks merge.
    hints on public functions. See [.agents/coding-standards.md](.agents/coding-standards.md).
 7. **Secrets:** never read, print, or commit `.env` or any key. Only
    `.env.example` (names only) is committed.
-8. **Hands off:** never hand-edit `htmlcov/` or `expected_output` in
-   campaign files. Never weaken runner limits or isolation. Don't edit
+8. **Hands off:** never hand-edit `htmlcov/`, and never loosen a
+   campaign's `check_script` to make a program pass. Never weaken runner limits or isolation. Don't edit
    `AGENTS.md`, `.agents/`, the roadmap, or Scrum notes unless the issue
    says to.
 
@@ -81,6 +80,7 @@ Breaking any of these is a **HIGH** review finding and blocks merge.
 issue → branch from dev → build + tests → make check → self-review → fix
 → manual test + screenshot → draft PR → human adds screenshot, marks ready
 → peer review (HIGH/MED/LOW/NIT) → human merges with a merge commit
+→ agent closes the issue (dev isn't the default branch, so GitHub won't)
 ```
 
 Full steps: [.agents/workflow.md](.agents/workflow.md).
@@ -115,7 +115,7 @@ styling. Reviewers rate a hard-coded value as MED
 | Path | Owns |
 | :--- | :--- |
 | `src/presentation/` | Flask blueprints, forms, Jinja templates, static JS/CSS |
-| `src/business/` | Services, grading, scoring, campaign validation, `llm/` (optional US11) |
+| `src/business/` | Services, grading, scoring, campaign validation, `llm/` (US11) |
 | `src/data/` | SQLAlchemy models, repositories, Alembic migrations |
 | `src/runner/` | Sandbox service in its own container. **Security-sensitive.** |
 | `content/` | Seed campaigns (JSON) and Overlord dialogue (YAML) |
@@ -138,5 +138,5 @@ Skills (step-by-step procedures any agent can follow):
 [.agents/skills/open-pr](.agents/skills/open-pr/SKILL.md). Some tools find
 these automatically. If yours doesn't, open the file and follow it.
 
-Task status lives on the GitHub Project board and in issues
-(`gh issue view <n>`), never in these files.
+Task status lives in GitHub Issues (`gh issue view <n>`), never in
+these files.

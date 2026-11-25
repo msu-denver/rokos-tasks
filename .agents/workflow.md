@@ -24,12 +24,14 @@ you're working for.
      `fix`, `chore`, `docs`, or `debt`. Examples:
      `feature/14-US6-runner-sandbox`, `fix/21-checkpoint-restore`,
      `debt/30-flaky-timer-test`.
-  4. Move the board card to **In Progress**.
 
 ## 2. Build
 
 - Keep PRs small: aim for under ~400 changed lines, excluding generated
   files. Split bigger work into several issues and PRs.
+- **Stacked PRs:** if your PR builds on another PR that hasn't merged,
+  open it against that PR's branch, not `dev`, so the diff shows only
+  your changes. Retarget it to `dev` after the first one merges.
 - Write tests in the same change as the code ([testing.md](testing.md)).
 - Commit early and often:
   `feat(US6): add CPU and memory limits to runner (#14)`.
@@ -49,8 +51,10 @@ you're working for.
   [code-review.md](code-review.md).
 - **Address every finding** before the PR:
   - **HIGH:** fix it. No exceptions.
-  - **MED / LOW / NIT:** fix it. If the fix is truly out of scope, open
-    a `tech-debt` issue and link it in the PR.
+  - **MED / LOW / NIT:** fix it. If the fix is truly out of scope or
+    touches files you may not edit, ask your human what to do. Never
+    open a `tech-debt` issue for your own code. Tech-debt issues come
+    only from reviewing someone else's PR.
 - Rerun `make check` after your fixes.
 - If round 1 found any HIGH, do a round 2 to confirm the fixes.
 - Recommended: review with a *different model* than the one that wrote
@@ -61,7 +65,8 @@ you're working for.
 ## 5. Gate 3: manual test + one screenshot
 
 - Run the app (`make up` or `make dev`) and use the change the way a
-  player or developer would.
+  player or developer would. Anything that grades code (Submit) needs
+  `make up`, because `make dev` can't reach the runner yet (#23).
 - Save **one** screenshot of the result to `.pr/screenshot.png`
   (gitignored). Take it with Selenium (`driver.save_screenshot`), your
   tool's browser, or a screen capture. For backend-only changes,
@@ -84,7 +89,6 @@ you're working for.
   determine who to exclude. Include pending requests in the handoff
   if GitHub blocks them while the PR is a draft.
   See [reviewer selection](pull-requests.md#reviewers).
-- Move the board card to **In Review** once the PR is ready.
 
 ## 7. After review
 
@@ -98,9 +102,28 @@ you're working for.
 - A human merges with a **merge commit** (never squash, because the
   course grades commit history).
 
+## 8. After merge: close the issue
+
+PRs go into `dev`, which isn't the repo's default branch, so GitHub
+ignores `Closes #n` and never closes the issue. The author's agent
+closes it instead.
+
+1. **When:** at the start of every session, and whenever your human
+   says a PR merged.
+2. **Find your human's merged PRs** (`@me` is whoever `gh` is logged
+   in as):
+   `gh pr list --base dev --state merged --author @me --limit 20 --json number,body`
+3. **For each `Closes #n` line** in a PR body, check the issue with
+   `gh issue view <n> --json state`. If it's still open, close it:
+   `gh issue close <n> --reason completed --comment "Done in #<pr>, merged into dev."`
+4. **Only close** issues listed as `Closes #n` in a PR that merged and
+   that your human authored. Leave issues from someone else's PR, from a
+   PR closed without merging, and issues a PR only mentions.
+
 ## Agents never
 
 - Push to `main` or `dev`, or force-push a branch someone else uses.
 - Merge, approve, or mark a PR ready for review.
-- Close issues by hand (use `Closes #n` in the PR body).
+- Close an issue before its PR merges, or one from someone else's PR
+  (see [§8](#8-after-merge-close-the-issue)).
 - Make live LLM calls ([llm-policy.md](llm-policy.md)).

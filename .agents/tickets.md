@@ -26,8 +26,8 @@ label**.
 | Type | For |
 | :--- | :--- |
 | `story` | A user story (`US#`) |
-| `task` | Work under a story, or process work (`Chore: …`) |
-| `tech-debt` | A deferred MED/LOW/NIT review finding |
+| `task` | Process work with no story (`Chore: …`, `Scrum: …`) |
+| `tech-debt` | A MED/LOW/NIT finding deferred while reviewing someone else's PR |
 | `bug` | Something that worked and is now broken (task shape, title `Fix: …`) |
 
 | Priority | Means |
@@ -56,11 +56,14 @@ marks, before the ticket leaves **To Do**.
 
 **Title:** `US#: Title` exactly as in the README (for example,
 `US1: Register`). **Labels:** `story` + a priority
-([Labels](#labels)). **Board fields:** Sprint, Story Points, User
-Value, Type.
+([Labels](#labels)). The body opens with the sprint, the story points, and what it depends
+on, so readers see them first. Value, priority, and type go on the
+second line. Points are Fibonacci: 1, 2, 3, 5, 8, 13.
 
 ```markdown
-**Value** 1–3 · **Points** 1/2/3/5/8/13 · **Priority** value ÷ points · **Depends on** US# or — · **Type** Required/Optional · **Sprint** N
+**Sprint N** · **<points> points** · **Depends on** #<n> (US#) or —
+
+**Value** 1–3 · **Priority** value ÷ points · **Type** Required/Optional · **Label** P0/P1/P2
 
 As a <role>, I want <goal> so that I can <benefit>.
 
@@ -90,7 +93,10 @@ A guide, not a requirement, unless an AC says otherwise.
 | --- | --- | --- |
 
 ## Tasks
-- [ ] #<n> US#: <task title>
+- [ ] **<task>** · Depends on: <other task, #<n>, or none>
+  - **What:** 1–2 sentences.
+  - **[HIGH]** <checkable statement>
+  - **Notes:** files or gotchas. **Tests:** which tests.
 
 ## Open Questions
 - <question> (who answers)
@@ -101,11 +107,16 @@ A guide, not a requirement, unless an AC says otherwise.
 **Title:** `US#: <verb phrase>` (for example,
 `US1: Add the data layer`). Process work with no story uses
 `Scrum: …` or `Chore: …`, and a bug uses `Fix: …` (label `bug`).
-**Labels:** `task` + a priority. Make it a **sub-issue** of its story. **Tasks have no story points.** Points live on stories, so
-the burndown doesn't count anything twice.
+**One issue per story.** Never split a story into separate task
+issues. The story's work goes in its **Tasks** checklist instead. Use a
+separate task issue only for process work with no story (`Chore: …`,
+`Scrum: …`) or a bug (`Fix: …`).
+
+**Labels:** `task` + a priority. **Tasks have no story points.** The
+task's first line shows its sprint and what it depends on.
 
 ```markdown
-**Story** US# · **Needs** #<n> or —
+**Sprint N** · **Story** none · **Depends on** #<n> or —
 
 ## What
 1–3 sentences.
@@ -124,7 +135,9 @@ Which tests this task adds (unit / integration / e2e).
 
 **Title:** `Tech debt: <summary>`. **Labels:** `tech-debt` + a
 priority (`P2` unless the reviewer says otherwise). Open one whenever
-a MED, LOW, or NIT review finding is deferred instead of fixed.
+a MED, LOW, or NIT finding on someone else's PR is deferred instead of
+fixed. Never open one from a self-review of your own code: fix it, or
+ask your human.
 The Product Owner schedules it. Nobody fixes it silently in an unrelated
 PR.
 
@@ -176,7 +189,8 @@ PR.
 
 **Done:** the Definition of Done in
 [roadmap §9.6](../docs/roadmap.md#96-definition-of-done) is met, and the
-issue is closed by the merging PR (`Closes #n`).
+issue is closed after its PR merges into `dev`
+([workflow §8](workflow.md#8-after-merge-close-the-issue)).
 
 ## Posting
 
@@ -184,6 +198,6 @@ issue is closed by the merging PR (`Closes #n`).
 gh issue create --title "US1: Register" --label story --label P1 --body-file scrum/sprint_1/issues/US1.md
 ```
 
-Add tasks as sub-issues of their story (in the issue's
-**Sub-issues → Add existing issue** panel), then put every issue on the
-Project board with its Sprint field set.
+Don't create task issues or sub-issues for a story's work: it stays
+in the story's Tasks checklist. Task status lives in the issues
+themselves. There is no Project board.
