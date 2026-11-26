@@ -232,13 +232,28 @@ def test_losing_every_life_shows_game_over(
 
 
 def _submit_and_wait_for_reload(browser: webdriver.Chrome) -> None:
-    browser.execute_script("window.before_reload = true")
+    """Submit, wait for the reload, and check Submit stayed busy until it."""
+    # Record the button as the old page unloads, to read after the reload.
+    browser.execute_script(
+        """
+        window.before_reload = true;
+        window.addEventListener("pagehide", () => {
+          const button = document.querySelector('[data-testid=game-submit]');
+          sessionStorage.setItem("submit_on_unload", JSON.stringify(
+            [button.disabled, button.textContent]));
+        });
+        """
+    )
     browser.find_element(*selector("game-submit")).click()
     WebDriverWait(browser, VERDICT_SECONDS).until(
         lambda driver: driver.execute_script(
             "return window.before_reload === undefined"
         )
     )
+    on_unload = browser.execute_script(
+        "return JSON.parse(sessionStorage.getItem('submit_on_unload'))"
+    )
+    assert on_unload == [True, "The Overlord is playing your program…"]
 
 
 def _console_expanded(browser: webdriver.Chrome) -> str:
