@@ -231,6 +231,49 @@ def test_losing_every_life_shows_game_over(
     assert total.text == "0"
 
 
+def _submit_and_wait_for_reload(browser: webdriver.Chrome) -> None:
+    browser.execute_script("window.before_reload = true")
+    browser.find_element(*selector("game-submit")).click()
+    WebDriverWait(browser, VERDICT_SECONDS).until(
+        lambda driver: driver.execute_script(
+            "return window.before_reload === undefined"
+        )
+    )
+
+
+def _console_expanded(browser: webdriver.Chrome) -> str:
+    toggle = browser.find_element(*selector("game-console-toggle"))
+    return toggle.get_attribute("aria-expanded")
+
+
+@requires_host_play
+@pytest.mark.e2e
+def test_tab_left_behind_reloads_instead_of_spending_a_life(
+    browser: webdriver.Chrome,
+    live_server: str,
+    db_session: Session,
+    seeded_pong: int,
+) -> None:
+    """US7 AC5: a tab still on Stage 1 reloads to Stage 2, costing nothing."""
+    ready = start_run(browser, live_server, db_session, "medium")
+    old_tab = browser.current_window_handle
+    play_url = browser.current_url
+    browser.switch_to.new_window("tab")
+    browser.get(play_url)
+    write_code(browser, ready, PONG_STAGE_1)
+    _submit(browser)
+    assert _stage_label(browser) == "Medium, stage 2 of 3"
+
+    browser.switch_to.window(old_tab)
+    assert _stage_label(browser) == "Medium, stage 1 of 3"
+    write_code(browser, ready, CRASH)
+    _submit_and_wait_for_reload(browser)
+
+    lives = browser.find_element(*selector("game-lives"))
+    assert lives.get_attribute("aria-label") == "3 of 3 lives"
+    assert _stage_label(browser) == "Medium, stage 2 of 3"
+
+
 @requires_host_play
 @pytest.mark.e2e
 def test_old_page_reloads_instead_of_spending_a_life(
@@ -242,18 +285,16 @@ def test_old_page_reloads_instead_of_spending_a_life(
     """US7 AC5: a page that shows another stage reloads, costing nothing."""
     ready = start_run(browser, live_server, db_session, "medium")
     write_code(browser, ready, CRASH)
-    # Stand in for a tab left open on a stage the run has moved past.
+    assert _console_expanded(browser) == "false"
+    # A page that shows a stage the run isn't on, from either direction.
     browser.execute_script(
         "document.querySelector('[data-testid=game-editor]')"
-        ".dataset.stage = '2'; window.before_reload = true;"
+        ".dataset.stage = '2'"
     )
-    browser.find_element(*selector("game-submit")).click()
-    WebDriverWait(browser, VERDICT_SECONDS).until(
-        lambda driver: driver.execute_script(
-            "return window.before_reload === undefined"
-        )
-    )
+    _submit_and_wait_for_reload(browser)
 
     lives = browser.find_element(*selector("game-lives"))
     assert lives.get_attribute("aria-label") == "3 of 3 lives"
     assert _stage_label(browser) == "Medium, stage 1 of 3"
+    # Nothing was shown, so the collapsed console stays collapsed.
+    assert _console_expanded(browser) == "false"

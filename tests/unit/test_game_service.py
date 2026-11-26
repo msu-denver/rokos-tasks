@@ -483,16 +483,22 @@ def test_stale_submit_rolls_back(
     runs.commit.assert_not_called()
 
 
+@pytest.mark.parametrize(
+    ("current", "shown"), [(2, 1), (1, 2)], ids=["behind", "ahead"]
+)
 def test_submit_for_another_stage_is_stale(
     submit_game: tuple[GameService, Mock, Mock, GameRun],
+    current: int,
+    shown: int,
 ) -> None:
     """An old page's submit is refused before grading costs a life."""
     service, runs, grading, run = submit_game
+    run.current_stage = current
 
     with pytest.raises(StaleSubmitError):
-        service.submit_stage(PLAYER_ID, RUN_ID, CODE, 2)
+        service.submit_stage(PLAYER_ID, RUN_ID, CODE, shown)
 
-    assert (run.lives, run.current_stage) == (3, 1)
+    assert (run.lives, run.current_stage) == (3, current)
     grading.grade.assert_not_called()
     runs.add_submission.assert_not_called()
     runs.commit.assert_not_called()

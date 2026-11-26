@@ -203,22 +203,24 @@ def test_code_that_is_not_text_is_a_bad_request(
     )
 
 
+@requires_host_play
 def test_submit_from_an_old_page_is_refused(
     player: FlaskClient, seeded_pong: int, db_session: Session
 ) -> None:
-    """A page showing another stage gets 409 before any grading."""
+    """A page still on Stage 1 after the pass gets 409 before grading."""
     run_id = start_run(player, "medium")
-    response = submit(player, run_id, STAGE_1, stage=2)
+    assert submit(player, run_id, STAGE_1).status_code == 200
+    score = db_session.get_one(GameRun, run_id).score
+
+    response = submit(player, run_id, TWO_BALLS, stage=1)
     assert response.status_code == 409
     assert response.get_json() == {"message": "This page is out of date."}
     run = db_session.get_one(GameRun, run_id)
-    assert (run.lives, run.current_stage, run.score) == (3, 1, 0)
-    assert (
-        db_session.scalars(
-            select(Submission).where(Submission.run_id == run_id)
-        ).all()
-        == []
-    )
+    assert (run.lives, run.current_stage, run.score) == (3, 2, score)
+    attempts = db_session.scalars(
+        select(Submission).where(Submission.run_id == run_id)
+    ).all()
+    assert [attempt.passed for attempt in attempts] == [True]
 
 
 def test_runner_down_does_not_count(
@@ -304,9 +306,9 @@ def test_stale_submit_returns_conflict(
     "body",
     [
         None,
-        {"run_id": "1", "code": ""},
-        {"run_id": True, "code": ""},
-        {"run_id": 1, "code": 5},
+        {"run_id": "1", "stage": 1, "code": ""},
+        {"run_id": True, "stage": 1, "code": ""},
+        {"run_id": 1, "stage": 1, "code": 5},
         {"run_id": 1, "code": ""},
         {"run_id": 1, "stage": "1", "code": ""},
         {"run_id": 1, "stage": True, "code": ""},

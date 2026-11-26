@@ -61,10 +61,13 @@ export function init_submit(
   button.addEventListener("click", async () => {
     button.disabled = true;
     button.textContent = BUSY_LABEL;
+    let reloading = false;
     try {
       const {ok, status, body} = await post_attempt(button, get_attempt());
       if (status === CONFLICT) {
         // The run moved on (another tab, or it ended): show where it is now.
+        // Nothing was shown, so the console and button stay as they are.
+        reloading = true;
         window.location.reload();
       } else if (ok) {
         show_verdict(panel, body.verdict);
@@ -75,9 +78,11 @@ export function init_submit(
     } catch {
       show_message(panel, FAILED_REQUEST);
     } finally {
-      button.disabled = false;
-      button.textContent = idle_label;
-      show_console();
+      if (!reloading) {
+        button.disabled = false;
+        button.textContent = idle_label;
+        show_console();
+      }
     }
   });
 }
