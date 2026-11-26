@@ -2,8 +2,8 @@
 File: test_progression.py
 Description: Selenium coverage for US7: a pass opens the next stage with
     the checkpoint code (or the player's saved draft), a fail costs a life
-    and resets the editor to the checkpoint, and a finished run shows the
-    victory or game-over screen with its score breakdown.
+    and keeps the player's code in the editor, and a finished run shows
+    the victory or game-over screen with its score breakdown.
 Author(s): Tyler Black
 """
 
@@ -137,13 +137,13 @@ def test_saved_draft_wins_over_the_checkpoint(
 
 @requires_host_play
 @pytest.mark.e2e
-def test_fail_costs_a_life_and_resets_to_the_checkpoint(
+def test_fail_costs_a_life_and_keeps_the_code(
     browser: webdriver.Chrome,
     live_server: str,
     db_session: Session,
     seeded_pong: int,
 ) -> None:
-    """US7 AC2 and AC6: a fail drops a life and restores the checkpoint."""
+    """US7 AC2 and AC6: a fail drops a life; the failed code stays put."""
     ready = start_run(browser, live_server, db_session, "medium")
     write_code(browser, ready, PONG_STAGE_1)
     _submit(browser)
@@ -155,24 +155,24 @@ def test_fail_costs_a_life_and_resets_to_the_checkpoint(
     full = lives.find_elements("css selector", ".game-life--full")
     assert len(full) == 2
     assert _stage_label(browser) == "Medium, stage 2 of 3"
-    assert _editor_code(browser) == PONG_STAGE_1
+    assert _editor_code(browser) == CRASH
 
 
 @requires_host_play
 @pytest.mark.e2e
-def test_fail_on_stage_1_empties_the_editor(
+def test_failed_code_survives_a_reload(
     browser: webdriver.Chrome,
     live_server: str,
     db_session: Session,
     seeded_pong: int,
 ) -> None:
-    """US7 AC6: with no checkpoint yet, a fail leaves the editor empty."""
+    """US7 AC6: the failed code stays the stage's draft after a reload."""
     ready = start_run(browser, live_server, db_session, "medium")
     write_code(browser, ready, CRASH)
     _submit(browser)
-    assert _editor_code(browser) == ""
+    assert _editor_code(browser) == CRASH
     browser.refresh()
-    assert _editor_code(browser) == ""
+    assert _editor_code(browser) == CRASH
 
 
 @requires_host_play

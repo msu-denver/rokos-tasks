@@ -1,7 +1,7 @@
 /*
 File: editor.js
 Description: Loads the Python editor, saves drafts for both editor modes,
-    and loads checkpoint code when a stage opens or resets (US7).
+    and loads the checkpoint code when the next stage opens (US7).
 Author(s): Tyler Black, Richard Hall
 */
 
@@ -59,7 +59,7 @@ function clear_draft(key) {
 }
 
 // Saves to whichever stage's key is current. `discard` drops an unsaved
-// edit, so a passed or reset stage keeps no draft.
+// edit, so a passed stage keeps no draft.
 function autosave(initial_key) {
   let key = initial_key;
   let pending = null;
@@ -180,8 +180,6 @@ function editor_options(monaco, value) {
 //   get_code(): the code right now.
 //   open_stage(stage, checkpoint): after a pass, clear the passed stage's
 //     draft and load the new stage's draft or the checkpoint.
-//   reset(checkpoint): after a fail, clear the stage's draft and go back
-//     to the checkpoint (empty on Stage 1).
 //   finish(): after the last stage, clear its draft.
 //   stage(): the stage the editor is on.
 export function init_editor(container, checkpoint) {
@@ -220,10 +218,6 @@ export function init_editor(container, checkpoint) {
       container.dataset.stage = stage;
       drafts.key = draft_key(run, stage);
       show(initial_code(drafts.key, next_checkpoint));
-    },
-    reset(last_checkpoint) {
-      forget_stage();
-      show(last_checkpoint ?? "");
     },
     finish: forget_stage,
     stage: () => Number(container.dataset.stage),

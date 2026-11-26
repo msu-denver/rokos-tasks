@@ -1,8 +1,8 @@
 /*
 File: game.js
 Description: Initializes the play page from the server-rendered stage and
-    applies each graded Submit to it: the next stage after a pass, the
-    reset after a fail, and the result screen when the run ends (US7).
+    applies each graded Submit to it: the next stage after a pass, one
+    less life after a fail, and the result screen when the run ends (US7).
 Author(s): Tyler Black, Richard Hall
 */
 
@@ -30,12 +30,12 @@ function apply_run({run, stage, checkpoint}) {
     return;
   }
   show_lives(by_test_id("game-lives"), run.lives);
+  // After a fail the player's code stays put, next to the verdict that
+  // explains it (US7 AC6 is [LOW]; we chose this over the checkpoint reset).
   if (stage) {
     show_stage(by_test_id("game-stage-readout"), stage.number);
     show_prompt(feed, stage.prompt);
     editor.open_stage(stage.number, checkpoint);
-  } else {
-    editor.reset(checkpoint);
   }
 }
 
