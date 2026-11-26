@@ -28,11 +28,7 @@ from src.business.game_service import (
     GameService,
     RunNotFoundError,
 )
-from src.business.grading_service import (
-    CodeTooLargeError,
-    RunFinishedError,
-    StageNotGradableError,
-)
+from src.business.grading_service import InvalidCodeError, RunFinishedError
 from src.business.runner_client import (
     CheckScriptBrokenError,
     RunnerUnavailableError,
@@ -46,7 +42,6 @@ game_blueprint = Blueprint("game", __name__)
 logger = logging.getLogger(__name__)
 
 # Placeholder wording until the PO decides; US10 moves it to dialogue.
-NOT_GRADABLE = "This stage can't be graded yet."
 UNAVAILABLE = "Grading is unavailable. This submit didn't count."
 
 
@@ -117,6 +112,7 @@ def play(run_id: int) -> Response:
 
     return response
 
+
 def _message(status: HTTPStatus, message: str) -> tuple[Response, int]:
     return jsonify(message=message), status
 
@@ -143,10 +139,8 @@ def submit() -> tuple[Response, int]:
         abort(404)
     except RunFinishedError:
         abort(409)
-    except CodeTooLargeError:
+    except InvalidCodeError:
         abort(400)
-    except StageNotGradableError:
-        return _message(HTTPStatus.UNPROCESSABLE_ENTITY, NOT_GRADABLE)
     except (RunnerUnavailableError, CheckScriptBrokenError):
         logger.exception("grading failed for run %s", run_id)
         return _message(HTTPStatus.SERVICE_UNAVAILABLE, UNAVAILABLE)

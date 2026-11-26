@@ -1,6 +1,6 @@
 """
 File: campaign.py
-Description: SQLAlchemy models for campaigns, stages, and test cases.
+Description: SQLAlchemy models for campaigns and their stages.
 Author(s): Tyler Black
 """
 
@@ -70,38 +70,10 @@ class Stage(Base):
     )
     number: Mapped[int] = mapped_column(Integer, nullable=False)
     prompt: Mapped[str] = mapped_column(Text, nullable=False)
-    starter_code: Mapped[str | None] = mapped_column(Text, nullable=True)
-    reference_solution: Mapped[str] = mapped_column(Text, nullable=False)
-    # Plays the player's program to grade it (US6). Null for old stages.
-    check_script: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reference_program: Mapped[str] = mapped_column(Text, nullable=False)
+    # Plays the player's program to grade it: the only grading data.
+    check_script: Mapped[str] = mapped_column(Text, nullable=False)
 
     campaign: Mapped["Campaign"] = relationship(
         "Campaign", back_populates="stages"
     )
-    test_cases: Mapped[list["TestCase"]] = relationship(
-        "TestCase",
-        back_populates="stage",
-        cascade="all, delete-orphan",
-        order_by="TestCase.position",
-    )
-
-
-class TestCase(Base):
-    """Test case (sample or hidden) associated with a stage."""
-
-    __test__ = False
-    __tablename__ = "test_cases"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    stage_id: Mapped[int] = mapped_column(
-        Integer,
-        ForeignKey("stages.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
-    )
-    kind: Mapped[str] = mapped_column(String(16), nullable=False)
-    position: Mapped[int] = mapped_column(Integer, nullable=False)
-    input: Mapped[str] = mapped_column(Text, nullable=False)
-    expected_output: Mapped[str] = mapped_column(Text, nullable=False)
-
-    stage: Mapped["Stage"] = relationship("Stage", back_populates="test_cases")

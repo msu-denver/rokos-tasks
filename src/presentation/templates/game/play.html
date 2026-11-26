@@ -1,7 +1,7 @@
 {#
 File: play.html
 Description: Displays a run's current stage, the Overlord, and the editor.
-Author(s): Tyler Black, Richard Hall, Steph rivera
+Author(s): Tyler Black, Richard Hall
 #}
 {% extends "base.html" %}
 
@@ -71,7 +71,7 @@ Author(s): Tyler Black, Richard Hall, Steph rivera
           <ol class="overlord-dialog" data-testid="game-dialog" role="log" aria-label="Overlord dialog"></ol>
         </div>
         <div class="game-feed" data-testid="game-feed" role="log" aria-label="Overlord feed" tabindex="0">
-          <p data-testid="game-prompt">{{ stage.description }}</p>
+          <p data-testid="game-prompt">{{ stage.prompt }}</p>
         </div>
       </section>
       <section class="floating-panel floating-panel--cyan game-editor-panel" aria-label="Code editor">
@@ -81,31 +81,37 @@ Author(s): Tyler Black, Richard Hall, Steph rivera
           <div hidden></div>
         </div>
         <div class="game-actions">
-          <button type="button" class="btn btn-secondary"
-                  data-testid="game-run" disabled>Loading Python…</button>
-          <button type="button" class="btn btn-secondary"
-                  data-testid="game-stop" disabled>Stop</button>
           <button type="button" class="btn btn-primary" data-testid="game-submit"
                   data-submit-url="{{ url_for('game.submit') }}" data-run="{{ run_id }}"
                   data-csrf-token="{{ csrf_token() }}">Submit</button>
         </div>
-        <section class="game-live-panel" aria-label="Program execution" hidden>
-          <pre class="game-screen" data-testid="game-screen"
-              tabindex="0" aria-label="Game screen"></pre>
-          <pre class="game-error" data-testid="game-error"
-              role="alert" hidden></pre>
-          <p data-testid="game-run-timeout"
-            role="alert" hidden></p>
-        </section>
-        <section class="game-verdict" data-testid="game-verdict" aria-live="polite" aria-label="Verdict" hidden>
-          <h2 class="game-verdict-heading" data-testid="game-verdict-heading"></h2>
-          <p class="game-verdict-reason" data-testid="game-verdict-reason"></p>
-          <pre class="game-verdict-code" data-testid="game-verdict-traceback" hidden></pre>
-          <pre class="game-verdict-code" data-testid="game-verdict-frame" hidden></pre>
-        </section>
+        {# Collapsed until the first verdict or the saved layout opens it. #}
+        <div class="game-console" data-testid="game-console">
+          <div class="game-console-handle" data-testid="game-console-handle" role="separator"
+               tabindex="0" aria-orientation="horizontal" aria-label="Resize console"
+               aria-controls="game-console-body" hidden></div>
+          <button type="button" class="game-console-toggle" id="game-console-toggle"
+                  data-testid="game-console-toggle" aria-expanded="false" aria-controls="game-console-body">
+            <svg class="game-console-chevron" viewBox="0 0 12 12" aria-hidden="true" focusable="false">
+              <polyline points="2,4 6,8 10,4"/>
+            </svg>
+            Console
+          </button>
+          {# Always in the accessibility tree, so a verdict that opens a collapsed console is announced. #}
+          <p class="visually-hidden" data-testid="game-console-status" role="status"></p>
+          <div class="game-console-body" id="game-console-body" data-testid="game-console-body"
+               role="region" aria-labelledby="game-console-toggle" tabindex="0" hidden>
+            <section class="game-verdict" data-testid="game-verdict" aria-label="Verdict" hidden>
+              <h2 class="game-verdict-heading" data-testid="game-verdict-heading"></h2>
+              <p class="game-verdict-reason" data-testid="game-verdict-reason"></p>
+              <pre class="game-verdict-code" data-testid="game-verdict-traceback" hidden></pre>
+              <pre class="game-verdict-code" data-testid="game-verdict-frame" hidden></pre>
+            </section>
+          </div>
+        </div>
       </section>
     </div>
-    <script id="stage-data" type="application/json">{{ {'samples': stage.samples}|tojson }}</script>
+    <script id="stage-data" type="application/json">{{ {'stage': stage.number}|tojson }}</script>
     <script type="module" src="{{ url_for('static', filename='js/game.js') }}"></script>
   {% else %}
     <section class="floating-panel floating-panel--form" aria-labelledby="game-run-over">

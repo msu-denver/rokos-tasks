@@ -22,7 +22,7 @@ from src.business.game_service import (
     GameService,
     StageView,
 )
-from src.data.models.campaign import Campaign, Stage, TestCase
+from src.data.models.campaign import Campaign, Stage
 from src.data.models.game_run import GameRun
 from src.data.repositories.campaign_repository import CampaignRepository
 from src.data.repositories.run_repository import RunRepository
@@ -156,13 +156,9 @@ def test_start_run_without_campaign_does_not_abandon_active_run() -> None:
     runs.commit.assert_not_called()
 
 
-@pytest.mark.parametrize(
-    ("number", "starter"), [(1, "n = int(input())"), (2, None), (2, "# stub")]
-)
-def test_stage_view_contains_current_prompt_and_public_examples(
-    number: int, starter: str | None
-) -> None:
-    """Expose the prompt and samples while omitting stored starter code."""
+@pytest.mark.parametrize("number", [1, 2])
+def test_stage_view_contains_only_the_current_prompt(number: int) -> None:
+    """Expose the stage's prompt and progress, never its grading data."""
     runs = Mock(spec=RunRepository)
     run = GameRun(
         campaign_id=42,
@@ -173,63 +169,23 @@ def test_stage_view_contains_current_prompt_and_public_examples(
     )
     runs.get_for_user.return_value = run
     runs.current_stage_for.return_value = Stage(
-        id=45, prompt="Print twice the input.", starter_code=starter
+        id=45,
+        prompt="Print twice the input.",
+        reference_program="secret reference",
+        check_script="secret check",
     )
-    runs.samples_for_stage.return_value = [
-        TestCase(input="3", expected_output="6", kind="sample"),
-    ]
 
     service = GameService(Mock(spec=CampaignSelector), runs, Mock())
     view = service.get_stage_view(PLAYER_ID, 12)
-    assert not hasattr(view, "starter_code")
     assert view == StageView(
         difficulty=Difficulty.BEGINNER,
         number=number,
         lives=3,
         prompt="Print twice the input.",
-        samples=({"input": "3", "expected_output": "6"},),
     )
+    assert "secret" not in repr(view)
     runs.get_for_user.assert_called_once_with(12, PLAYER_ID)
     runs.current_stage_for.assert_called_once_with(run)
-    runs.samples_for_stage.assert_called_once_with(45)
-
-
-@pytest.mark.parametrize(
-    ("prompt", "expected_description"),
-    [
-        (
-            "Double the input.\n\nExample 1 input:\n3\nExample 1 output:\n6",
-            "Double the input.",
-        ),
-        (
-            "Double the input.\n\nExample 1 input:\n3\nExample 1 output:\n6"
-            "\n\nExample 2 input:\n4\nExample 2 output:\n8",
-            "Double the input.",
-        ),
-        (
-            "Double the input.\nPrint the result.",
-            "Double the input.\nPrint the result.",
-        ),
-        (
-            "Print the labels for example 1 input: x and Example 1 input: y.",
-            "Print the labels for example 1 input: x and Example 1 input: y.",
-        ),
-    ],
-    ids=["one-example", "two-examples", "no-examples", "inline-example"],
-)
-def test_stage_view_description(
-    prompt: str, expected_description: str
-) -> None:
-    """Strip trailing example blocks while preserving the instructions."""
-    stage = StageView(
-        difficulty=Difficulty.BEGINNER,
-        number=1,
-        lives=4,
-        prompt=prompt,
-        samples=(),
-    )
-
-    assert stage.description == expected_description
 
 
 def test_start_run_does_not_import_an_llm_client() -> None:

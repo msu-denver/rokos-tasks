@@ -3,7 +3,7 @@ File: conftest.py
 Description: Fixtures for the hostile-code suite. Each test posts a run
     to the real runner container (started by `make runner`) from inside
     the container, so the runner stays on its internal-only network.
-Author(s): Richard Hall
+Author(s): Richard Hall, Tyler Black
 """
 
 import json
@@ -61,12 +61,12 @@ def run_in_sandbox() -> RunInSandbox:
     """Return a function that plays ``code`` in the runner container.
 
     The returned function takes the program source and the input lines
-    (one empty line by default) and returns the runner's JSON reply.
+    (none by default) and returns the runner's JSON reply.
     """
 
     def run(code: str, inputs: list[str] | None = None) -> dict:
         return post_in_container(
-            "/run", {"code": code, "inputs": inputs or [""]}
+            "/run", {"code": code, "inputs": inputs or []}
         )
 
     return run

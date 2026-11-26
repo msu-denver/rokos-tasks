@@ -1,12 +1,10 @@
 """
 File: stage3_fast_from_corner.py
-Description: Correct Pong stage 3 program (US6 AC3): 3 columns per tick,
+Description: Correct Pong stage 3 program (US6 AC3): 3 columns per turn,
     starts near a corner, paddles start at the edges, and it is built around
     a class.
-Author(s): Richard Hall
+Author(s): Richard Hall, Tyler Black
 """
-
-import sys
 
 HEIGHT = 20
 WIDTH = 20
@@ -14,7 +12,7 @@ PADDLE = 3
 
 
 class Pong:
-    """The whole game state, advanced one tick at a time."""
+    """The whole game state, advanced one turn at a time."""
 
     def __init__(self) -> None:
         """Start near the top-left corner, moving up and to the right."""
@@ -24,7 +22,7 @@ class Pong:
         self.score = {"left": 0, "right": 0}
 
     def press(self, keys: str) -> None:
-        """Move the paddles for the keys pressed this tick."""
+        """Move the paddles for the keys pressed this turn."""
         moves = {"q": ("left", -1), "a": ("left", 1)}
         moves.update({"p": ("right", -1), "l": ("right", 1)})
         for key, (side, step) in moves.items():
@@ -33,7 +31,7 @@ class Pong:
                 self.paddles[side] = min(HEIGHT - PADDLE, max(0, top))
 
     def advance(self) -> None:
-        """Move the ball one tick, bouncing or scoring as needed."""
+        """Move the ball one turn, bouncing or scoring as needed."""
         row, column = self.ball
         if not 0 <= row + self.velocity[0] < HEIGHT:
             self.velocity[0] *= -1
@@ -52,8 +50,8 @@ class Pong:
         self.ball = [15, 12]
         self.velocity = [-1, -3]
 
-    def frame(self) -> str:
-        """Return the board, the score line, and the frame end."""
+    def screen(self) -> str:
+        """Return the board and the score line."""
         lines = []
         for row in range(HEIGHT):
             cells = ["."] * WIDTH
@@ -65,12 +63,18 @@ class Pong:
                 cells[self.ball[1]] = "O"
             lines.append("".join(cells))
         lines.append(f"{self.score['left']} {self.score['right']}")
-        lines.append("---")
         return "\n".join(lines)
 
 
-game = Pong()
-for line in sys.stdin:
-    game.press(line)
-    game.advance()
-    print(game.frame())
+def main() -> None:
+    """Show the board, then play one turn for each line of keys."""
+    game = Pong()
+    print(game.screen())
+    while True:
+        game.press(input())
+        game.advance()
+        print(game.screen())
+
+
+if __name__ == "__main__":
+    main()

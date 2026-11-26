@@ -4,7 +4,7 @@ Description: Unit tests for GradingService (US6): run checks, the
     not-gradable case, and how a runner reply becomes a Verdict, including
     the course-required white-box test of the verdict and normalization
     logic.
-Author(s): Richard Hall
+Author(s): Richard Hall, Tyler Black
 """
 
 from unittest import mock
@@ -17,13 +17,13 @@ from src.business.grading_service import (
     REASON_TEXT,
     CodeTooLargeError,
     GradingService,
+    InvalidCodeError,
     RunFinishedError,
-    StageNotGradableError,
     clean_traceback,
     to_verdict,
 )
 
-CHECK = "def check(game):\n    game.tick()\n"
+CHECK = "def check(game):\n    game.send()\n"
 
 
 def runner_reply(**overrides: object) -> dict:
@@ -31,9 +31,9 @@ def runner_reply(**overrides: object) -> dict:
         "verdict": "pass",
         "reason": None,
         "rule": None,
-        "tick": 3,
+        "turn": 3,
         "inputs": ["", "q", ""],
-        "last_frame": "..O..",
+        "last_screen": "..O..",
         "traceback": "",
     }
     reply.update(overrides)
@@ -42,7 +42,7 @@ def runner_reply(**overrides: object) -> dict:
 
 def make_service(
     status: str = "in_progress",
-    check_script: str | None = CHECK,
+    check_script: str = CHECK,
     reply: dict | None = None,
 ) -> tuple[GradingService, mock.Mock]:
     runs = mock.Mock()
@@ -60,11 +60,13 @@ def test_verdict_and_normalization_logic():
     Purpose: cover every branch of ``to_verdict`` and ``clean_traceback``,
     the code that turns the runner's reply into what the player sees.
 
-    Functionality tested: a pass has no reason; a rule failure shows the
-    check script's rule (or the fallback when it is empty); every other
-    failure reason maps to its own text, and an unknown one to the
-    fallback; sandbox paths in tracebacks become ``main.py`` while other
-    paths stay; missing reply fields get safe defaults.
+    Functionality tested: a pass has no reason and no failure kind; a
+    rule failure shows the check script's rule (or the fallback when it
+    is empty); every failure keeps the runner's reason as its kind;
+    every other failure reason maps to its own text, and an unknown one
+    to the fallback; sandbox paths on traceback location lines become
+    ``main.py`` while other paths, and the player's own strings, stay;
+    missing reply fields get safe defaults.
 
     Expected outcome: each reply produces the documented heading, reason,
     and cleaned traceback.
@@ -75,6 +77,8 @@ def test_verdict_and_normalization_logic():
         "PASS",
         None,
     )
+    assert passed.kind is None
+    assert passed.to_dict()["kind"] is None
 
     rule = to_verdict(
         runner_reply(verdict="fail", reason="rule", rule="One ball only.")
@@ -84,35 +88,39 @@ def test_verdict_and_normalization_logic():
         "FAIL",
         "One ball only.",
     )
+    assert rule.kind == "rule"
     empty_rule = to_verdict(runner_reply(verdict="fail", reason="rule"))
     assert empty_rule.reason == "Failed."
 
     for reason, text in REASON_TEXT.items():
-        assert (
-            to_verdict(runner_reply(verdict="fail", reason=reason)).reason
-            == text
-        )
+        failed = to_verdict(runner_reply(verdict="fail", reason=reason))
+        assert (failed.reason, failed.kind) == (text, reason)
+        assert failed.to_dict()["kind"] == reason
     unknown = to_verdict(runner_reply(verdict="fail", reason="mystery"))
     assert unknown.reason == "Failed."
 
     traceback = (
-        'File "/sandbox/3/main.py", line 2, in <module>\n'
-        'File "/usr/local/lib/python3.13/socket.py", line 868\n'
+        "Traceback (most recent call last):\n"
+        '  File "/sandbox/3/main.py", line 2, in <module>\n'
+        '  File "/usr/local/lib/python3.13/socket.py", line 868\n'
+        'ValueError: no file "/home/me/main.py"\n'
     )
     assert clean_traceback(traceback) == (
-        'File "main.py", line 2, in <module>\n'
-        'File "/usr/local/lib/python3.13/socket.py", line 868\n'
+        "Traceback (most recent call last):\n"
+        '  File "main.py", line 2, in <module>\n'
+        '  File "/usr/local/lib/python3.13/socket.py", line 868\n'
+        'ValueError: no file "/home/me/main.py"\n'
     )
     crashed = to_verdict(
         runner_reply(verdict="fail", reason="crashed", traceback=traceback)
     )
-    assert crashed.traceback.startswith('File "main.py"')
+    assert '  File "main.py", line 2' in crashed.traceback
 
     sparse = to_verdict({"verdict": "fail", "reason": "crashed"})
     assert (
-        sparse.tick,
+        sparse.turn,
         sparse.inputs,
-        sparse.last_frame,
+        sparse.last_screen,
         sparse.traceback,
     ) == (
         0,
@@ -129,10 +137,11 @@ def test_grade_sends_code_and_check_script():
     assert verdict.to_dict() == {
         "passed": True,
         "heading": "PASS",
+        "kind": None,
         "reason": None,
-        "tick": 3,
+        "turn": 3,
         "inputs": ["", "q", ""],
-        "last_frame": "..O..",
+        "last_screen": "..O..",
         "traceback": "",
     }
 
@@ -160,8 +169,9 @@ def test_code_over_the_limit_is_rejected():
     runner.grade.assert_called_once()
 
 
-def test_stage_without_check_script_is_not_gradable():
-    service, runner = make_service(check_script=None)
-    with pytest.raises(StageNotGradableError):
-        service.grade(1, 7, "print('hi')")
+def test_code_that_is_not_valid_text_is_rejected():
+    """A lone surrogate can't be encoded, so it never reaches the runner."""
+    service, runner = make_service()
+    with pytest.raises(InvalidCodeError):
+        service.grade(1, 7, "print('\ud800')")
     runner.grade.assert_not_called()

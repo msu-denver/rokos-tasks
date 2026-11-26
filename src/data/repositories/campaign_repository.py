@@ -9,7 +9,7 @@ from collections.abc import Sequence
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from src.data.models.campaign import Campaign, Stage, TestCase
+from src.data.models.campaign import Campaign, Stage
 from src.data.repositories.base_repository import BaseRepository
 
 
@@ -34,9 +34,7 @@ class CampaignRepository(BaseRepository[Campaign]):
         stmt = (
             select(Campaign)
             .where(Campaign.slug == slug)
-            .options(
-                selectinload(Campaign.stages).selectinload(Stage.test_cases)
-            )
+            .options(selectinload(Campaign.stages))
         )
         return self._session.execute(stmt).scalar_one_or_none()
 
@@ -47,8 +45,8 @@ class CampaignRepository(BaseRepository[Campaign]):
         content_hash matches, return it untouched without database writes.
         If the hash differs, update title, difficulty, and content_hash,
         preserve the existing status, and update stages in place by stage
-        number (updating existing rows and replacing test cases, adding new
-        numbers, and removing deleted numbers).
+        number (updating existing rows, adding new numbers, and removing
+        deleted numbers).
 
         Args:
             campaign: Campaign instance to persist.
@@ -82,39 +80,19 @@ class CampaignRepository(BaseRepository[Campaign]):
             if number in existing_by_num:
                 current_stage = existing_by_num[number]
                 current_stage.prompt = incoming_stage.prompt
-                current_stage.starter_code = incoming_stage.starter_code
-                current_stage.reference_solution = (
-                    incoming_stage.reference_solution
+                current_stage.reference_program = (
+                    incoming_stage.reference_program
                 )
                 current_stage.check_script = incoming_stage.check_script
-                current_stage.test_cases.clear()
-                for tc in incoming_stage.test_cases:
-                    current_stage.test_cases.append(
-                        TestCase(
-                            kind=tc.kind,
-                            position=tc.position,
-                            input=tc.input,
-                            expected_output=tc.expected_output,
-                        )
-                    )
             else:
-                new_stage = Stage(
-                    number=incoming_stage.number,
-                    prompt=incoming_stage.prompt,
-                    starter_code=incoming_stage.starter_code,
-                    reference_solution=incoming_stage.reference_solution,
-                    check_script=incoming_stage.check_script,
-                )
-                for tc in incoming_stage.test_cases:
-                    new_stage.test_cases.append(
-                        TestCase(
-                            kind=tc.kind,
-                            position=tc.position,
-                            input=tc.input,
-                            expected_output=tc.expected_output,
-                        )
+                existing.stages.append(
+                    Stage(
+                        number=incoming_stage.number,
+                        prompt=incoming_stage.prompt,
+                        reference_program=incoming_stage.reference_program,
+                        check_script=incoming_stage.check_script,
                     )
-                existing.stages.append(new_stage)
+                )
 
         existing.stages.sort(key=lambda s: s.number)
         self._session.flush()
@@ -135,9 +113,7 @@ class CampaignRepository(BaseRepository[Campaign]):
                 Campaign.difficulty == difficulty,
                 Campaign.status == "validated",
             )
-            .options(
-                selectinload(Campaign.stages).selectinload(Stage.test_cases)
-            )
+            .options(selectinload(Campaign.stages))
             .order_by(Campaign.id)
         )
         return self._session.execute(stmt).scalars().all()

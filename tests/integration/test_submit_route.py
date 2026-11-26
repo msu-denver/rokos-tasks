@@ -4,7 +4,7 @@ Description: Integration tests for POST /game/submit (US6): the Flask
     route, GradingService, RunnerClient, and the runner's HTTP API with
     the real Pong check scripts, end to end. Covers verdicts, errors,
     access rules, and that lives don't change (US7).
-Author(s): Richard Hall
+Author(s): Richard Hall, Tyler Black
 """
 
 import json
@@ -19,13 +19,19 @@ from sqlalchemy.orm import Session
 from src.business.grading_service import MAX_CODE_BYTES
 from src.data.models.campaign import Stage
 from src.data.models.game_run import GameRun
+from tests.conftest import requires_host_play
 
 ROOT = Path(__file__).resolve().parents[2]
 PONG = json.loads(
     (ROOT / "content/campaigns/seed/medium/pong.json").read_text("utf-8")
 )
-STAGE_1 = PONG["stages"][0]["reference_solution"]
-TWO_BALLS = (ROOT / "tests/fixtures/pong/stage1_two_balls.py").read_text()
+STAGE_1 = PONG["stages"][0]["reference_program"]
+TWO_BALLS = PONG["stages"][0]["broken_program"]
+TRAFFIC = json.loads(
+    (ROOT / "content/campaigns/seed/beginner/traffic_light.json").read_text(
+        "utf-8"
+    )
+)
 
 
 @pytest.fixture
@@ -51,6 +57,7 @@ def submit(player: FlaskClient, run_id: object, code: object):
     return player.post("/game/submit", json={"run_id": run_id, "code": code})
 
 
+@requires_host_play
 def test_reference_passes(player: FlaskClient, seeded_pong: int):
     """US6 AC1: the Pong stage 1 reference gets a pass."""
     response = submit(player, start_run(player, "medium"), STAGE_1)
@@ -60,19 +67,21 @@ def test_reference_passes(player: FlaskClient, seeded_pong: int):
     assert verdict["reason"] is None
 
 
+@requires_host_play
 def test_broken_rule_is_named(player: FlaskClient, seeded_pong: int):
-    """US6 AC2: a frame with two O characters fails with the rule."""
+    """US6 AC2: a board with two O characters fails with the rule."""
     verdict = submit(
         player, start_run(player, "medium"), TWO_BALLS
     ).get_json()["verdict"]
     assert verdict["heading"] == "FAIL"
     assert verdict["reason"] == "The board must show exactly one ball (O)."
-    assert verdict["last_frame"].count("O") == 2
+    assert verdict["last_screen"].count("O") == 2
 
 
+@requires_host_play
 def test_crash_shows_the_traceback(player: FlaskClient, seeded_pong: int):
     """US6 AC2: a crash fails with a traceback that names main.py."""
-    code = "input()\nraise ValueError('no ball')\n"
+    code = "print('thinking')\nraise ValueError('no ball')\n"
     verdict = submit(player, start_run(player, "medium"), code).get_json()[
         "verdict"
     ]
@@ -93,12 +102,21 @@ def test_lives_do_not_change(
     assert (run.lives, run.current_stage) == (3, 1)
 
 
-def test_stage_without_check_script(player: FlaskClient, seeded_beginner: int):
-    response = submit(player, start_run(player, "beginner"), "print(1)")
-    assert response.status_code == 422
-    assert response.get_json() == {
-        "message": "This stage can't be graded yet."
-    }
+@requires_host_play
+def test_beginner_stage_is_graded(player: FlaskClient, seeded_beginner: int):
+    """#19 AC1: Beginner stages are graded by check scripts too."""
+    reference = TRAFFIC["stages"][0]["reference_program"]
+    response = submit(player, start_run(player, "beginner"), reference)
+    assert response.status_code == 200
+    assert response.get_json()["verdict"]["passed"] is True
+
+
+def test_lone_surrogate_is_a_bad_request(
+    player: FlaskClient, seeded_pong: int
+):
+    """Code that isn't valid text gets 400, not a server error."""
+    response = submit(player, start_run(player, "medium"), "print('\ud800')")
+    assert response.status_code == 400
 
 
 def test_runner_down_does_not_count(

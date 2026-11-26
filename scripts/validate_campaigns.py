@@ -11,6 +11,9 @@ _ROOT = Path(__file__).resolve().parent.parent
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
+from src.business.campaigns.check_runner import (  # noqa: E402
+    host_play_supported,
+)
 from src.business.campaigns.validator import CampaignValidator  # noqa: E402
 
 
@@ -40,6 +43,11 @@ def validate_all_campaigns(paths: list[Path]) -> int:
         return 1
 
     print(f"All {len(paths)} campaign file(s) valid.")
+    if not host_play_supported():
+        print(
+            "Note: this machine can't play programs (Windows), so only the "
+            "checks that don't play one ran. CI runs every check."
+        )
     return 0
 
 

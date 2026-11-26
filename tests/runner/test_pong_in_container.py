@@ -4,7 +4,7 @@ Description: Grades ASCII Pong stage 3 through the real runner container
     (POST /grade) under production limits: the reference passes and a
     broken program fails with its rule, both well inside the 10-second
     run limit (US6 AC1).
-Author(s): Richard Hall
+Author(s): Richard Hall, Tyler Black
 """
 
 import json
@@ -30,15 +30,14 @@ def timed_grade(grade: GradeInSandbox, code: str) -> tuple[dict, float]:
 
 def test_reference_passes_in_container(grade_in_sandbox: GradeInSandbox):
     verdict, seconds = timed_grade(
-        grade_in_sandbox, STAGE_3["reference_solution"]
+        grade_in_sandbox, STAGE_3["reference_program"]
     )
     assert verdict["verdict"] == "pass"
     assert seconds < GRADE_SECONDS
 
 
 def test_broken_program_fails_in_container(grade_in_sandbox: GradeInSandbox):
-    broken = ROOT / "tests/fixtures/pong/stage3_ball_through_paddle.py"
-    verdict, seconds = timed_grade(grade_in_sandbox, broken.read_text())
+    verdict, seconds = timed_grade(grade_in_sandbox, STAGE_3["broken_program"])
     assert verdict["reason"] == "rule"
     assert "bounce off the right paddle" in verdict["rule"]
     assert seconds < GRADE_SECONDS
