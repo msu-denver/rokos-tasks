@@ -10,7 +10,6 @@ Author(s): Richard Hall, Tyler Black
 import re
 from dataclasses import dataclass
 
-from src.business.game_service import RunNotFoundError
 from src.business.runner_client import RunnerClient
 from src.data.repositories.run_repository import RunRepository
 
@@ -34,6 +33,10 @@ UNKNOWN_REASON = "Failed."
 _SANDBOX_PATH = re.compile(r'^(\s*File )"[^"\n]*/main\.py"', re.MULTILINE)
 
 
+class RunNotFoundError(LookupError):
+    """The requested run is absent or belongs to another player."""
+
+
 class RunFinishedError(Exception):
     """The run is no longer in progress, so it can't be submitted."""
 
@@ -44,6 +47,10 @@ class InvalidCodeError(ValueError):
 
 class CodeTooLargeError(InvalidCodeError):
     """The submitted program is larger than the runner accepts."""
+
+
+class StageNotGradableError(Exception):
+    """The current stage has no check script."""
 
 
 @dataclass(frozen=True)
@@ -139,6 +146,7 @@ class GradingService:
                 isn't valid text (a lone surrogate).
             RunnerUnavailableError: If the runner couldn't grade.
             CheckScriptBrokenError: If the check script failed.
+            StageNotGradableError: If the current stage has no check script.
         """
         run = self._runs.get_for_user(run_id, user_id)
         if run is None:
@@ -152,4 +160,8 @@ class GradingService:
         if size > MAX_CODE_BYTES:
             raise CodeTooLargeError("the program is larger than 64 KB")
         check_script = self._runs.check_script_for(run)
+        if check_script is None:
+            raise StageNotGradableError(
+                "the current stage has no check script"
+            )
         return to_verdict(self._runner.grade(code, check_script))

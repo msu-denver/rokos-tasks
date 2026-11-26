@@ -19,6 +19,7 @@ from src.business.grading_service import (
     GradingService,
     InvalidCodeError,
     RunFinishedError,
+    StageNotGradableError,
     clean_traceback,
     to_verdict,
 )
@@ -42,7 +43,7 @@ def runner_reply(**overrides: object) -> dict:
 
 def make_service(
     status: str = "in_progress",
-    check_script: str = CHECK,
+    check_script: str | None = CHECK,
     reply: dict | None = None,
 ) -> tuple[GradingService, mock.Mock]:
     runs = mock.Mock()
@@ -157,6 +158,14 @@ def test_missing_or_foreign_run_is_not_found():
 def test_finished_run_cannot_be_submitted():
     service, runner = make_service(status="lost")
     with pytest.raises(RunFinishedError):
+        service.grade(1, 7, "")
+    runner.grade.assert_not_called()
+
+
+def test_missing_check_script_is_not_gradable() -> None:
+    """Report a missing script without calling the runner."""
+    service, runner = make_service(check_script=None)
+    with pytest.raises(StageNotGradableError):
         service.grade(1, 7, "")
     runner.grade.assert_not_called()
 
