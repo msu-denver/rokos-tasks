@@ -1,0 +1,30 @@
+{#
+File: result.html
+Description: The victory or game-over screen for a finished run (US7):
+    the points from each cleared stage and the run's total score.
+Author(s): Tyler Black
+#}
+<section class="floating-panel floating-panel--form game-result" data-testid="game-result"
+         aria-labelledby="game-result-heading">
+  {# Placeholder headings until US10 gives the Overlord's lines. #}
+  <h1 id="game-result-heading" data-testid="game-result-heading">
+    {%- if result.status == "won" %}Victory{% else %}Game over{% endif -%}
+  </h1>
+  <dl class="game-result-breakdown" data-testid="game-result-breakdown">
+    {% for row in result.rows %}
+      <div class="game-result-row" data-testid="game-result-row">
+        <dt>Stage {{ row.stage }}</dt>
+        <dd>{{ row.points }}</dd>
+      </div>
+    {% endfor %}
+  </dl>
+  <dl class="game-result-score">
+    <div class="game-result-row">
+      <dt>Total</dt>
+      <dd data-testid="game-result-total">{{ result.total }}</dd>
+    </div>
+  </dl>
+  <div class="confirm-actions">
+    <a class="btn btn-primary" href="{{ url_for('game.start') }}" data-testid="game-result-start">Start a run</a>
+  </div>
+</section>

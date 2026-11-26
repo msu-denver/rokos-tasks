@@ -2,7 +2,8 @@
 File: submit.js
 Description: Submit (US6): sends the editor's code to the grading route,
     keeps the button disabled while the Overlord plays the program, and
-    shows the verdict or why there isn't one.
+    shows the verdict or why there isn't one, then hands the reply on so
+    the page can apply the run's new state (US7).
 Author(s): Richard Hall, Tyler Black
 */
 
@@ -48,8 +49,11 @@ async function post_code(button, code) {
 }
 
 // show_console runs after every verdict or message is shown: it opens a
-// collapsed console and announces what's new.
-export function init_submit(button, panel, get_code, show_console) {
+// collapsed console and announces what's new. on_graded gets the whole
+// reply after a verdict, to apply the run's new state (US7).
+export function init_submit(
+  button, panel, get_code, show_console, on_graded,
+) {
   const idle_label = button.textContent;
 
   button.addEventListener("click", async () => {
@@ -59,6 +63,7 @@ export function init_submit(button, panel, get_code, show_console) {
       const {ok, body} = await post_code(button, get_code());
       if (ok) {
         show_verdict(panel, body.verdict);
+        on_graded(body);
       } else {
         show_message(panel, body.message ?? FAILED_REQUEST);
       }
