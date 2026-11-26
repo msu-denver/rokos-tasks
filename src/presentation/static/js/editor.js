@@ -182,6 +182,8 @@ function editor_options(monaco, value) {
 //     draft and load the new stage's draft or the checkpoint.
 //   reset(checkpoint): after a fail, clear the stage's draft and go back
 //     to the checkpoint (empty on Stage 1).
+//   finish(): after the last stage, clear its draft.
+//   stage(): the stage the editor is on.
 export function init_editor(container, checkpoint) {
   const [textarea, host] = container.children;
   const {run} = container.dataset;
@@ -223,6 +225,8 @@ export function init_editor(container, checkpoint) {
       forget_stage();
       show(last_checkpoint ?? "");
     },
+    finish: forget_stage,
+    stage: () => Number(container.dataset.stage),
   };
 }
 

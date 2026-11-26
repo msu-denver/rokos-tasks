@@ -143,7 +143,7 @@ class GradingService:
             RunNotFoundError: If the run is missing or someone else's.
             RunFinishedError: If the run is over.
             InvalidCodeError: If the code is over the size limit or
-                isn't valid text (a lone surrogate).
+                isn't valid text (a lone surrogate or a NUL character).
             RunnerUnavailableError: If the runner couldn't grade.
             CheckScriptBrokenError: If the check script failed.
             StageNotGradableError: If the current stage has no check script.
@@ -157,6 +157,9 @@ class GradingService:
             size = len(code.encode())
         except UnicodeEncodeError as error:
             raise InvalidCodeError("the program isn't valid text") from error
+        if "\0" in code:
+            # Python rejects it, and Postgres can't store it in a Submission.
+            raise InvalidCodeError("the program contains a NUL character")
         if size > MAX_CODE_BYTES:
             raise CodeTooLargeError("the program is larger than 64 KB")
         check_script = self._runs.check_script_for(run)

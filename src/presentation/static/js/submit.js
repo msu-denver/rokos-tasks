@@ -9,6 +9,7 @@ Author(s): Richard Hall, Tyler Black
 
 const BUSY_LABEL = "The Overlord is playing your program…";
 const FAILED_REQUEST = "Grading is unavailable. This submit didn't count.";
+const CONFLICT = 409;
 
 function part(verdict_panel, test_id) {
   return verdict_panel.querySelector(`[data-testid="${test_id}"]`);
@@ -34,7 +35,7 @@ function show_message(panel, message) {
   show_verdict(panel, {passed: false, heading: "", reason: message});
 }
 
-async function post_code(button, code) {
+async function post_attempt(button, {code, stage}) {
   const {submitUrl, run, csrfToken} = button.dataset;
   const response = await fetch(submitUrl, {
     method: "POST",
@@ -42,17 +43,18 @@ async function post_code(button, code) {
       "Content-Type": "application/json",
       "X-CSRFToken": csrfToken,
     },
-    body: JSON.stringify({run_id: Number(run), code}),
+    body: JSON.stringify({run_id: Number(run), stage, code}),
   });
   const body = await response.json().catch(() => ({}));
-  return {ok: response.ok, body};
+  return {ok: response.ok, status: response.status, body};
 }
 
-// show_console runs after every verdict or message is shown: it opens a
-// collapsed console and announces what's new. on_graded gets the whole
-// reply after a verdict, to apply the run's new state (US7).
+// get_attempt returns {code, stage}: the editor's code and the stage the
+// page shows. show_console runs after every verdict or message is shown:
+// it opens a collapsed console and announces what's new. on_graded gets
+// the whole reply after a verdict, to apply the run's new state (US7).
 export function init_submit(
-  button, panel, get_code, show_console, on_graded,
+  button, panel, get_attempt, show_console, on_graded,
 ) {
   const idle_label = button.textContent;
 
@@ -60,8 +62,11 @@ export function init_submit(
     button.disabled = true;
     button.textContent = BUSY_LABEL;
     try {
-      const {ok, body} = await post_code(button, get_code());
-      if (ok) {
+      const {ok, status, body} = await post_attempt(button, get_attempt());
+      if (status === CONFLICT) {
+        // The run moved on (another tab, or it ended): show where it is now.
+        window.location.reload();
+      } else if (ok) {
         show_verdict(panel, body.verdict);
         on_graded(body);
       } else {

@@ -74,7 +74,7 @@ def _submit_failure(
             grading=grading,
         )
         try:
-            game.submit_stage(player_id, run_id, "print(2)")
+            game.submit_stage(player_id, run_id, "print(2)", 1)
         except StaleSubmitError:
             return "stale"
         return "applied"

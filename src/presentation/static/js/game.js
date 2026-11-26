@@ -25,6 +25,7 @@ const show_console = init_console(by_test_id("game-console"), editor_element);
 function apply_run({run, stage, checkpoint}) {
   if (run.status !== "in_progress") {
     // The server draws the victory or game-over screen for a finished run.
+    editor.finish();
     window.location.reload();
     return;
   }
@@ -41,7 +42,7 @@ function apply_run({run, stage, checkpoint}) {
 init_submit(
   by_test_id("game-submit"),
   by_test_id("game-verdict"),
-  editor.get_code,
+  () => ({code: editor.get_code(), stage: editor.stage()}),
   show_console,
   apply_run,
 );

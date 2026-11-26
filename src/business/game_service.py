@@ -134,7 +134,7 @@ class GameService:
         """Start the chosen tier and replace an active run with consent."""
         self._runs.lock_player(user_id)
         campaign = self._selector.choose(user_id, difficulty)
-        active = self.active_run(user_id)
+        active = self._locked_active_run(user_id)
         if active is not None and (
             not replace_active or expected_active_id not in (None, active.id)
         ):
@@ -181,15 +181,25 @@ class GameService:
         return self._stage_view(run, self._checkpoint_code(run))
 
     def submit_stage(
-        self, user_id: int, run_id: int, code: str
+        self, user_id: int, run_id: int, code: str, stage: int
     ) -> SubmitResult:
         """Grade and apply one attempt if the run still matches its snapshot.
+
+        Args:
+            user_id: The player submitting.
+            run_id: One of the player's runs.
+            code: The program in the editor.
+            stage: The stage the player's page shows.
+
+        Returns:
+            The verdict and the run's state after applying it.
 
         Raises:
             RuntimeError: If no grading service was configured.
             RunNotFoundError: If the player does not own the run.
             RunFinishedError: If the run has already finished.
-            StaleSubmitError: If the run changed during grading.
+            StaleSubmitError: If the page shows another stage, or the run
+                changed during grading.
         """
         if self._grading is None:
             raise RuntimeError("no grading service configured")
@@ -197,7 +207,10 @@ class GameService:
         run = self._owned_run(user_id, run_id)
         if run.status != "in_progress":
             raise RunFinishedError(run_id)
-        stage, started = run.current_stage, run.stage_started_at
+        if run.current_stage != stage:
+            # An old tab must not spend a life on a stage it never showed.
+            raise StaleSubmitError("the page shows another stage")
+        started = run.stage_started_at
         difficulty = Difficulty(run.difficulty)
         seconds_remaining = ScoreCalculator.seconds_remaining(
             difficulty.minutes_per_stage * 60, started, arrived
@@ -241,6 +254,17 @@ class GameService:
         if run is None:
             raise RunNotFoundError(run_id)
         return run
+
+    def _locked_active_run(self, user_id: int) -> GameRun | None:
+        active = self._runs.active_for(user_id)
+        if active is None:
+            return None
+        # A final submit may win or lose this run while we wait for its
+        # lock, and then it is no longer ours to abandon.
+        locked = self._runs.lock_for_user(active.id, user_id)
+        if locked is None or locked.status != "in_progress":
+            return None
+        return locked
 
     def _lock_snapshot(
         self, user_id: int, run_id: int, stage: int, started: datetime
@@ -295,9 +319,11 @@ class GameService:
         state = RunState(
             run.status, run.lives, run.current_stage, run.score, points
         )
-        return SubmitResult(
-            verdict, state, next_stage, self._checkpoint_code(run)
+        # A finished run has no editor left to restore.
+        checkpoint_code = (
+            self._checkpoint_code(run) if run.status == "in_progress" else None
         )
+        return SubmitResult(verdict, state, next_stage, checkpoint_code)
 
     def _apply_pass(
         self,

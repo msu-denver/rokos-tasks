@@ -56,9 +56,13 @@ def start_run(player: FlaskClient, difficulty: str) -> int:
     return int(response.headers["Location"].rsplit("/", 1)[1])
 
 
-def submit(player: FlaskClient, run_id: object, code: object) -> Response:
-    """Post a program for grading."""
-    return player.post("/game/submit", json={"run_id": run_id, "code": code})
+def submit(
+    player: FlaskClient, run_id: object, code: object, stage: object = 1
+) -> Response:
+    """Post a program for grading from a page showing ``stage``."""
+    return player.post(
+        "/game/submit", json={"run_id": run_id, "stage": stage, "code": code}
+    )
 
 
 @requires_host_play
@@ -146,8 +150,8 @@ def test_beginner_campaign_can_be_won(
 ) -> None:
     """#19 AC1, US7 AC3: pass both Beginner stages to win the run."""
     run_id = start_run(player, "beginner")
-    for stage in TRAFFIC["stages"]:
-        response = submit(player, run_id, stage["reference_program"])
+    for number, stage in enumerate(TRAFFIC["stages"], start=1):
+        response = submit(player, run_id, stage["reference_program"], number)
         assert response.status_code == 200
         body = response.get_json()
         assert body["verdict"]["passed"] is True
@@ -170,23 +174,51 @@ def test_four_failures_end_beginner_run(
     passed = submit(player, run_id, first["reference_program"]).get_json()
     assert passed["run"]["score"] > 0
     for lives in (3, 2, 1, 0):
-        response = submit(player, run_id, second["broken_program"])
+        response = submit(player, run_id, second["broken_program"], 2)
         assert response.status_code == 200
         body = response.get_json()
         assert body["verdict"]["passed"] is False
         assert body["run"]["lives"] == lives
-        assert body["checkpoint"] == first["reference_program"]
+        expected = None if lives == 0 else first["reference_program"]
+        assert body["checkpoint"] == expected
     assert (body["run"]["status"], body["run"]["score"]) == ("lost", 0)
     run = db_session.get_one(GameRun, run_id)
     assert (run.status, run.lives, run.score) == ("lost", 0, 0)
 
 
-def test_lone_surrogate_is_a_bad_request(
-    player: FlaskClient, seeded_pong: int
+@pytest.mark.parametrize("code", ["print('\ud800')", "print(1)\0"])
+def test_code_that_is_not_text_is_a_bad_request(
+    player: FlaskClient, seeded_pong: int, db_session: Session, code: str
 ):
-    """Code that isn't valid text gets 400, not a server error."""
-    response = submit(player, start_run(player, "medium"), "print('\ud800')")
+    """A lone surrogate or a NUL gets 400 and costs nothing."""
+    run_id = start_run(player, "medium")
+    response = submit(player, run_id, code)
     assert response.status_code == 400
+    assert db_session.get_one(GameRun, run_id).lives == 3
+    assert (
+        db_session.scalars(
+            select(Submission).where(Submission.run_id == run_id)
+        ).all()
+        == []
+    )
+
+
+def test_submit_from_an_old_page_is_refused(
+    player: FlaskClient, seeded_pong: int, db_session: Session
+) -> None:
+    """A page showing another stage gets 409 before any grading."""
+    run_id = start_run(player, "medium")
+    response = submit(player, run_id, STAGE_1, stage=2)
+    assert response.status_code == 409
+    assert response.get_json() == {"message": "This page is out of date."}
+    run = db_session.get_one(GameRun, run_id)
+    assert (run.lives, run.current_stage, run.score) == (3, 1, 0)
+    assert (
+        db_session.scalars(
+            select(Submission).where(Submission.run_id == run_id)
+        ).all()
+        == []
+    )
 
 
 def test_runner_down_does_not_count(
@@ -229,7 +261,7 @@ def test_missing_check_script_does_not_count(
     db_session.get_one(GameRun, run_id).current_stage = missing_stage
     db_session.commit()
 
-    response = submit(player, run_id, STAGE_1)
+    response = submit(player, run_id, STAGE_1, missing_stage)
 
     assert response.status_code == 503
     assert response.get_json() == {
@@ -255,19 +287,17 @@ def _assert_uncounted(
 def test_stale_submit_returns_conflict(
     player: FlaskClient, seeded_pong: int, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Return the duplicate-submit message for a stale verdict."""
+    """US7 AC5: a verdict for a run that changed while grading gets 409."""
 
     def reject(
-        self: GameService, user_id: int, run_id: int, code: str
+        self: GameService, user_id: int, run_id: int, code: str, stage: int
     ) -> None:
         raise StaleSubmitError
 
     monkeypatch.setattr(GameService, "submit_stage", reject)
     response = submit(player, start_run(player, "medium"), STAGE_1)
     assert response.status_code == 409
-    assert response.get_json() == {
-        "message": "That submit was already counted."
-    }
+    assert response.get_json() == {"message": "This page is out of date."}
 
 
 @pytest.mark.parametrize(
@@ -277,6 +307,9 @@ def test_stale_submit_returns_conflict(
         {"run_id": "1", "code": ""},
         {"run_id": True, "code": ""},
         {"run_id": 1, "code": 5},
+        {"run_id": 1, "code": ""},
+        {"run_id": 1, "stage": "1", "code": ""},
+        {"run_id": 1, "stage": True, "code": ""},
     ],
 )
 def test_bad_body_is_400(player: FlaskClient, body: object):

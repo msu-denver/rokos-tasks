@@ -84,10 +84,17 @@ class RunRepository(BaseRepository[GameRun]):
         return submission
 
     def latest_checkpoint(self, run: GameRun) -> Checkpoint | None:
-        """Return the checkpoint for the highest stage passed, if any."""
+        """Return the checkpoint from the last stage before the run's own.
+
+        Only stages below ``run.current_stage`` count, so a page that read
+        the run just before a pass never pairs its stage with that pass.
+        """
         query = (
             select(Checkpoint)
-            .where(Checkpoint.run_id == run.id)
+            .where(
+                Checkpoint.run_id == run.id,
+                Checkpoint.stage_number < run.current_stage,
+            )
             .order_by(Checkpoint.stage_number.desc())
             .limit(1)
         )

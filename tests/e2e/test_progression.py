@@ -198,6 +198,12 @@ def test_clearing_the_last_stage_shows_victory(
     points = sum(int(row.text.split()[-1]) for row in rows)
     total = browser.find_element(*selector("game-result-total"))
     assert int(total.text) == points > 0
+    drafts = browser.execute_script(
+        "return Object.keys(localStorage).filter("
+        "(key) => key.startsWith(arguments[0]))",
+        f"rokos:run:{_run_id(browser)}:",
+    )
+    assert drafts == []
 
 
 @requires_host_play
@@ -223,3 +229,31 @@ def test_losing_every_life_shows_game_over(
     assert len(breakdown.find_elements(*selector("game-result-row"))) == 1
     total = browser.find_element(*selector("game-result-total"))
     assert total.text == "0"
+
+
+@requires_host_play
+@pytest.mark.e2e
+def test_old_page_reloads_instead_of_spending_a_life(
+    browser: webdriver.Chrome,
+    live_server: str,
+    db_session: Session,
+    seeded_pong: int,
+) -> None:
+    """US7 AC5: a page that shows another stage reloads, costing nothing."""
+    ready = start_run(browser, live_server, db_session, "medium")
+    write_code(browser, ready, CRASH)
+    # Stand in for a tab left open on a stage the run has moved past.
+    browser.execute_script(
+        "document.querySelector('[data-testid=game-editor]')"
+        ".dataset.stage = '2'; window.before_reload = true;"
+    )
+    browser.find_element(*selector("game-submit")).click()
+    WebDriverWait(browser, VERDICT_SECONDS).until(
+        lambda driver: driver.execute_script(
+            "return window.before_reload === undefined"
+        )
+    )
+
+    lives = browser.find_element(*selector("game-lives"))
+    assert lives.get_attribute("aria-label") == "3 of 3 lives"
+    assert _stage_label(browser) == "Medium, stage 1 of 3"

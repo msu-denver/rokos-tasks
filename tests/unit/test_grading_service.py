@@ -178,9 +178,13 @@ def test_code_over_the_limit_is_rejected():
     runner.grade.assert_called_once()
 
 
-def test_code_that_is_not_valid_text_is_rejected():
-    """A lone surrogate can't be encoded, so it never reaches the runner."""
+@pytest.mark.parametrize("code", ["print('\ud800')", "print(1)\0"])
+def test_code_that_is_not_valid_text_is_rejected(code: str):
+    """A lone surrogate or a NUL never reaches the runner.
+
+    A surrogate can't be encoded, and Postgres can't store a NUL.
+    """
     service, runner = make_service()
     with pytest.raises(InvalidCodeError):
-        service.grade(1, 7, "print('\ud800')")
+        service.grade(1, 7, code)
     runner.grade.assert_not_called()

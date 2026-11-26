@@ -100,7 +100,7 @@ def run_with_stages(db_session: Session, seeded_beginner: int) -> GameRun:
 def test_checkpoint_and_submission_round_trip(
     db_session: Session, run_with_stages: GameRun
 ) -> None:
-    """Read the highest checkpoint and only passes in stage order."""
+    """Read the checkpoint below the run's stage and passes in order."""
     runs = RunRepository(db_session)
     run = run_with_stages
     run_id = run.id
@@ -111,7 +111,7 @@ def test_checkpoint_and_submission_round_trip(
     second = runs.save_checkpoint(
         Checkpoint(run_id=run.id, stage_number=2, code="two", saved_at=now)
     )
-    runs.save_checkpoint(
+    first = runs.save_checkpoint(
         Checkpoint(run_id=run.id, stage_number=1, code="one", saved_at=now)
     )
     passes = [
@@ -141,18 +141,22 @@ def test_checkpoint_and_submission_round_trip(
         )
     )
     runs.commit()
-    checkpoint_id = second.id
+    checkpoint_ids = (first.id, second.id)
     pass_ids = [sub.id for sub in reversed(passes)]
     db_session.expunge_all()
 
     run = db_session.get_one(GameRun, run_id)
+    # A checkpoint for the run's own stage isn't one it has reached yet.
+    run.current_stage = 2
     latest = runs.latest_checkpoint(run)
     assert (latest.id, latest.stage_number, latest.code, latest.saved_at) == (
-        checkpoint_id,
-        2,
-        "two",
+        checkpoint_ids[0],
+        1,
+        "one",
         now,
     )
+    run.current_stage = 3
+    assert runs.latest_checkpoint(run).id == checkpoint_ids[1]
     history = runs.passed_submissions(run)
     assert [sub.id for sub in history] == pass_ids
     assert [(sub.stage_number, sub.code) for sub in history] == [

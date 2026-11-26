@@ -44,7 +44,7 @@ logger = logging.getLogger(__name__)
 
 # Placeholder wording until the PO decides; US10 moves it to dialogue.
 UNAVAILABLE = "Grading is unavailable. This submit didn't count."
-STALE = "That submit was already counted."
+STALE = "This page is out of date."
 
 
 def _render_start(game: GameService, error: str | None = None) -> str:
@@ -114,6 +114,10 @@ def play(run_id: int) -> str:
     return render_template("game/play.html", stage=stage, run_id=run_id)
 
 
+def _is_int(value: object) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
 def _message(status: HTTPStatus, message: str) -> tuple[Response, int]:
     return jsonify(message=message), status
 
@@ -125,17 +129,14 @@ def submit() -> tuple[Response, int]:
     payload = request.get_json(silent=True)
     if not isinstance(payload, dict):
         abort(400)
-    run_id, code = payload.get("run_id"), payload.get("code")
-    if (
-        not isinstance(run_id, int)
-        or isinstance(run_id, bool)
-        or not isinstance(code, str)
-    ):
+    run_id, stage = payload.get("run_id"), payload.get("stage")
+    code = payload.get("code")
+    if not (_is_int(run_id) and _is_int(stage) and isinstance(code, str)):
         abort(400)
 
     game = build_game_service(current_app.config["RUNNER_URL"])
     try:
-        result = game.submit_stage(current_user.id, run_id, code)
+        result = game.submit_stage(current_user.id, run_id, code, stage)
     except RunNotFoundError:
         abort(404)
     except RunFinishedError:

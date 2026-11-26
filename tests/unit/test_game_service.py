@@ -94,7 +94,7 @@ def test_start_run_records_first_stage_and_abandons_previous_run() -> None:
     selector = Mock(spec=CampaignSelector)
     selector.choose.return_value = Campaign(id=42)
     runs = Mock(spec=RunRepository)
-    runs.active_for.return_value = old_run
+    runs.active_for.return_value = runs.lock_for_user.return_value = old_run
     clock = Mock(return_value=NOW)
 
     run = GameService(selector, runs, clock).start_run(
@@ -116,6 +116,7 @@ def test_start_run_records_first_stage_and_abandons_previous_run() -> None:
         NOW,
     )
     selector.choose.assert_called_once_with(PLAYER_ID, Difficulty.EASY)
+    runs.lock_for_user.assert_called_once_with(12, PLAYER_ID)
     runs.add.assert_called_once_with(run)
     runs.commit.assert_called_once_with()
     clock.assert_called_once_with()
@@ -132,7 +133,7 @@ def test_start_run_requires_confirmation_for_current_run(
     """Keep the active run intact until its replacement is confirmed."""
     active = GameRun(id=12, status="in_progress", score=50)
     runs = Mock(spec=RunRepository)
-    runs.active_for.return_value = active
+    runs.active_for.return_value = runs.lock_for_user.return_value = active
     clock = Mock()
     service = GameService(Mock(spec=CampaignSelector), runs, clock)
 
@@ -154,6 +155,26 @@ def test_start_run_requires_confirmation_for_current_run(
     runs.add.assert_not_called()
     runs.commit.assert_not_called()
     clock.assert_not_called()
+
+
+@pytest.mark.parametrize("status", ["won", "lost"])
+def test_start_run_keeps_a_run_that_ended_while_locking(status: str) -> None:
+    """Never abandon a run a final submit finished before the lock."""
+    seen = GameRun(id=12, status="in_progress", score=50)
+    finished = GameRun(id=12, status=status, score=300)
+    selector = Mock(spec=CampaignSelector)
+    selector.choose.return_value = Campaign(id=42)
+    runs = Mock(spec=RunRepository)
+    runs.active_for.return_value = seen
+    runs.lock_for_user.return_value = finished
+
+    run = GameService(selector, runs, Mock(return_value=NOW)).start_run(
+        PLAYER_ID, Difficulty.EASY
+    )
+
+    assert run.status == "in_progress"
+    assert (finished.status, finished.score) == (status, 300)
+    runs.commit.assert_called_once_with()
 
 
 def test_start_run_without_campaign_does_not_abandon_active_run() -> None:
@@ -299,7 +320,7 @@ def test_submit_pass_advances_using_arrival_time(
 ) -> None:
     """Advance, save code, and award points for time left at arrival."""
     service, runs, grading, run = submit_game
-    result = service.submit_stage(PLAYER_ID, RUN_ID, CODE)
+    result = service.submit_stage(PLAYER_ID, RUN_ID, CODE, run.current_stage)
 
     checkpoint = runs.save_checkpoint.call_args.args[0]
     assert (checkpoint.run_id, checkpoint.stage_number) == (RUN_ID, 1)
@@ -338,16 +359,17 @@ def test_submit_pass_advances_using_arrival_time(
 def test_submit_pass_at_last_stage_wins(
     submit_game: tuple[GameService, Mock, Mock, GameRun],
 ) -> None:
-    """Finish the run at its final stage and keep the last checkpoint."""
+    """Finish the run at its final stage, with nothing to restore."""
     service, runs, _, run = submit_game
     run.current_stage = 3
     run.score = 250
 
-    result = service.submit_stage(PLAYER_ID, RUN_ID, CODE)
+    result = service.submit_stage(PLAYER_ID, RUN_ID, CODE, run.current_stage)
 
     assert result.run == RunState("won", 3, 3, 392, 142)
     assert result.next_stage is None
-    assert result.checkpoint_code == CODE
+    assert result.checkpoint_code is None
+    runs.latest_checkpoint.assert_not_called()
     assert result.to_dict()["stage"] is None
     assert run.ended_at == APPLIED
     runs.current_stage_for.assert_not_called()
@@ -364,7 +386,7 @@ def test_submit_failure_resets_time_and_exposes_checkpoint(
     grading.grade.return_value = FAIL
     runs.latest_checkpoint.return_value = Checkpoint(code="previous code")
 
-    result = service.submit_stage(PLAYER_ID, RUN_ID, CODE)
+    result = service.submit_stage(PLAYER_ID, RUN_ID, CODE, run.current_stage)
 
     assert result.run == RunState("in_progress", 2, 2, 250, 0)
     assert result.next_stage is None
@@ -392,7 +414,7 @@ def test_last_life_failure_loses_and_zeros_score(
         False, "FAIL", "crashed", "Crashed.", 1, (), None, ""
     )
 
-    result = service.submit_stage(PLAYER_ID, RUN_ID, CODE)
+    result = service.submit_stage(PLAYER_ID, RUN_ID, CODE, run.current_stage)
 
     assert result.run == RunState("lost", 0, 1, 0, 0)
     assert result.next_stage is result.checkpoint_code is None
@@ -424,7 +446,7 @@ def test_grading_error_never_writes(
     grading.grade.side_effect = error
 
     with pytest.raises(error):
-        service.submit_stage(PLAYER_ID, RUN_ID, CODE)
+        service.submit_stage(PLAYER_ID, RUN_ID, CODE, run.current_stage)
 
     assert (run.lives, run.current_stage, run.score) == (3, 1, 0)
     runs.lock_for_user.assert_not_called()
@@ -454,9 +476,24 @@ def test_stale_submit_rolls_back(
     runs.lock_for_user.return_value = locked_run
 
     with pytest.raises(StaleSubmitError):
-        service.submit_stage(PLAYER_ID, RUN_ID, CODE)
+        service.submit_stage(PLAYER_ID, RUN_ID, CODE, 1)
 
     runs.rollback.assert_called_once_with()
+    runs.add_submission.assert_not_called()
+    runs.commit.assert_not_called()
+
+
+def test_submit_for_another_stage_is_stale(
+    submit_game: tuple[GameService, Mock, Mock, GameRun],
+) -> None:
+    """An old page's submit is refused before grading costs a life."""
+    service, runs, grading, run = submit_game
+
+    with pytest.raises(StaleSubmitError):
+        service.submit_stage(PLAYER_ID, RUN_ID, CODE, 2)
+
+    assert (run.lives, run.current_stage) == (3, 1)
+    grading.grade.assert_not_called()
     runs.add_submission.assert_not_called()
     runs.commit.assert_not_called()
 
@@ -498,6 +535,6 @@ def test_submit_requires_grader() -> None:
     service = GameService(Mock(spec=CampaignSelector), runs, Mock())
 
     with pytest.raises(RuntimeError, match="no grading service configured"):
-        service.submit_stage(PLAYER_ID, RUN_ID, CODE)
+        service.submit_stage(PLAYER_ID, RUN_ID, CODE, 1)
 
     runs.get_for_user.assert_not_called()
