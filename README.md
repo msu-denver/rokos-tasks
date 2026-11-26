@@ -406,6 +406,6 @@ make up                       # or: docker compose up --build
 Open <http://localhost:8000>. Containers: `web` (Flask + Gunicorn, port 8000), `db` (PostgreSQL 17).
 
 ```bash
-make down                 # or: docker compose down
-docker compose down -v    # stop and delete the database volume
+make down                               # or: docker compose --profile dev down
+docker compose --profile dev down -v    # also delete the database volume
 ```

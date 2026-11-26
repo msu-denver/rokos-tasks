@@ -2,8 +2,9 @@
 File: test_dev_setup.py
 Description: Unit tests for the `make dev` setup: it runs Flask in the
     Compose web-dev service, which waits for the db and the runner and
-    joins the sandbox network, while the runner stays internal-only.
-Author(s): Tyler Black
+    joins the sandbox network, while the runner stays internal-only, and
+    `make down` removes web-dev too.
+Author(s): Tyler Black, Richard Hall
 """
 
 from pathlib import Path
@@ -58,6 +59,12 @@ def test_make_dev_skips_docker_in_ci() -> None:
     assert "docker" not in ci_branch
     assert "create_dev_app" in ci_branch
     assert "docker compose" in other_branch
+
+
+def test_make_down_includes_dev_profile() -> None:
+    """`make down` also removes web-dev, which is in the dev profile."""
+    recipe = make_recipe("down")
+    assert "docker compose --profile dev down" in recipe
 
 
 def test_web_dev_waits_for_healthy_db_and_runner() -> None:
