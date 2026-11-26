@@ -38,10 +38,12 @@ enum RunStatus {
 }
 
 enum FailureKind {
-    BROKEN_RULE
-    RUNTIME_ERROR
-    SYNTAX_ERROR
-    TIMEOUT
+    RULE
+    CRASHED
+    EXITED
+    TURN_TIMEOUT
+    RUN_TIMEOUT
+    OUTPUT_LIMIT
 }
 
 class User {
@@ -101,7 +103,7 @@ class Submission {
     passed: bool
     failure_kind: FailureKind | None
     failed_rule: str | None
-    failed_tick: int | None
+    failed_turn: int | None
     seconds_remaining: int
     submitted_at: datetime
 }

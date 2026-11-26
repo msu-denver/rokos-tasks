@@ -31,7 +31,7 @@
     * *Smug / Mocking* — *"Human hallucination detected"* on a failed Submit
     * *Reluctantly Impressed* — One-time +1 bonus life awarded
     * *Short-Circuited / Defeated* — Campaign victory
-  * **Right Viewport (The Human Terminal):** A Python code editor (Monaco Editor), stage countdown timer, lives counter, **Run** / **Submit** buttons, and a screen that shows the program's frames while it runs, plus tracebacks and the Overlord's verdict.
+  * **Right Viewport (The Human Terminal):** A Python code editor (Monaco Editor), stage countdown timer, lives counter, **Run** / **Submit** buttons, and a console panel that shows the program's output while it runs, plus tracebacks and the Overlord's verdict.
 * **Overlord Dialogue:** Lines live in a single data file (YAML/JSON) organized by game event, written against a shared voice/tone guide, so the humor stays consistent no matter which developer (or AI tool) adds lines. Live LLM-generated quips are optional and used sparingly ([§6](#6-llm-usage--budget)).
 
 ---
@@ -45,11 +45,23 @@
 * Only **Stage 1** is revealed at the start of the run.
 
 ### 2.2 The Stage Contract (a program the Overlord can play)
-Every stage asks the player for a **complete Python program that runs as a loop**. Each tick, the program reads **one line of input** (the keys pressed that tick, or a command like `coin 25`; an empty line means nothing happened) and prints **one frame** (the screen, followed by a line with only `---`). There are **no required function names, classes, or file structures**. Players organize their code however they like.
+Every stage asks the player for a **complete Python program**: a normal script, run like `python main.py`, top to bottom. Its output is whatever it prints. The player writes their own `main`, and writes a loop only if the program needs one (a game like Pong does; a greeting doesn't). There are **no required function names, classes, or file structures**. Players organize their code however they like.
+
+* **Input.** A program reads input **only when the stage's prompt says so**, with plain `input()`. It never loops over `sys.stdin`.
+* **Screens.** A **screen** is everything the program printed since it last asked for input, or before it exited. There are no separator lines.
+* **Finishing.** Exiting after printing is a normal finish, not a failure. What the program printed last is its final screen.
+* **Turns.** A **turn** runs from one input request (or the start) to the next input request or exit.
+
+**(Proposed) Input style.** Each stage declares an input style in the campaign data, for example `"input": "none" | "lines" | "keys"`:
+* `none`: the program reads no input.
+* `lines`: each `input()` waits for a typed line, like a person pressing Enter.
+* `keys`: a real-time game. Each `input()` gets the keys pressed since the last call, or an empty line, at a fixed turn rate, so the game keeps moving when no key is pressed.
+
+The prompt states it, and the check scripts, the validator, Run (US5), and the generator (US11) follow it. The names and the turn rate are still open.
 
 Each stage gives the player:
-* **Prompt.** One plain-text message in the Overlord's feed. It states the feature, the controls, the characters the frame uses (for example `O` for the ball, `|` for a paddle), and the rules the Overlord will check.
-* **Check script.** Hidden. A small Python script that **plays the program**: it sends input lines, reads the frames, and checks the stage's rules. It never reads the player's code. Checks test *behavior*, not one exact screen, so any program that follows the rules passes, however it was built.
+* **Prompt.** One plain-text message in the Overlord's feed. It states the feature, when and how the program reads input, the controls, the characters on the screen (for example `O` for the ball, `|` for a paddle), and the rules the Overlord will check.
+* **Check script.** Hidden. A small Python script that **plays the program**: it reads each screen, types input when the stage uses input, and checks the stage's rules. It never reads the player's code. Checks test *behavior*, not one exact screen, so any program that follows the rules passes, however it was built.
 * **No starter code.** The editor never contains code the player didn't write. Stage 1 starts empty; later stages start from the player's own checkpoint code. The validator rejects any non-null `starter_code`.
 
 Each stage **extends the previous one**, so the player builds on their own code.
@@ -58,34 +70,34 @@ Each stage **extends the previous one**, so the player builds on their own code.
 
 | Stage | The Overlord asks for | What the check script does |
 | :--- | :--- | :--- |
-| 1 | Draw a ball anywhere on a 20x20 board. | Reads one frame: 20 rows of 20 characters, exactly one `O`. (Hard-coding the ball passes, but it hurts in stage 3.) |
-| 2 | Two paddles. `q`/`a` move the left one up/down, `p`/`l` the right one. | Presses each key and checks that only that paddle moves, one row, in the right direction, and stops at the edge. |
+| 1 | Print a 20x20 board with one ball anywhere, then exit. No input. | Reads the one screen: 20 rows of 20 characters, exactly one `O`, and the program finished. (Hard-coding the ball passes, but it hurts in stage 3.) |
+| 2 | Two paddles. Print the board, then, over and over, read the keys pressed with `input()` (an empty line means none), move the paddles, and print the board again. `q`/`a` move the left one up/down, `p`/`l` the right one. | Types each key and checks that only that paddle moves, one row, in the right direction, and stops at the edge. |
 | 3 | Fully playable Pong: a moving ball with physics and a score line. | Plays the game. It checks that the ball moves and stays on the board, flips up/down at the top and bottom walls, flips left/right when it hits a paddle (the script moves a paddle into the ball's path), and that a miss (the script moves the paddle away) adds a point and resets the ball. It also repeats the stage 2 paddle checks. |
 
-Speed, starting position, and a random serve are the player's choice. The script keeps playing until it has seen a wall bounce, a paddle bounce, and a miss, or until a tick limit runs out.
+Speed, starting position, and a random serve are the player's choice. The script keeps playing until it has seen a wall bounce, a paddle bounce, and a miss, or until a turn limit runs out.
 
-The same contract fits non-game campaigns. For a vending machine, the input lines are commands (`coin 25`, `select A1`), and the checks are rules such as "credit never goes negative" and "change returned equals credit minus price".
+The same contract fits non-game campaigns. For a vending machine, the program reads commands (`coin 25`, `select A1`) with `input()`, and the checks are rules such as "credit never goes negative" and "change returned equals credit minus price".
 
 ### 2.3 Incremental Stages & Checkpoint Rollback
 * Each campaign consists of **2 to 5 cumulative stages**, where each stage builds directly on the previous one (for example, Stage 1 renders a 20x20 grid and places a ball; Stage 2 adds paddles; Stage 3 adds velocity, wall bounces, and scoring).
 * **On Stage Pass:** The player's working Python code is saved as a verified **Checkpoint** in PostgreSQL, the stage timer resets, and Stage $N+1$ unlocks with the player's passing code pre-loaded in the editor.
-* **On Stage Fail or Timeout:** If the player runs out of time, hits a syntax/runtime error, breaks a stage rule, or exceeds the per-tick time limit, they lose **1 Life**. By default the stage timer resets and the editor goes back to the **last saved checkpoint code**, so a broken edit never soft-locks the run. This is a [LOW] criterion in US7, so the implementer may choose different behavior.
+* **On Stage Fail or Timeout:** If the player runs out of time, hits a syntax/runtime error, breaks a stage rule, or exceeds the per-turn time limit, they lose **1 Life**. By default the stage timer resets and the editor goes back to the **last saved checkpoint code**, so a broken edit never soft-locks the run. This is a [LOW] criterion in US7, so the implementer may choose different behavior.
 * **Victory & Game Over:** Completing the final stage defeats the Overlord and posts the run to the global leaderboard. Dropping to **0 Lives** ends the campaign in defeat.
 
 ### 2.4 Submission Evaluation (the Overlord plays it; no LLM)
 There is **no player-written explanation**, and **no LLM call during grading**. The Overlord character "plays" the program, but the playing is done by the stage's check script, which was written ahead of time (§4). When the player clicks **Submit** (or the countdown hits `00:00`):
 
 1. The code is sent to the **server-side sandbox** ([§5.2](#52-sandboxed-execution)).
-2. The sandbox starts the program and the stage's check script, and connects them: the script writes each tick's input line to the program's stdin and reads its frame from stdout.
-3. Each tick has a timeout (~1 s), and the whole run has one (~10 s), plus CPU and memory limits. stderr is captured for tracebacks.
-4. The script stops at the **first broken rule** and reports the rule, the tick, the inputs sent so far, and the last frame.
+2. The sandbox starts the program and the stage's check script, and connects them. The script reads each screen with `game.screen()`, types an input line with `game.send(line)` when the stage uses input (which returns the next screen), sees `game.finished` once the program has exited, and checks the rules.
+3. Each turn has a timeout (~1 s), and the whole run has one (~10 s), plus CPU and memory limits. stderr is captured for tracebacks.
+4. The script stops at the **first broken rule** and reports the rule, the turn (how many inputs were sent), the inputs sent so far, and the last screen.
 
 **Outcomes:**
 * **Every rule holds** → stage cleared, checkpoint saved, stage points awarded.
 * **A broken rule, crash, or timeout** → *"Human hallucination detected"*, **−1 life**.
 
 **Failure feedback by tier:**
-* **Beginner–Medium:** the broken rule, the tick, the keys pressed, and the frame the program printed, plus any traceback.
+* **Beginner–Medium:** the broken rule, the turn, the inputs given, and the last screen the program printed, plus any traceback.
 * **Hard–Impossible:** only the broken rule, plus the traceback if the program crashed.
 
 ### 2.5 Bonus Life
@@ -112,7 +124,7 @@ Selecting a difficulty configures the number of cumulative stages, per-stage cou
 Beginner and Easy should lean heavily on the **hand-checked seed library**; LLM-generated campaigns fill out Medium and above.
 
 ### 3.2 Run vs. Submit
-* **Run (unlimited, no life penalty):** Runs the player's program **in the browser via Pyodide** (Python compiled to WebAssembly). The browser sends the keys the player presses as each tick's input line and draws each frame, so the player can play what they've built at any stage. Pyodide runs in a Web Worker so a blocking `input()` can wait for the next tick.
+* **Run (unlimited, no life penalty):** Runs the player's program **in the browser via Pyodide** (Python compiled to WebAssembly), like `python main.py`. Its output goes to the console panel under the editor. Pyodide runs in a Web Worker: when the program calls `input()`, the worker blocks on a `SharedArrayBuffer` until the page hands it a line, either a typed line (`lines`) or the keys pressed since the last call (`keys`, input styles proposed in [§2.2](#22-the-stage-contract-a-program-the-overlord-can-play)).
 * **Submit (graded, costs 1 life on failure):** Clicking **Submit**, or letting the countdown reach `00:00`, has the Overlord play the program in the **server sandbox** ([§2.4](#24-submission-evaluation-the-overlord-plays-it-no-llm)). Check scripts never leave the server.
 
 ### 3.3 Deterministic Leaderboard Scoring
@@ -139,7 +151,7 @@ AI-generated campaigns are **required story US11**. Hand-written seed campaigns 
 
 | Who | Writes what | When |
 | :--- | :--- | :--- |
-| Dev team | Generation prompt template, campaign JSON schema, check-script helpers (send input, read frame, find a character), validator | Once |
+| Dev team | Generation prompt template, campaign JSON schema, check-script helpers (`game.screen()`, `game.send()`, `game.finished`, `Screen.find()`), validator | Once |
 | LLM (generator) | Whole campaign: every stage's prompt, check script, reference program, and one deliberately broken program per stage | Offline, filling the pool |
 | LLM (solver) | One more program per stage, seeing **only** what the player sees | Offline, during validation |
 | Our code (sandbox) | Runs each stage's programs against that stage's check script and accepts or rejects the campaign (§4.4) | Offline, during validation |
@@ -163,9 +175,10 @@ After this, the campaign is **frozen**. Grading during play is only "run the che
 | The independent **solver** program passes every check | Checks that are too strict, accepting only the generator's own way of building it |
 | The **broken** program fails the stage's checks | Checks too weak to notice the feature is wrong |
 | Stage N's checks **fail** the stage N‑1 reference | Stages that add nothing new |
-| An empty program fails every stage. From Stage 2 on, a program that prints one fixed frame also fails. Stage 1 is exempt, because a first stage may be static (Pong's ball can sit still) | Checks that pass anything |
+| An empty program fails every stage. From Stage 2 on, a program that prints one fixed screen also fails. Stage 1 is exempt, because a first stage may be static (Pong's ball can sit still) | Checks that pass anything |
 | The reference finishes the checks in < ~10% of the time limit | Checks a reasonable program would time out on |
 | Check scripts only use the helper API and import nothing else | Check scripts that try to read the player's code or reach the network |
+| A screen of huge numbers (past `int()`'s digit limit) doesn't crash the check script | Check scripts a player could crash on purpose to get a `check_error` instead of losing a life |
 
 **The generator is taught these rules.** The generation prompt template (§4.2) lists every check in this table, including exceptions like the Stage 1 one, so the generator writes a Stage 1 check that accepts a static screen and later checks that require the program to respond. Our code still runs every check; the LLM never decides whether its own campaign passes (§4.1).
 
@@ -186,7 +199,7 @@ Hand-written seed campaigns use the **same JSON schema**. Humans write the promp
     {
       "stage": 2,
       "prompt": "A ball. Thrilling. Now give it company: two paddles ...",
-      "check_script": "def check(game):\n    frame = game.tick('')\n    ...",
+      "check_script": "def check(game):\n    board = game.screen()\n    board = game.send('q')\n    ...",
       "reference_program": "...",
       "broken_program": "..."
     }
@@ -194,7 +207,7 @@ Hand-written seed campaigns use the **same JSON schema**. Humans write the promp
 }
 ```
 
-Stages have no starter code: the editor starts empty in stage 1 and with the player's checkpoint after that.
+Stages have no starter code: the editor starts empty in stage 1 and with the player's checkpoint after that. **(Proposed)** Each stage will also declare its input style (`"input": "none" | "lines" | "keys"`, [§2.2](#22-the-stage-contract-a-program-the-overlord-can-play)).
 
 ---
 
@@ -222,7 +235,7 @@ Player's browser ──────► Flask web app (container: web) ───�
 Player code is untrusted. Submit (and the validation pipeline) runs player programs and check scripts only inside a locked-down **runner** container:
 * internal-only network (**no internet**), no secrets in its environment
 * each run is an unprivileged user in a fresh temp directory and its own process group, killed afterward
-* CPU, memory, file-size, process-count, per-tick, and wall-clock limits; output size capped
+* CPU, memory, file-size, process-count, per-turn, and wall-clock limits; output size capped
 * read-only root filesystem, all capabilities dropped
 
 **(Proposed)** Build this as a small **custom runner service** rather than using Judge0, whose sandbox needs privileged containers and has historically required cgroup v1, which clashes with Docker Desktop and Codespaces (details in [roadmap.md §3.2](roadmap.md#32-why-a-custom-runner-instead-of-judge0)). The same sandbox serves both Submit grading and campaign validation.

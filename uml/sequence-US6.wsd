@@ -32,13 +32,15 @@ Repo --> Game : GameRun, Stage
 Game -> Grading : grade(code, stage.check_script)
 Grading -> RunnerClient : grade(code, check_script, limits)
 RunnerClient -> Runner : POST /grade
-loop each tick, stopping at the first broken rule, crash, or timeout
-    Runner -> Runner : check script sends one input line
-    Runner -> Runner : program prints one frame
-    Runner -> Runner : check script checks the stage's rules
+loop each turn, stopping at the first broken rule, crash, or timeout
+    Runner -> Runner : program prints a screen\n(until it asks for input or exits)
+    Runner -> Runner : check script reads the screen\nand checks the stage's rules
+    opt the stage reads input
+        Runner -> Runner : check script types one input line
+    end
 end
 note right of Runner : The check script never reads\nthe player's code. No LLM call.
-Runner --> RunnerClient : passed, failure_kind, rule, tick, inputs, last frame, traceback
+Runner --> RunnerClient : verdict, reason, rule, turn, inputs, last screen, traceback
 RunnerClient --> Grading : RunnerResult
 Grading --> Game : Verdict
 

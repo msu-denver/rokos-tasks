@@ -133,7 +133,7 @@ What the Overlord *says* at each level comes from the dialogue file (US10).
 | **Top bar** (decided 2026-11-18) | Wordmark with the **difficulty badge** beside it: a neon parallelogram in the tier's `--tier-*` color; Impossible's rim cycles every tier color. Center: the timer (a static `00:00` until US8), with lives beside it as glowing diamonds (dim outline when lost). The **stage bar** runs along the bottom edge, one cell per stage: done is dim cyan, current is bright cyan, upcoming is dark. No `02/04` text; the bar's `aria-label` carries it. The heat bar (US8) drains the current stage's cell. |
 | **Feed** | See §6. A floating window with a magenta shadow. |
 | **Editor** | A floating window with a cyan shadow. The tab shows only the file name. The current line gets a 2 px cyan left edge. |
-| **Console** | Shows each frame the program prints while it runs (US5). Tracebacks in full on a crash. Nothing else. |
+| **Console** | The panel under the editor, like an IDE terminal (US6.5). Drag its top edge (or use the arrow, Page, Home, and End keys) to resize it against the editor; the Console bar collapses and expands it; a new verdict opens it; its height and open state are remembered. Shows the verdict and the program's output (US5's Run writes here too). Tracebacks in full on a crash. Nothing else. |
 | **Buttons** | Run (secondary) and Submit (primary), bottom right. Restore checkpoint is an icon button, bottom left, with `aria-label`. |
 
 ## 9. Never

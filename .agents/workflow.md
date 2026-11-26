@@ -65,8 +65,7 @@ you're working for.
 ## 5. Gate 3: manual test + one screenshot
 
 - Run the app (`make up` or `make dev`) and use the change the way a
-  player or developer would. Anything that grades code (Submit) needs
-  `make up`, because `make dev` can't reach the runner yet (#23).
+  player or developer would.
 - Save **one** screenshot of the result to `.pr/screenshot.png`
   (gitignored). Take it with Selenium (`driver.save_screenshot`), your
   tool's browser, or a screen capture. For backend-only changes,

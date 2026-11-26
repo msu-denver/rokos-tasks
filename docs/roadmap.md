@@ -97,7 +97,7 @@ Judge0's sandbox needs privileged containers and has historically required cgrou
 
 * Separate container on an **internal-only Docker network** (no internet), reachable only by the web app; **no secrets in its environment**.
 * Each submission runs the player's program once as `python -I main.py` as an **unprivileged user** in a fresh temp directory, in its own process group (killed afterward), driven by the stage's check script.
-* `setrlimit` caps on CPU seconds, memory, file size, and process count; a wall-clock timeout per tick (~1 s) and per run (~10 s); output capped at 64 KB.
+* `setrlimit` caps on CPU seconds, memory, file size, and process count; a wall-clock timeout per turn (~1 s) and per run (~10 s); output capped at 64 KB.
 * Read-only root filesystem, `tmpfs` scratch, all capabilities dropped, `no-new-privileges`, PID limit.
 * Verified by a **hostile-code test suite** (infinite loop, fork bomb, memory bomb, network access, file writes, env-var reads, huge output).
 
@@ -290,7 +290,7 @@ Author(s): Jane Doe, John Smith
 
 | Kind | Target | Why it fits |
 | :--- | :--- | :--- |
-| **White-box** | `GradingService` verdict logic | Tests are designed from the code's branches: pass, broken rule, crash with traceback, per-tick timeout, whole-run timeout, broken check script, runner unavailable, first-failure stop — aiming for 100% branch coverage of that module |
+| **White-box** | `GradingService` verdict logic | Tests are designed from the code's branches: pass, broken rule, crash with traceback, per-turn timeout, whole-run timeout, broken check script, runner unavailable, first-failure stop — aiming for 100% branch coverage of that module |
 | **Black-box** | `ScoreCalculator` | Tests are derived only from the scoring rules in game-design.md §3.3 using equivalence classes and boundary values (0 seconds left, 0 lives, failed campaign, each multiplier) without looking at the implementation |
 
 * Mark them with pytest markers (`@pytest.mark.whitebox`, `@pytest.mark.blackbox`) and a docstring stating **purpose, functionality tested, and expected outcome**.
@@ -448,7 +448,7 @@ GitHub Projects with columns **To Do → In Progress → In Review → Done** (c
 **The canonical user stories live in [README.md → User Stories](../README.md#user-stories)**, in the course template format (US1–US17, "As a… I want… so that I can…", Given/When/Then acceptance criteria). They are kept only there so they can't drift out of sync.
 
 * **Required:** US1–US11. The game needs the Overlord to write campaigns (US11) and to play the player's program to grade it (US6). Every required story must ship, since each unfinished one costs −5.
-* **Optional:** US12–US15, worth +1 each (max 5). US16 (Contest a Verdict) was removed (#25). US17 (Playable Finale) was merged into US5, since every program is now a playable loop (#13).
+* **Optional:** US12–US15, worth +1 each (max 5). US16 (Contest a Verdict) was removed (#25). US17 (Playable Finale) was merged into US5, since Run lets the player play their program at any stage (#13).
 * **Developer tasks are not user stories.** Infrastructure work (runner container, grading harness, campaign schema and validator, seed campaigns, LLM client and budget cap) is tracked as GitHub Issues under the story it enables, for example `US6: Build sandbox runner container`, `US6: Write the Pong seed campaign and its check scripts`, `US11: Add LLM budget ledger and cap`. Environment setup is Sprint 0 work.
 
 ---
