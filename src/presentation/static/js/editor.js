@@ -1,6 +1,7 @@
 /*
 File: editor.js
-Description: Loads the Python editor and saves drafts for both editor modes.
+Description: Loads the Python editor, saves drafts for both editor modes,
+    and loads the checkpoint code when the next stage opens (US7).
 Author(s): Tyler Black, Richard Hall
 */
 
@@ -34,17 +35,33 @@ function load_monaco() {
   });
 }
 
-// The editor starts empty: every line in it is the player's own.
-function initial_code(key) {
+function draft_key(run, stage) {
+  return `rokos:run:${run}:stage:${stage}`;
+}
+
+// A saved draft wins over the checkpoint. Every line in the editor is the
+// player's own: their draft, their last passing code, or nothing.
+function initial_code(key, checkpoint) {
   try {
-    return localStorage.getItem(key) ?? "";
+    return localStorage.getItem(key) ?? checkpoint ?? "";
   } catch {
     // Browsers can deny storage access for this origin.
-    return "";
+    return checkpoint ?? "";
   }
 }
 
-function autosave(key) {
+function clear_draft(key) {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    // Nothing to clear if storage is blocked.
+  }
+}
+
+// Saves to whichever stage's key is current. `discard` drops an unsaved
+// edit, so a passed stage keeps no draft.
+function autosave(initial_key) {
+  let key = initial_key;
   let pending = null;
   let timer = null;
 
@@ -61,9 +78,22 @@ function autosave(key) {
   }
 
   window.addEventListener("pagehide", flush);
-  return (code) => {
-    pending = code;
-    timer ??= setTimeout(flush, SAVE_INTERVAL_MS);
+  return {
+    save(code) {
+      pending = code;
+      timer ??= setTimeout(flush, SAVE_INTERVAL_MS);
+    },
+    discard() {
+      clearTimeout(timer);
+      timer = null;
+      pending = null;
+    },
+    get key() {
+      return key;
+    },
+    set key(next) {
+      key = next;
+    },
   };
 }
 
@@ -145,21 +175,53 @@ function editor_options(monaco, value) {
   };
 }
 
-// Returns a function that reads the code right now, whichever editor
-// is showing: the textarea until Monaco loads (or if it never does).
-export function init_editor(container) {
+// Returns the editor's controls, which work whichever editor is showing:
+// the textarea until Monaco loads (or if it never does).
+//   get_code(): the code right now.
+//   open_stage(stage, checkpoint): after a pass, clear the passed stage's
+//     draft and load the new stage's draft or the checkpoint.
+//   finish(): after the last stage, clear its draft.
+//   stage(): the stage the editor is on.
+export function init_editor(container, checkpoint) {
   const [textarea, host] = container.children;
-  const {run, stage} = container.dataset;
-  const key = `rokos:run:${run}:stage:${stage}`;
-  const save = autosave(key);
-  textarea.value = initial_code(key);
+  const {run} = container.dataset;
+  const drafts = autosave(draft_key(run, container.dataset.stage));
+  // Code the page puts in the editor isn't an edit, so it isn't saved.
+  let loading = false;
+  const save = (code) => {
+    if (!loading) drafts.save(code);
+  };
+  textarea.value = initial_code(drafts.key, checkpoint);
   textarea.addEventListener("input", () => save(textarea.value));
 
   let editor = null;
   start_monaco(textarea, host, save).then((created) => {
     editor = created;
   });
-  return () => (editor ? editor.getValue() : textarea.value);
+
+  function show(code) {
+    loading = true;
+    textarea.value = code;
+    editor?.setValue(code);
+    loading = false;
+  }
+
+  function forget_stage() {
+    drafts.discard();
+    clear_draft(drafts.key);
+  }
+
+  return {
+    get_code: () => (editor ? editor.getValue() : textarea.value),
+    open_stage(stage, next_checkpoint) {
+      forget_stage();
+      container.dataset.stage = stage;
+      drafts.key = draft_key(run, stage);
+      show(initial_code(drafts.key, next_checkpoint));
+    },
+    finish: forget_stage,
+    stage: () => Number(container.dataset.stage),
+  };
 }
 
 async function start_monaco(textarea, host, save) {

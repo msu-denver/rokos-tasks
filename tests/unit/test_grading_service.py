@@ -19,6 +19,7 @@ from src.business.grading_service import (
     GradingService,
     InvalidCodeError,
     RunFinishedError,
+    StageNotGradableError,
     clean_traceback,
     to_verdict,
 )
@@ -42,7 +43,7 @@ def runner_reply(**overrides: object) -> dict:
 
 def make_service(
     status: str = "in_progress",
-    check_script: str = CHECK,
+    check_script: str | None = CHECK,
     reply: dict | None = None,
 ) -> tuple[GradingService, mock.Mock]:
     runs = mock.Mock()
@@ -161,6 +162,14 @@ def test_finished_run_cannot_be_submitted():
     runner.grade.assert_not_called()
 
 
+def test_missing_check_script_is_not_gradable() -> None:
+    """Report a missing script without calling the runner."""
+    service, runner = make_service(check_script=None)
+    with pytest.raises(StageNotGradableError):
+        service.grade(1, 7, "")
+    runner.grade.assert_not_called()
+
+
 def test_code_over_the_limit_is_rejected():
     service, runner = make_service()
     with pytest.raises(CodeTooLargeError):
@@ -169,9 +178,13 @@ def test_code_over_the_limit_is_rejected():
     runner.grade.assert_called_once()
 
 
-def test_code_that_is_not_valid_text_is_rejected():
-    """A lone surrogate can't be encoded, so it never reaches the runner."""
+@pytest.mark.parametrize("code", ["print('\ud800')", "print(1)\0"])
+def test_code_that_is_not_valid_text_is_rejected(code: str):
+    """A lone surrogate or a NUL never reaches the runner.
+
+    A surrogate can't be encoded, and Postgres can't store a NUL.
+    """
     service, runner = make_service()
     with pytest.raises(InvalidCodeError):
-        service.grade(1, 7, "print('\ud800')")
+        service.grade(1, 7, code)
     runner.grade.assert_not_called()

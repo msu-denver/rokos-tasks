@@ -251,7 +251,7 @@ def test_play_serializes_only_public_stage_content(
         r'<script id="stage-data" type="application/json">(.*?)</script>', html
     )
     assert payload is not None
-    assert json.loads(payload[1]) == {"stage": 1}
+    assert json.loads(payload[1]) == {"stage": 1, "checkpoint": None}
 
 
 def test_play_uses_current_stage_and_remaining_lives(
@@ -281,14 +281,11 @@ def test_play_uses_current_stage_and_remaining_lives(
         r'<script id="stage-data" type="application/json">(.*?)</script>', html
     )
     assert payload is not None
-    assert json.loads(payload[1]) == {"stage": 2}
+    assert json.loads(payload[1]) == {"stage": 2, "checkpoint": None}
 
 
-@pytest.mark.parametrize("status", ["won", "lost", "abandoned"])
-def test_finished_runs_link_back_to_start(
-    player: FlaskClient, seeded_beginner: int, db_session: Session, status: str
-) -> None:
-    """Provide a way to start over when the owned run has ended."""
+def _end_run(player: FlaskClient, db_session: Session, status: str) -> str:
+    """Start a Beginner run, end it with ``status``, and return its URL."""
     start = player.post("/runs", data={"difficulty": "beginner"})
     play_url = start.headers["Location"]
     runs = RunRepository(db_session)
@@ -297,17 +294,51 @@ def test_finished_runs_link_back_to_start(
     run.status = status
     run.ended_at = datetime.now(UTC)
     runs.commit()
+    return play_url
 
-    response = player.get(play_url)
-    assert response.status_code == 200
-    html = response.get_data(as_text=True)
-    assert 'data-testid="game-run-over">This run is over.' in html
-    assert 'href="/start">Start a run' in html
+
+def _assert_no_game_screen(html: str) -> None:
+    assert 'href="/start"' in html
     assert 'id="stage-data"' not in html
     assert 'data-testid="game-editor"' not in html
     body = re.search(r'<body\b[^>]*\sclass="([^"]*)"', html)
     assert body is None or "page-game" not in body[1].split()
+
+
+def test_abandoned_run_links_back_to_start(
+    player: FlaskClient, seeded_beginner: int, db_session: Session
+) -> None:
+    """Provide a way to start over when the run was abandoned."""
+    response = player.get(_end_run(player, db_session, "abandoned"))
+    assert response.status_code == 200
+    html = response.get_data(as_text=True)
+    assert 'data-testid="game-run-over">This run is over.' in html
+    assert 'href="/start">Start a run' in html
+    _assert_no_game_screen(html)
     assert 'data-testid="game-tier"' not in html
+    assert 'data-testid="game-result"' not in html
+
+
+@pytest.mark.parametrize(
+    ("status", "heading"), [("won", "Victory"), ("lost", "Game over")]
+)
+def test_finished_run_shows_its_result(
+    player: FlaskClient,
+    seeded_beginner: int,
+    db_session: Session,
+    status: str,
+    heading: str,
+) -> None:
+    """US7 AC3: a won or lost run shows its result and a way to restart."""
+    response = player.get(_end_run(player, db_session, status))
+    assert response.status_code == 200
+    html = response.get_data(as_text=True)
+    assert f'data-testid="game-result-heading">{heading}</h1>' in html
+    assert f"<title>{heading} - Roko's Tasks</title>" in html
+    assert re.search(r'data-testid="game-result-total">0<', html)
+    assert 'data-testid="game-run-over"' not in html
+    assert "tier-badge--beginner" in html
+    _assert_no_game_screen(html)
 
 
 @pytest.mark.parametrize("difficulty", ["unknown", None])

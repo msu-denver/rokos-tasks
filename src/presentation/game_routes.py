@@ -26,22 +26,25 @@ from src.business.game_service import (
     ActiveRunExistsError,
     GameService,
     RunNotFoundError,
+    StaleSubmitError,
 )
-from src.business.grading_service import InvalidCodeError, RunFinishedError
+from src.business.grading_service import (
+    InvalidCodeError,
+    RunFinishedError,
+    StageNotGradableError,
+)
 from src.business.runner_client import (
     CheckScriptBrokenError,
     RunnerUnavailableError,
 )
-from src.business.service_factory import (
-    build_game_service,
-    build_grading_service,
-)
+from src.business.service_factory import build_game_service
 
 game_blueprint = Blueprint("game", __name__)
 logger = logging.getLogger(__name__)
 
 # Placeholder wording until the PO decides; US10 moves it to dialogue.
 UNAVAILABLE = "Grading is unavailable. This submit didn't count."
+STALE = "This page is out of date."
 
 
 def _render_start(game: GameService, error: str | None = None) -> str:
@@ -97,12 +100,22 @@ def create_run() -> Response | str:
 @game_blueprint.get("/play/<int:run_id>")
 @login_required
 def play(run_id: int) -> str:
-    """Show the current stage and lives for one of the player's runs."""
+    """Show the current stage or the result of the player's run."""
+    game = build_game_service()
     try:
-        stage = build_game_service().get_stage_view(current_user.id, run_id)
+        stage = game.get_stage_view(current_user.id, run_id)
+        if stage is None:
+            result = game.get_result_view(current_user.id, run_id)
+            return render_template(
+                "game/play.html", stage=None, result=result, run_id=run_id
+            )
     except RunNotFoundError:
         abort(404)
     return render_template("game/play.html", stage=stage, run_id=run_id)
+
+
+def _is_int(value: object) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool)
 
 
 def _message(status: HTTPStatus, message: str) -> tuple[Response, int]:
@@ -112,28 +125,31 @@ def _message(status: HTTPStatus, message: str) -> tuple[Response, int]:
 @game_blueprint.post("/game/submit")
 @login_required
 def submit() -> tuple[Response, int]:
-    """Grade the editor's code for the run's current stage (US6)."""
+    """Grade the editor's code and apply the verdict to the run."""
     payload = request.get_json(silent=True)
     if not isinstance(payload, dict):
         abort(400)
-    run_id, code = payload.get("run_id"), payload.get("code")
-    if (
-        not isinstance(run_id, int)
-        or isinstance(run_id, bool)
-        or not isinstance(code, str)
-    ):
+    run_id, stage = payload.get("run_id"), payload.get("stage")
+    code = payload.get("code")
+    if not (_is_int(run_id) and _is_int(stage) and isinstance(code, str)):
         abort(400)
 
-    grading = build_grading_service(current_app.config["RUNNER_URL"])
+    game = build_game_service(current_app.config["RUNNER_URL"])
     try:
-        verdict = grading.grade(current_user.id, run_id, code)
+        result = game.submit_stage(current_user.id, run_id, code, stage)
     except RunNotFoundError:
         abort(404)
     except RunFinishedError:
         abort(409)
     except InvalidCodeError:
         abort(400)
-    except (RunnerUnavailableError, CheckScriptBrokenError):
+    except StaleSubmitError:
+        return _message(HTTPStatus.CONFLICT, STALE)
+    except (
+        RunnerUnavailableError,
+        CheckScriptBrokenError,
+        StageNotGradableError,
+    ):
         logger.exception("grading failed for run %s", run_id)
         return _message(HTTPStatus.SERVICE_UNAVAILABLE, UNAVAILABLE)
-    return jsonify(verdict=verdict.to_dict()), HTTPStatus.OK
+    return jsonify(result.to_dict()), HTTPStatus.OK

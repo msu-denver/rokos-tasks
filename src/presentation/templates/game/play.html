@@ -1,17 +1,20 @@
 {#
 File: play.html
-Description: Displays a run's current stage, the Overlord, and the editor.
+Description: Displays a run's current stage, the Overlord, and the editor,
+    or the victory or game-over screen once the run ends (US7).
 Author(s): Tyler Black, Richard Hall
 #}
 {% extends "base.html" %}
 
-{% block title %}{% if stage %}Stage {{ stage.number }}{% else %}Run over{% endif %} - Roko's Tasks{% endblock %}
+{% block title %}{% if stage %}Stage {{ stage.number }}{% elif result and result.status == "won" %}Victory{% elif result %}Game over{% else %}Run over{% endif %} - Roko's Tasks{% endblock %}
 
 {% block body_class %}{% if stage %}page-game{% endif %}{% endblock %}
 
 {% block header_badge %}
   {% if stage %}
     <span class="tier-badge tier-badge--{{ stage.difficulty.value }}" data-testid="game-tier">{{ stage.difficulty.label }}</span>
+  {% elif result %}
+    <span class="tier-badge tier-badge--{{ result.difficulty.value }}" data-testid="game-tier">{{ result.difficulty.label }}</span>
   {% endif %}
 {% endblock %}
 
@@ -32,7 +35,7 @@ Author(s): Tyler Black, Richard Hall
 
 {% block header_progress %}
   {% if stage %}
-    <div class="stage-bar" data-testid="game-stage-readout" role="img"
+    <div class="stage-bar" data-testid="game-stage-readout" role="img" data-tier="{{ stage.difficulty.label }}"
          aria-label="{{ stage.difficulty.label }}, stage {{ stage.number }} of {{ stage.difficulty.stages }}">
       {% for number in range(1, stage.difficulty.stages + 1) %}
         <span class="stage-bar-cell{% if number < stage.number %} stage-bar-cell--done{% elif number == stage.number %} stage-bar-cell--current{% endif %}" aria-hidden="true"></span>
@@ -111,8 +114,10 @@ Author(s): Tyler Black, Richard Hall
         </div>
       </section>
     </div>
-    <script id="stage-data" type="application/json">{{ {'stage': stage.number}|tojson }}</script>
+    <script id="stage-data" type="application/json">{{ {'stage': stage.number, 'checkpoint': stage.checkpoint_code}|tojson }}</script>
     <script type="module" src="{{ url_for('static', filename='js/game.js') }}"></script>
+  {% elif result %}
+    {% include "game/result.html" %}
   {% else %}
     <section class="floating-panel floating-panel--form" aria-labelledby="game-run-over">
       <h1 id="game-run-over" data-testid="game-run-over">This run is over.</h1>

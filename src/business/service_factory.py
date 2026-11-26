@@ -28,14 +28,24 @@ def build_auth_service() -> AuthService:
     return AuthService(UserRepository(db.session))
 
 
-def build_game_service() -> GameService:
-    """Construct the game service with a shared session and a UTC clock."""
+def build_game_service(runner_url: str | None = None) -> GameService:
+    """Construct the game service with a shared session and a UTC clock.
+
+    Args:
+        runner_url: The runner's base URL. Pass it to grade submits; pages
+            that only show a run don't need it.
+
+    Returns:
+        GameService, with a GradingService when ``runner_url`` is given.
+    """
     session = db.session
     runs = RunRepository(session)
     selector = CampaignSelector(CampaignRepository(session), runs)
-    return GameService(selector, runs, partial(datetime.now, UTC))
-
-
-def build_grading_service(runner_url: str) -> GradingService:
-    """Construct the grading service for the runner at ``runner_url``."""
-    return GradingService(RunRepository(db.session), RunnerClient(runner_url))
+    grading = (
+        GradingService(runs, RunnerClient(runner_url))
+        if runner_url is not None
+        else None
+    )
+    return GameService(
+        selector, runs, partial(datetime.now, UTC), grading=grading
+    )

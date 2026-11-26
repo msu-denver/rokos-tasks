@@ -971,6 +971,41 @@ Wide output scrolls in the body instead of widening the window.
   white-space: pre;
 }
 
+/* Victory and game-over screen (US7): points per cleared stage, then the total */
+.game-result-breakdown,
+.game-result-score {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+}
+
+.game-result-score {
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: var(--border-1) solid var(--line);
+}
+
+.game-result-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--space-2);
+}
+
+.game-result-row dt {
+  color: var(--muted);
+}
+
+.game-result-row dd {
+  margin: 0;
+  font-family: var(--font-mono);
+}
+
+.game-result-score dt,
+.game-result-score dd {
+  color: var(--ink-strong);
+  font-weight: 700;
+}
+
 /* The Overlord's stage: perspective floor, magenta horizon, scanlines */
 .overlord-stage {
   --horizon: 62%;
