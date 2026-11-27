@@ -1,7 +1,7 @@
 """
 File: game_service.py
 Description: Starts runs from the validated pool and exposes player progress.
-Author(s): Tyler Black
+Author(s): Tyler Black, Steph Rivera
 """
 
 from collections.abc import Callable
@@ -43,6 +43,7 @@ class StageView:
     number: int
     lives: int
     prompt: str
+    input_style: str
 
 
 class GameService:
@@ -123,4 +124,5 @@ class GameService:
             number=run.current_stage,
             lives=run.lives,
             prompt=stage.prompt,
+            input_style=stage.input_style,
         )

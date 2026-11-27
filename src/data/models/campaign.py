@@ -1,12 +1,13 @@
 """
 File: campaign.py
 Description: SQLAlchemy models for campaigns and their stages.
-Author(s): Tyler Black
+Author(s): Tyler Black, Steph Rivera
 """
 
 from datetime import UTC, datetime
 
 from sqlalchemy import (
+    CheckConstraint,
     DateTime,
     ForeignKey,
     Integer,
@@ -59,6 +60,10 @@ class Stage(Base):
         UniqueConstraint(
             "campaign_id", "number", name="uq_stages_campaign_id_number"
         ),
+        CheckConstraint(
+            "input_style IN ('none', 'lines', 'keys')",
+            name="ck_stages_input_style",
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -70,6 +75,9 @@ class Stage(Base):
     )
     number: Mapped[int] = mapped_column(Integer, nullable=False)
     prompt: Mapped[str] = mapped_column(Text, nullable=False)
+    input_style: Mapped[str] = mapped_column(
+        String(16), nullable=False
+    )
     reference_program: Mapped[str] = mapped_column(Text, nullable=False)
     # Plays the player's program to grade it: the only grading data.
     check_script: Mapped[str] = mapped_column(Text, nullable=False)

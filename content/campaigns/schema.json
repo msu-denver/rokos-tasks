@@ -32,6 +32,15 @@
             "type": "string",
             "minLength": 1
           },
+          "input": {
+            "type": "string",
+            "enum": [
+              "none",
+              "lines",
+              "keys"
+            ],
+            "description": "How the player supplies input to the program."
+          },
           "check_script": {
             "type": "string",
             "minLength": 1,
@@ -51,6 +60,7 @@
         "required": [
           "stage",
           "prompt",
+          "input",
           "check_script",
           "reference_program",
           "broken_program"

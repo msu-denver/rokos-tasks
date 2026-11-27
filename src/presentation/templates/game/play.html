@@ -1,7 +1,7 @@
 {#
 File: play.html
 Description: Displays a run's current stage, the Overlord, and the editor.
-Author(s): Tyler Black, Richard Hall
+Author(s): Tyler Black, Richard Hall, Steph Rivera
 #}
 {% extends "base.html" %}
 
@@ -111,7 +111,9 @@ Author(s): Tyler Black, Richard Hall
         </div>
       </section>
     </div>
-    <script id="stage-data" type="application/json">{{ {'stage': stage.number}|tojson }}</script>
+<script id="stage-data" type="application/json">
+  {{ {'stage': stage.number, 'input_style': stage.input_style}|tojson }}
+</script>
     <script type="module" src="{{ url_for('static', filename='js/game.js') }}"></script>
   {% else %}
     <section class="floating-panel floating-panel--form" aria-labelledby="game-run-over">

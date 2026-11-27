@@ -6,7 +6,7 @@ Description: Validates campaign definitions against the schema and the
     fail the broken program, the previous stage's reference, an empty
     program, and (from Stage 2 on) a program that prints one fixed screen
     every time it asks for input.
-Author(s): Tyler Black, Richard Hall
+Author(s): Tyler Black, Richard Hall, Steph Rivera
 """
 
 import ast
@@ -320,9 +320,9 @@ class _StageCheck:
     ) -> None:
         """Check ``stage``; ``previous_reference`` is None for Stage 1."""
         self._player = player
+        self._input_style = stage["input"]
         self._script = stage["check_script"]
         self._reference = stage["reference_program"]
-        self._broken = stage["broken_program"]
         self._previous_reference = previous_reference
 
     def problems(self) -> list[str]:
@@ -340,8 +340,67 @@ class _StageCheck:
             + self._probe_problems(first_screen)
         )
 
+    def _input_style_problems(self, verdict: dict) -> list[str]:
+        """Check that grading exercises the declared input style."""
+        inputs = verdict["inputs"]
+
+        if self._input_style == "none" and inputs:
+            return [
+                "A stage with input 'none' must not send input."
+            ]
+
+        if self._input_style in ("lines", "keys") and not inputs:
+            return [
+                f"A stage with input '{self._input_style}' must "
+                "exercise input in its check script."
+            ]
+
+        return []
+
+    def _completion_problems(self) -> list[str]:
+        """Ensure a non-interactive reference exits without input."""
+        if self._input_style != "none":
+            return []
+
+        script = (
+            "def check(game):\n"
+            "    game.check(game.finished, "
+            "'The program must finish without input.')\n"
+        )
+
+        verdict = self._player.grade(self._reference, script)
+
+        if verdict["verdict"] != "pass":
+            return [
+                "A stage with input 'none' must have a "
+                "reference_program that finishes without input."
+            ]
+
+        return []
+
+    def _completion_problems(self) -> list[str]:
+        """Ensure a non-interactive reference exits without input."""
+        if self._input_style != "none":
+            return []
+
+        script = (
+            "def check(game):\n"
+            "    game.check(game.finished, "
+            "'The program must finish without input.')\n"
+        )
+
+        verdict = self._player.grade(self._reference, script)
+
+        if verdict["verdict"] != "pass":
+            return [
+                "A stage with input 'none' must have a "
+                "reference_program that finishes without input."
+            ]
+
+        return []
+
     def _reference_problems(self) -> list[str]:
-        """The reference passes on every run, well inside the time limit."""
+        """The reference passes every run within the time budget."""
         fastest = float("inf")
         for attempt in range(1, CHECK_PASS_RUNS + 1):
             started = time.monotonic()
@@ -352,13 +411,19 @@ class _StageCheck:
                     "reference_program failed its check script on run "
                     f"{attempt} of {CHECK_PASS_RUNS} ({_describe(verdict)})."
                 ]
+
+            problems = self._input_style_problems(verdict)
+            if problems:
+                return problems
+
         if fastest >= TIME_BUDGET_SECONDS:
             return [
                 f"reference_program took {fastest:.2f} s, over the "
                 f"{TIME_BUDGET_SECONDS:.2f} s budget (10% of the time "
                 "limit)."
             ]
-        return []
+
+        return self._completion_problems()
 
     def _previous_problems(self) -> list[str]:
         """Stage N's checks fail the stage N-1 reference."""

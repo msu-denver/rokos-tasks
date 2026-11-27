@@ -1,7 +1,7 @@
 /*
 File: pyodide_worker.js
-Description: Executes Python programs in a Web Worker, receives tick input
-    through shared memory, and sends completed frames to the game page.
+Description: Executes Python programs in a Web Worker, receives input
+    through shared memory, and sends program screens to the game page.
 Author(s): Steph Rivera
 */
 
@@ -19,9 +19,7 @@ let pyodide;
 let used = false;
 let tick_number = 0;
 
-let pending_line = "";
-let frame = "";
-let has_frame_line = false;
+let pending_screen = "";
 
 
 async function init_python() {
@@ -41,10 +39,11 @@ async function init_python() {
 
 
 function read_tick_input(shared) {
-  // Ask the main thread for the next tick's input.
+  // Deliver the current screen before blocking for input.
   self.postMessage({
     type: "input_request",
     tick: tick_number + 1,
+    screen: take_screen(),
   });
 
   // Block this worker until the main thread supplies input.
@@ -110,57 +109,19 @@ function truncate_output(output) {
     "\n… output truncated.";
 }
 
-
-function send_frame() {
-  self.postMessage({
-    type: "frame",
-    tick: tick_number,
-    frame: truncate_output(frame),
-  });
-
-  frame = "";
-  has_frame_line = false;
-}
-
-
-function process_line(line) {
-  // Support both LF and CRLF line endings.
-  if (line.endsWith("\r")) {
-    line = line.slice(0, -1);
-  }
-
-  // A line containing only --- marks the end of a frame.
-  if (line === "---") {
-    send_frame();
-    return;
-  }
-
-  const separator = has_frame_line ? "\n" : "";
-
-  frame = (frame + separator + line).slice(
+function process_output(output) {
+  pending_screen = (pending_screen + output).slice(
     0,
     MAX_OUTPUT_LENGTH + 1,
   );
-
-  has_frame_line = true;
 }
 
 
-function process_output(output) {
-  const lines = output.split("\n");
+function take_screen() {
+  const screen = truncate_output(pending_screen);
+  pending_screen = "";
 
-  lines.forEach((line, index) => {
-    pending_line = (pending_line + line).slice(
-      0,
-      MAX_OUTPUT_LENGTH + 2,
-    );
-
-    // The final portion may be an incomplete line.
-    if (index < lines.length - 1) {
-      process_line(pending_line);
-      pending_line = "";
-    }
-  });
+  return screen;
 }
 
 
@@ -181,9 +142,7 @@ function run_program(code, input_buffer) {
   let stderr = "";
 
   tick_number = 0;
-  pending_line = "";
-  frame = "";
-  has_frame_line = false;
+  pending_screen = "";
 
   pyodide.setStdin({
     read: create_stdin(shared),
@@ -259,15 +218,19 @@ error
       MAX_OUTPUT_LENGTH + 1,
     );
 
+    const screen = take_screen();
+
     if (error) {
       self.postMessage({
         type: "run_error",
+        screen,
         error: truncate_output(error),
         stderr: truncate_output(stderr),
       });
     } else {
       self.postMessage({
         type: "finished",
+        screen,
         stderr: truncate_output(stderr),
       });
     }

@@ -2,7 +2,7 @@
 File: seed_loader.py
 Description: Validates and loads seed campaign files into the database.
     Only trusted seed content may use the local validation player.
-Author(s): Tyler Black
+Author(s): Tyler Black, Steph Rivera
 """
 
 import hashlib
@@ -107,6 +107,7 @@ class SeedLoader:
                 Stage(
                     number=stage_data["stage"],
                     prompt=stage_data["prompt"],
+                    input_style=stage_data["input"],
                     reference_program=stage_data["reference_program"],
                     check_script=stage_data["check_script"],
                 )

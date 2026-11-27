@@ -1,7 +1,7 @@
 """
 File: campaign_repository.py
 Description: Repository for Campaign entity persistence and queries.
-Author(s): Tyler Black
+Author(s): Tyler Black, Steph Rivera
 """
 
 from collections.abc import Sequence
@@ -80,6 +80,7 @@ class CampaignRepository(BaseRepository[Campaign]):
             if number in existing_by_num:
                 current_stage = existing_by_num[number]
                 current_stage.prompt = incoming_stage.prompt
+                current_stage.input_style = incoming_stage.input_style
                 current_stage.reference_program = (
                     incoming_stage.reference_program
                 )
@@ -89,6 +90,7 @@ class CampaignRepository(BaseRepository[Campaign]):
                     Stage(
                         number=incoming_stage.number,
                         prompt=incoming_stage.prompt,
+                        input_style=incoming_stage.input_style,
                         reference_program=incoming_stage.reference_program,
                         check_script=incoming_stage.check_script,
                     )
