@@ -5,7 +5,7 @@ Description: Verify that the shipped seed campaigns load into PostgreSQL,
     passes the game-design §4.4 checks: its reference passes on 3 runs,
     and its broken program, an empty program, the previous stage's
     reference, and (from Stage 2) one fixed screen all fail.
-Author(s): Tyler Black, Richard Hall
+Author(s): Tyler Black, Richard Hall, Steph Rivera
 """
 
 import json
@@ -49,15 +49,19 @@ def test_shipped_seed_campaigns_load(db_session: Session) -> None:
         "easy/vending_machine",
         "medium/pong",
     }
+    db_session.expire_all()
     tiers = (
-        (Difficulty.BEGINNER, 2),
-        (Difficulty.EASY, 3),
-        (Difficulty.MEDIUM, 3),
+        (Difficulty.BEGINNER, 2, ["none", "lines"]),
+        (Difficulty.EASY, 3, ["lines", "lines", "lines"]),
+        (Difficulty.MEDIUM, 3, ["none", "keys", "keys"]),
     )
-    for tier, stage_count in tiers:
+    for tier, stage_count, input_styles in tiers:
         (campaign,) = repository.validated_for(tier)
         assert [stage.number for stage in campaign.stages] == list(
             range(1, stage_count + 1)
+        )
+        assert [stage.input_style for stage in campaign.stages] == (
+            input_styles
         )
         assert all(
             "def check(game)" in stage.check_script

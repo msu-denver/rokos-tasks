@@ -1,7 +1,7 @@
 """
 File: test_campaign_repository.py
 Description: Integration tests for CampaignRepository persistence operations.
-Author(s): Tyler Black
+Author(s): Tyler Black, Steph Rivera
 """
 
 import hashlib
@@ -20,7 +20,7 @@ def _make_campaign(
     difficulty: str = "beginner",
     content_hash: str | None = None,
 ) -> Campaign:
-    """Helper to build a campaign with 2 stages and test cases."""
+    """Helper to build a campaign with 2 stages and check scripts."""
     if content_hash is None:
         content_hash = hashlib.sha256(
             f"{slug}:{title}:{difficulty}".encode()
@@ -38,6 +38,7 @@ def _make_campaign(
             Stage(
                 number=num,
                 prompt=f"Stage {num} prompt.",
+                input_style="lines",
                 reference_program="print(1)",
                 check_script=f"def check(game):\n    game.send('{num}')\n",
             )
@@ -54,6 +55,8 @@ class TestCampaignRepository:
         campaign = _make_campaign("beginner/test_add", "Test Add")
         repo.add(campaign)
 
+        db_session.expire_all()
+
         retrieved = repo.get_by_slug("beginner/test_add")
         assert retrieved is not None
         assert retrieved.id == campaign.id
@@ -61,6 +64,8 @@ class TestCampaignRepository:
         assert len(retrieved.stages) == 2
         assert retrieved.stages[0].number == 1
         assert retrieved.stages[1].number == 2
+        assert retrieved.stages[0].input_style == "lines"
+        assert retrieved.stages[1].input_style == "lines"
         assert retrieved.stages[1].check_script.endswith("send('2')\n")
 
     def test_upsert_inserts_new_campaign(self, db_session: Session) -> None:
@@ -70,14 +75,19 @@ class TestCampaignRepository:
         result = repo.upsert(campaign)
 
         assert result.id is not None
+
+        db_session.expire_all()
+
         saved = repo.get_by_slug("beginner/new_slug")
         assert saved is not None
         assert saved.title == "New Slug Campaign"
+        assert saved.stages[0].input_style == "lines"
+        assert saved.stages[1].input_style == "lines"
 
     def test_upsert_updates_existing_in_place(
         self, db_session: Session
     ) -> None:
-        """Verify upsert modifies fields and replaces stages cleanly."""
+        """Verify upsert modifies fields and updates stages in place."""
         repo = CampaignRepository(db_session)
         initial = _make_campaign("beginner/update_test", "Original Title")
         repo.add(initial)
@@ -87,15 +97,20 @@ class TestCampaignRepository:
 
         updated = _make_campaign("beginner/update_test", "Modified Title")
         updated.stages[0].prompt = "Brand new prompt 1."
+        updated.stages[0].input_style = "keys"
         result = repo.upsert(updated)
 
         assert result.id == campaign_id
         assert result.title == "Modified Title"
 
+        db_session.expire_all()
+
         loaded = repo.get_by_slug("beginner/update_test")
         assert loaded is not None
         assert loaded.title == "Modified Title"
         assert loaded.stages[0].prompt == "Brand new prompt 1."
+        assert loaded.stages[0].input_style == "keys"
+        assert loaded.stages[1].input_style == "lines"
         assert loaded.stages[0].id == stage1_id
         assert loaded.stages[1].id == stage2_id
 
@@ -119,12 +134,14 @@ class TestCampaignRepository:
             "Different Title Should Not Be Applied",
             content_hash="fixed_hash_1234",
         )
+        candidate.stages[0].input_style = "keys"
         result = repo.upsert(candidate)
 
         assert result.id == campaign_id
         assert result.title == "Initial Title"
         assert result.created_at == initial_created_at
         assert [s.id for s in result.stages] == stage_ids
+        assert result.stages[0].input_style == "lines"
 
     def test_upsert_preserves_quarantined_status(
         self, db_session: Session
@@ -196,6 +213,7 @@ class TestCampaignRepository:
         stage3 = Stage(
             number=3,
             prompt="Stage 3 prompt.",
+            input_style="keys",
             reference_program="print(3)",
             check_script="def check(game):\n    game.send('3')\n",
         )
@@ -208,6 +226,14 @@ class TestCampaignRepository:
         assert result.stages[2].number == 3
         assert result.stages[2].id is not None
         assert result.stages[2].check_script.endswith("send('3')\n")
+
+        db_session.expire_all()
+
+        loaded = repo.get_by_slug("beginner/stage_add")
+        assert loaded is not None
+        assert loaded.stages[0].input_style == "lines"
+        assert loaded.stages[1].input_style == "lines"
+        assert loaded.stages[2].input_style == "keys"
 
     def test_validated_for_filters_by_difficulty_and_status(
         self, db_session: Session
@@ -236,7 +262,7 @@ class TestCampaignRepository:
         assert len(medium_list) == 0
 
     def test_cascade_delete(self, db_session: Session) -> None:
-        """Verify deleting campaign cascades to stages and test cases."""
+        """Verify deleting a campaign cascades to its stages."""
         repo = CampaignRepository(db_session)
         campaign = _make_campaign(
             "beginner/cascade_del", "Cascade Delete Test"

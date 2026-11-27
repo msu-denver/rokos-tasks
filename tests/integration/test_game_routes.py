@@ -1,7 +1,7 @@
 """
 File: test_game_routes.py
 Description: Tests difficulty availability, run creation, and ownership.
-Author(s): Tyler Black
+Author(s): Tyler Black, Steph Rivera
 """
 
 import json
@@ -248,10 +248,12 @@ def test_play_serializes_only_public_stage_content(
     for private in ("private </script>", "def check", private_reference):
         assert private not in html
     payload = re.search(
-        r'<script id="stage-data" type="application/json">(.*?)</script>', html
+        r'<script id="stage-data" type="application/json">(.*?)</script>',
+        html,
+        re.DOTALL,
     )
     assert payload is not None
-    assert json.loads(payload[1]) == {"stage": 1}
+    assert json.loads(payload[1]) == {"stage": 1, "input_style": "none"}
 
 
 def test_play_uses_current_stage_and_remaining_lives(
@@ -278,10 +280,12 @@ def test_play_uses_current_stage_and_remaining_lives(
     assert re.search(r'data-testid="game-timer"[^>]*>\s*00:00\s*<', html)
     assert "A light that never changes is a wall." in html
     payload = re.search(
-        r'<script id="stage-data" type="application/json">(.*?)</script>', html
+        r'<script id="stage-data" type="application/json">(.*?)</script>',
+        html,
+        re.DOTALL,
     )
     assert payload is not None
-    assert json.loads(payload[1]) == {"stage": 2}
+    assert json.loads(payload[1]) == {"stage": 2, "input_style": "lines"}
 
 
 @pytest.mark.parametrize("status", ["won", "lost", "abandoned"])

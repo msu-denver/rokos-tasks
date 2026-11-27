@@ -3,7 +3,7 @@ File: test_campaign_validator.py
 Description: Unit tests for CampaignValidator: the schema, tier rules,
     check-script rules, and the game-design §4.4 quality checks played
     on a small two-stage fixture campaign.
-Author(s): Tyler Black, Richard Hall
+Author(s): Tyler Black, Richard Hall, Steph Rivera
 """
 
 import copy
@@ -78,8 +78,12 @@ class TestSchemaAndTiers:
     """Structure checks that run before any program is played."""
 
     @requires_host_play
-    def test_valid_fixture_passes(self, campaign: dict) -> None:
-        """The two-stage fixture passes every check."""
+    @pytest.mark.parametrize("input_style", ["lines", "keys"])
+    def test_valid_fixture_passes(
+        self, campaign: dict, input_style: str
+    ) -> None:
+        """A static stage and either interactive style pass every check."""
+        campaign["stages"][1]["input"] = input_style
         assert errors_for(campaign) == []
 
     def test_valid_file_passes(self) -> None:
@@ -105,14 +109,27 @@ class TestSchemaAndTiers:
         assert f"'{field}' was unexpected" in error
 
     @pytest.mark.parametrize(
-        "field", ["check_script", "reference_program", "broken_program"]
+        "field",
+        ["check_script", "reference_program", "broken_program", "input"],
     )
     def test_required_stage_fields(self, campaign: dict, field: str) -> None:
-        """Every stage needs its check script and both programs."""
+        """Every stage needs its input style, check script, and programs."""
         del campaign["stages"][1][field]
         (error,) = errors_for(campaign)
         assert f"'{field}' is a required property" in error
         assert "stages/1" in error
+
+    @pytest.mark.parametrize("input_style", ["mouse", "", None, 1])
+    def test_invalid_input_style(
+        self, campaign: dict, input_style: object
+    ) -> None:
+        """Unknown input styles and non-string values are schema errors."""
+        campaign["stages"][0]["input"] = input_style
+        errors = errors_for(campaign)
+        assert errors
+        assert all(
+            "Schema error at 'stages/0/input'" in error for error in errors
+        )
 
     def test_malformed_fields_return_schema_errors(
         self, campaign: dict
@@ -299,6 +316,8 @@ class TestQualityChecks:
     def test_stage_must_add_something(self, campaign: dict) -> None:
         """Stage N's checks must fail the stage N-1 reference."""
         stages = campaign["stages"]
+        stages[1]["input"] = "none"
+        stages[1]["reference_program"] = stages[0]["reference_program"]
         stages[1]["check_script"] = stages[0]["check_script"]
         stages[1]["broken_program"] = stages[0]["broken_program"]
         errors = errors_for(campaign)
@@ -322,8 +341,9 @@ class TestQualityChecks:
     ) -> None:
         """A first-screen check passes a static screen: Stage 1 only."""
         stage = campaign["stages"][1]
-        stage["reference_program"] = stage["reference_program"].replace(
-            "column = 1", "column = 2"
+        stage["input"] = "none"
+        stage["reference_program"] = (
+            "print('...')\nprint('..O')\nprint('...')\n"
         )
         stage["broken_program"] = campaign["stages"][0]["broken_program"]
         stage["check_script"] = (
@@ -354,6 +374,7 @@ class TestQualityChecks:
     ) -> None:
         """An unbounded int() on a screen is a check_error in waiting."""
         stage = campaign["stages"][0]
+        stage["input"] = "lines"
         stage["reference_program"] = screen_program("5")
         stage["broken_program"] = screen_program("6")
         stage["check_script"] = (
@@ -361,6 +382,8 @@ class TestQualityChecks:
             "    rows = game.screen().rows\n"
             "    game.check(rows and rows[0].isdecimal(), 'A number.')\n"
             "    game.check(int(rows[0]) == 5, 'Five.')\n"
+            "    if not game.finished:\n"
+            "        game.send('next')\n"
         )
         campaign["stages"] = [stage]
         campaign["difficulty"] = "beginner"
@@ -439,6 +462,42 @@ class TestQualityChecks:
         ):
             errors = errors_for(campaign, player=player)
         assert errors == ["[t] Stage 1: no screen", "[t] Stage 2: no screen"]
+
+
+class TestInputStyles:
+    """Check that the reference and check script match stage input metadata."""
+
+    @requires_host_play
+    def test_none_must_not_send_input(self, campaign: dict) -> None:
+        """A stage marked none cannot use an interactive check script."""
+        campaign["stages"][1]["input"] = "none"
+        assert errors_for(campaign) == [
+            "[t] Stage 2: A stage with input 'none' must not send input."
+        ]
+
+    @requires_host_play
+    def test_none_must_finish_without_input(self, campaign: dict) -> None:
+        """A passing first-screen check must not hide a waiting program."""
+        stage = campaign["stages"][0]
+        stage["reference_program"] += "\ninput()\n"
+        assert errors_for(campaign) == [
+            "[t] Stage 1: A stage with input 'none' must have a "
+            "reference_program that finishes without input."
+        ]
+
+    @requires_host_play
+    @pytest.mark.parametrize("input_style", ["lines", "keys"])
+    def test_interactive_stage_must_exercise_input(
+        self, campaign: dict, input_style: str
+    ) -> None:
+        """An interactive stage's check must send at least one input."""
+        stage = campaign["stages"][1]
+        stage["input"] = input_style
+        stage["check_script"] = PASS_ANYTHING
+        assert errors_for(campaign) == [
+            f"[t] Stage 2: A stage with input '{input_style}' must "
+            "exercise input in its check script."
+        ]
 
 
 class TestWithoutHostPlay:

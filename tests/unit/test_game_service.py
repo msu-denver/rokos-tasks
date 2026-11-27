@@ -1,7 +1,7 @@
 """
 File: test_game_service.py
 Description: Tests campaign selection and run startup without infrastructure.
-Author(s): Tyler Black
+Author(s): Tyler Black, Steph Rivera
 """
 
 import subprocess
@@ -157,8 +157,11 @@ def test_start_run_without_campaign_does_not_abandon_active_run() -> None:
 
 
 @pytest.mark.parametrize("number", [1, 2])
-def test_stage_view_contains_only_the_current_prompt(number: int) -> None:
-    """Expose the stage's prompt and progress, never its grading data."""
+@pytest.mark.parametrize("input_style", ["none", "lines", "keys"])
+def test_stage_view_contains_only_public_stage_data(
+    number: int, input_style: str
+) -> None:
+    """Expose prompt, progress, and input style, never grading data."""
     runs = Mock(spec=RunRepository)
     run = GameRun(
         campaign_id=42,
@@ -171,6 +174,7 @@ def test_stage_view_contains_only_the_current_prompt(number: int) -> None:
     runs.current_stage_for.return_value = Stage(
         id=45,
         prompt="Print twice the input.",
+        input_style=input_style,
         reference_program="secret reference",
         check_script="secret check",
     )
@@ -182,6 +186,7 @@ def test_stage_view_contains_only_the_current_prompt(number: int) -> None:
         number=number,
         lives=3,
         prompt="Print twice the input.",
+        input_style=input_style,
     )
     assert "secret" not in repr(view)
     runs.get_for_user.assert_called_once_with(12, PLAYER_ID)

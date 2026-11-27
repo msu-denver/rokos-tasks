@@ -1,7 +1,7 @@
 """
 File: test_seed_loader.py
 Description: Integration tests for SeedLoader service.
-Author(s): Tyler Black, Richard Hall
+Author(s): Tyler Black, Richard Hall, Steph Rivera
 """
 
 import json
@@ -46,6 +46,9 @@ class TestSeedLoader:
         assert campaign.status == "validated"
         assert len(campaign.content_hash) == 64
         assert len(campaign.stages) == 2
+        assert [stage.input_style for stage in campaign.stages] == [
+            "none", "lines"
+        ]
 
     def test_second_run_leaves_row_counts_unchanged(
         self, db_session: Session
@@ -129,6 +132,31 @@ class TestSeedLoader:
         assert updated.id == initial.id
         assert [stage.id for stage in updated.stages] == initial_stage_ids
         assert updated.stages[0].prompt == new_prompt
+
+    def test_editing_input_style_keeps_same_stage_ids(
+        self, db_session: Session
+    ) -> None:
+        """Reload a changed input style without replacing stage rows."""
+        repo = CampaignRepository(db_session)
+        loader = SeedLoader(repo)
+        data = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
+        initial = loader.load_campaign_data(data, slug="beginner/ball")
+        initial_id = initial.id
+        initial_hash = initial.content_hash
+        stage_ids = [stage.id for stage in initial.stages]
+
+        data["stages"][1]["input"] = "keys"
+        loader.load_campaign_data(data, slug="beginner/ball")
+        db_session.expire_all()
+
+        updated = repo.get_by_slug("beginner/ball")
+        assert updated is not None
+        assert updated.id == initial_id
+        assert updated.content_hash != initial_hash
+        assert [stage.id for stage in updated.stages] == stage_ids
+        assert [stage.input_style for stage in updated.stages] == [
+            "none", "keys"
+        ]
 
     @requires_host_play
     def test_removing_stage_deletes_only_that_one(
@@ -320,6 +348,9 @@ class TestWithoutHostPlay:
             campaign = loader.load_file(FIXTURE_PATH)
         grade.assert_not_called()
         assert len(campaign.stages) == 2
+        assert [stage.input_style for stage in campaign.stages] == [
+            "none", "lines"
+        ]
         assert "CI runs the rest" in logger.warning.call_args.args[0]
 
     def test_broken_seed_is_still_rejected(self, db_session: Session) -> None:

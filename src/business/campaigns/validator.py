@@ -323,6 +323,7 @@ class _StageCheck:
         self._input_style = stage["input"]
         self._script = stage["check_script"]
         self._reference = stage["reference_program"]
+        self._broken = stage["broken_program"]
         self._previous_reference = previous_reference
 
     def problems(self) -> list[str]:

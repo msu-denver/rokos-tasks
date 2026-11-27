@@ -2,7 +2,7 @@
 File: test_database.py
 Description: Integration tests for database session lifecycle, transaction
     rollback isolation, and Alembic migration reversibility.
-Author(s): Tyler Black
+Author(s): Tyler Black, Steph Rivera
 """
 
 from collections.abc import Iterator
@@ -54,7 +54,7 @@ def test_check_scripts_only_migration_keeps_gradable_data(
     """0006 deletes ungradable campaigns and their runs, keeps the rest.
 
     Runs inside one rolled-back transaction, so the shared test schema
-    is left at head with no rows added.
+    is left at head with no rows added. Test 0006 in isolation.
     """
     alembic_cfg = Config("alembic.ini")
     alembic_cfg.set_main_option("sqlalchemy.url", TEST_DATABASE_URL)
@@ -97,7 +97,7 @@ def test_check_scripts_only_migration_keeps_gradable_data(
             {"user": user, "campaign": ids["old"]},
         )
 
-        command.upgrade(alembic_cfg, "head")
+        command.upgrade(alembic_cfg, "0006_check_scripts_only")
 
         slugs = connection.execute(
             text("SELECT slug FROM campaigns WHERE slug LIKE 'migration/%'")
@@ -115,6 +115,56 @@ def test_check_scripts_only_migration_keeps_gradable_data(
             {"id": ids["new"]},
         ).scalar_one()
         assert reference == "ref"
+    finally:
+        transaction.rollback()
+        connection.close()
+
+
+def test_stage_input_style_migration_preserves_seed_stages(
+    engine: Engine,
+) -> None:
+    """0007 backfills the shipped stages without replacing their rows."""
+    expected = {
+        "beginner/traffic_light": ("beginner", ["none", "lines"]),
+        "easy/vending_machine": ("easy", ["lines", "lines", "lines"]),
+        "medium/pong": ("medium", ["none", "keys", "keys"]),
+    }
+    alembic_cfg = Config("alembic.ini")
+    alembic_cfg.set_main_option("sqlalchemy.url", TEST_DATABASE_URL)
+    connection = engine.connect()
+    transaction = connection.begin()
+    try:
+        alembic_cfg.attributes["connection"] = connection
+        command.downgrade(alembic_cfg, "0006_check_scripts_only")
+        rows = {}
+        for slug, (difficulty, styles) in expected.items():
+            campaign_id = connection.execute(
+                text(
+                    "INSERT INTO campaigns (title, difficulty, slug, "
+                    "content_hash, source) VALUES "
+                    "(:slug, :difficulty, :slug, 'h', 'seed') RETURNING id"
+                ),
+                {"slug": slug, "difficulty": difficulty},
+            ).scalar_one()
+            for number, style in enumerate(styles, 1):
+                stage_id = connection.execute(
+                    text(
+                        "INSERT INTO stages (campaign_id, number, prompt, "
+                        "reference_program, check_script) VALUES "
+                        "(:id, :number, 'p', 'ref', 'check') RETURNING id"
+                    ),
+                    {"id": campaign_id, "number": number},
+                ).scalar_one()
+                rows[stage_id] = (campaign_id, number, style, "ref", "check")
+
+        command.upgrade(alembic_cfg, "0007_stage_input_style")
+        actual = connection.execute(
+            text(
+                "SELECT id, campaign_id, number, input_style, "
+                "reference_program, check_script FROM stages"
+            )
+        )
+        assert {row[0]: tuple(row[1:]) for row in actual} == rows
     finally:
         transaction.rollback()
         connection.close()
