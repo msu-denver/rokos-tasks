@@ -159,13 +159,32 @@ As a player, I want to read the Overlord's text prompt and write code in an edit
 
 ### US5: Play My Program
 
-As a player, I want to run my program in the browser and control it with my keyboard as often as I like so that I can see my game working before the Overlord judges it.
+As a player, I want to run my program in the browser as often as I like, and type to it or play it with my keyboard, so that I can see it working before the Overlord judges it.
+
+**Running a program**
+
+- Run executes a normal Python 3.13 script locally using Pyodide in a Web Worker.
+- Each stage declares its input style:
+  - `none`: Run displays output without accepting input.
+  - `lines`: Each `input()` waits for a line entered in the console.
+  - `keys`: Each `input()` receives buffered printable keys or an empty line at the turn rate.
+- Keyboard input is captured while the console has focus.
+- Run uses the existing console panel to display the latest screen.
+- Stop terminates local execution without affecting lives or score.
+- Submit remains responsible for server-side grading.
 
 **Acceptance Criteria**
 
-1. **Given that** there is code in the editor, **when** I click Run, **then** my program runs in the browser, the keys I press are sent to it each tick, I see every frame it prints, and I lose no lives.
-2. **Given that** my program crashes, **when** the error happens, **then** it stops and I see the traceback.
-3. **Given that** my program takes longer than 1 second to answer a single tick, **when** that happens, **then** it is stopped and I see a friendly timeout message.
+1. **[HIGH]** Run executes ordinary Python scripts in the browser, displays their output, and costs no lives.
+2. **[HIGH]** Lines stages accept input when the player presses Enter.
+3. **[HIGH]** Keys stages advance automatically and receive buffered keyboard input or an empty line.
+4. **[HIGH]** Programs can finish normally, be stopped, and be run again.
+5. **[HIGH]** Program crashes display tracebacks without internal execution frames.
+6. **[HIGH]** Programs exceeding one second of execution between input requests or completion are stopped, with a friendly timeout message and recovery.
+7. **[HIGH, proposed]** Run sends no requests to the application server.
+8. **[MED]** Run and Submit use consistent input semantics, including the 64-character keys limit.
+9. **[MED, proposed]** Run is disabled and displays a loading message until Python is ready.
+10. **[LOW, proposed]** Keys stages use a fixed turn rate, currently implemented at 10 turns per second, and display the latest screen.
 
 ### US6: The Overlord Plays My Program
 

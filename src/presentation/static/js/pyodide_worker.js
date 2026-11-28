@@ -121,7 +121,7 @@ function take_screen() {
   const screen = truncate_output(pending_screen);
   pending_screen = "";
 
-  return screen;
+  return screen.endsWith("\n") ? screen.slice(0, -1) : screen;
 }
 
 

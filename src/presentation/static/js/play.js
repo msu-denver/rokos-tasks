@@ -145,12 +145,13 @@ export function create_player({
 
   function handle_failure(error) {
     if (state === "running") {
+      on_error(error);
       restart_worker();
-    } else {
-      terminate_worker();
-      set_state("unavailable");
+      return;
     }
 
+    terminate_worker();
+    set_state("unavailable");
     on_error(error);
   }
 

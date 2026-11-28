@@ -3,7 +3,7 @@ File: submit.js
 Description: Submit (US6): sends the editor's code to the grading route,
     keeps the button disabled while the Overlord plays the program, and
     shows the verdict or why there isn't one.
-Author(s): Richard Hall, Tyler Black
+Author(s): Richard Hall, Tyler Black, Steph Rivera
 */
 
 const BUSY_LABEL = "The Overlord is playing your program…";
@@ -47,15 +47,26 @@ async function post_code(button, code) {
   return {ok: response.ok, body};
 }
 
-// show_console runs after every verdict or message is shown: it opens a
-// collapsed console and announces what's new.
-export function init_submit(button, panel, get_code, show_console) {
+// show_console opens the console and announces the verdict.
+// on_busy coordinates Submit with local Python execution.
+export function init_submit(
+  button,
+  panel,
+  get_code,
+  show_console,
+  on_busy = () => {},
+) {
   const idle_label = button.textContent;
 
   button.addEventListener("click", async () => {
+    if (button.disabled) return;
+
     button.disabled = true;
     button.textContent = BUSY_LABEL;
+
     try {
+      on_busy(true);
+
       const {ok, body} = await post_code(button, get_code());
       if (ok) {
         show_verdict(panel, body.verdict);
@@ -67,6 +78,7 @@ export function init_submit(button, panel, get_code, show_console) {
     } finally {
       button.disabled = false;
       button.textContent = idle_label;
+      on_busy(false);
       show_console();
     }
   });

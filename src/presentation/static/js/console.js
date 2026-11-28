@@ -4,7 +4,7 @@ Description: The console under the editor, like an IDE's terminal panel:
     its top edge resizes it against the editor (mouse or arrow keys), its
     bar collapses and expands it, new output opens it and is announced,
     and its height and open state are remembered across reloads.
-Author(s): Tyler Black
+Author(s): Tyler Black, Steph Rivera
 */
 
 const STORAGE_KEY = "rokos:console";
@@ -160,16 +160,16 @@ export function init_console(root, editor) {
   window.addEventListener("resize", apply_size);
   set_expanded(layout.expanded);
 
-  // Called after new output is shown: opens a collapsed console and
-  // announces the verdict. Clearing first lets a repeat verdict announce.
-  return () => {
+  // Opens a collapsed console and announces new output.
+  // Without a custom message, announces the Submit verdict.
+  return (message = null) => {
     if (!layout.expanded) {
       set_expanded(true);
       save_layout(layout);
     }
     status.textContent = "";
     requestAnimationFrame(() => {
-      status.textContent = summary(root);
+      status.textContent = message ?? summary(root);
     });
   };
 }

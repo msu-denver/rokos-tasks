@@ -2,7 +2,7 @@
 File: components.css
 Description: Shared design system components including layout, typography,
     buttons, panels, forms, and accessibility rules.
-Author(s): Tyler Black, Richard Hall
+Author(s): Tyler Black, Richard Hall, Steph Rivera
 */
 
 *,
@@ -836,7 +836,9 @@ a:hover {
 /* Submit sits bottom right (design §8) */
 .game-actions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
+  gap: var(--space-2);
 }
 
 .game-actions .btn:disabled {
@@ -969,6 +971,93 @@ Wide output scrolls in the body instead of widening the window.
   font-size: var(--text-12);
   color: var(--ink);
   white-space: pre;
+}
+
+/* Python initialization failure. */
+.game-run-load-error {
+  margin: 0;
+  color: var(--magenta);
+  font-size: var(--text-12);
+}
+
+.game-run-load-error[hidden] {
+  display: none;
+}
+
+/* Local Python execution inside the shared console. */
+.game-run-output {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2);
+  padding: var(--space-3);
+}
+
+.game-run-output[hidden],
+.game-run-error[hidden],
+.game-run-hint[hidden],
+.game-run-input-form[hidden] {
+  display: none;
+}
+
+.game-run-heading {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-17);
+  font-weight: 700;
+  color: var(--cyan);
+}
+
+.game-run-status,
+.game-run-hint {
+  margin: 0;
+  font-size: var(--text-12);
+  color: var(--muted);
+}
+
+.game-run-screen,
+.game-run-error {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  white-space: pre;
+  overflow-x: auto;
+  color: var(--ink);
+}
+
+.game-run-screen {
+  min-block-size: var(--space-4);
+}
+
+.game-run-screen:focus-visible {
+  outline: var(--border-1) solid var(--cyan);
+}
+
+.game-run-error {
+  color: var(--magenta);
+}
+
+.game-run-input-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.game-run-input-form label {
+  grid-column: 1 / -1;
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  color: var(--muted);
+}
+
+.game-run-input-form input {
+  min-inline-size: 0;
+  font-family: var(--font-mono);
+}
+
+.game-run-input-form .btn:disabled,
+.game-actions [data-testid="game-stop"]:disabled {
+  cursor: not-allowed;
 }
 
 /* The Overlord's stage: perspective floor, magenta horizon, scanlines */

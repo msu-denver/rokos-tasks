@@ -1,7 +1,7 @@
 """
 File: game_routes.py
 Description: Game blueprint providing player interaction and campaign routes.
-Author(s): Tyler Black, Richard Hall
+Author(s): Tyler Black, Richard Hall, Steph Rivera
 """
 
 import logging

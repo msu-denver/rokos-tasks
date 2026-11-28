@@ -81,11 +81,18 @@ Author(s): Tyler Black, Richard Hall, Steph Rivera
           <div hidden></div>
         </div>
         <div class="game-actions">
+          <button type="button" class="btn btn-secondary" data-testid="game-run"
+                  disabled>Loading Python…</button>
+          <button type="button" class="btn btn-secondary" data-testid="game-stop"
+                  disabled>Stop</button>
           <button type="button" class="btn btn-primary" data-testid="game-submit"
                   data-submit-url="{{ url_for('game.submit') }}" data-run="{{ run_id }}"
                   data-csrf-token="{{ csrf_token() }}">Submit</button>
         </div>
-        {# Collapsed until the first verdict or the saved layout opens it. #}
+        <p class="game-run-load-error"
+           data-testid="game-run-load-error"
+           role="status" hidden></p>
+        {# Collapsed until new output or the saved layout opens it. #}
         <div class="game-console" data-testid="game-console">
           <div class="game-console-handle" data-testid="game-console-handle" role="separator"
                tabindex="0" aria-orientation="horizontal" aria-label="Resize console"
@@ -97,10 +104,30 @@ Author(s): Tyler Black, Richard Hall, Steph Rivera
             </svg>
             Console
           </button>
-          {# Always in the accessibility tree, so a verdict that opens a collapsed console is announced. #}
+          {# Always in the accessibility tree so new output is announced. #}
           <p class="visually-hidden" data-testid="game-console-status" role="status"></p>
           <div class="game-console-body" id="game-console-body" data-testid="game-console-body"
                role="region" aria-labelledby="game-console-toggle" tabindex="0" hidden>
+            <section class="game-run-output" data-testid="game-run-output"
+                     aria-label="Program execution" hidden>
+              <h2 class="game-run-heading" data-testid="game-run-heading">Program output</h2>
+              <p class="game-run-status" data-testid="game-run-status"></p>
+              <pre class="game-run-screen" data-testid="game-run-screen"
+                   aria-label="Program screen" tabindex="0"></pre>
+              <pre class="game-run-error" data-testid="game-error" hidden></pre>
+              <pre class="game-run-error" data-testid="game-run-timeout" hidden></pre>
+              <p class="game-run-hint" data-testid="game-run-hint" hidden>
+                Focus the program screen and press keys to interact.
+              </p>
+              <form class="game-run-input-form" data-testid="game-run-input-form" hidden>
+                <label for="game-run-input">Program input</label>
+                <input type="text" id="game-run-input" data-testid="game-run-input"
+                       spellcheck="false" autocomplete="off"
+                       autocapitalize="off" disabled>
+                <button type="submit" class="btn btn-secondary"
+                        data-testid="game-run-send" disabled>Enter</button>
+              </form>
+            </section>
             <section class="game-verdict" data-testid="game-verdict" aria-label="Verdict" hidden>
               <h2 class="game-verdict-heading" data-testid="game-verdict-heading"></h2>
               <p class="game-verdict-reason" data-testid="game-verdict-reason"></p>
@@ -111,9 +138,9 @@ Author(s): Tyler Black, Richard Hall, Steph Rivera
         </div>
       </section>
     </div>
-<script id="stage-data" type="application/json">
-  {{ {'stage': stage.number, 'input_style': stage.input_style}|tojson }}
-</script>
+    <script id="stage-data" type="application/json">
+      {{ {'stage': stage.number, 'input_style': stage.input_style}|tojson }}
+    </script>
     <script type="module" src="{{ url_for('static', filename='js/game.js') }}"></script>
   {% else %}
     <section class="floating-panel floating-panel--form" aria-labelledby="game-run-over">

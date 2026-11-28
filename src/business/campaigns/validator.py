@@ -379,27 +379,6 @@ class _StageCheck:
 
         return []
 
-    def _completion_problems(self) -> list[str]:
-        """Ensure a non-interactive reference exits without input."""
-        if self._input_style != "none":
-            return []
-
-        script = (
-            "def check(game):\n"
-            "    game.check(game.finished, "
-            "'The program must finish without input.')\n"
-        )
-
-        verdict = self._player.grade(self._reference, script)
-
-        if verdict["verdict"] != "pass":
-            return [
-                "A stage with input 'none' must have a "
-                "reference_program that finishes without input."
-            ]
-
-        return []
-
     def _reference_problems(self) -> list[str]:
         """The reference passes every run within the time budget."""
         fastest = float("inf")

@@ -253,6 +253,9 @@ def browser(request: pytest.FixtureRequest) -> Iterator[webdriver.Chrome]:
         "--window-size=1280,800",
     ):
         options.add_argument(argument)
+    options.set_capability(
+        "goog:loggingPrefs", {"performance": "ALL"}
+    )
     driver = webdriver.Chrome(options=options)
     yield driver
     call_report = getattr(request.node, "report_call", None)
